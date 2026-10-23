@@ -22,6 +22,19 @@ actually works.** The "Where to change" column shows how cheap each change is.
 | A14 | No self-service password reset by email and no "remember me". An Admin resets passwords. Accounts can be flagged to force a password change at next sign-in. | Deferred |
 | A15 | Excel (.xlsx) import/export is optional; CSV is the baseline. | Phase 5 |
 
+## Job management decisions (Phase 2)
+
+| # | Decision | Where to change |
+|---|---|---|
+| B1 | **Required** job fields: Job #, customer first name, customer last name, 1st available date, From, To. Optional: pickup date, job location, CF, notes. | `app/Validation/JobRules.php` |
+| B2 | Job # may contain letters, digits and `- _ / .` (max 40) and is unique **including deleted jobs**, so a number is never reused by accident. | `JobRules` / `005_create_jobs.sql` |
+| B3 | New jobs always start as **Booked**. Status, carrier, driver and phone are not editable on the job form; they change only through the Phase 3 workflow (dispatch / deliver / hold / cancel), so history and rules cannot be bypassed. | `JobService::EDITABLE` |
+| B4 | **Balance and Storage Fee are protected.** Without `jobs.view_financials` (or `jobs.edit_financials`) they are removed from the data before it reaches any page, and writes to them are ignored without `jobs.edit_financials`. Both must be 0 or more. | `JobService`, permissions |
+| B5 | **Delete is a soft delete** (job moves to Trash, recoverable). Deleting and restoring both need `jobs.delete` (Admin and Manager by default). | `permissions.php` |
+| B6 | **Editing is protected against overwriting a colleague's changes.** If a job was saved by someone else after the form was opened, the save is refused, the user's entries are kept on screen and they can review and save again. | `JobService::update` |
+| B7 | Creating, editing, deleting and restoring jobs are written to the audit log with old and new values of the fields that changed. | `JobService` |
+| B8 | The Phase 2 "All Jobs" list is newest-first with pagination only. Search, filters, sorting and the section lists arrive in Phase 3. | Phase 3 |
+
 ## Security defaults (can be tuned in `app/Config/app.php` / `.env`)
 
 * Sessions end after **30 minutes idle** or **8 hours** in total.

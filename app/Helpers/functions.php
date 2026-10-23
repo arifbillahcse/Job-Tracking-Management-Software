@@ -140,6 +140,14 @@ function icon(string $name, string $class = ''): string
         'alert-triangle' => '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
         'info' => '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>',
         'x' => '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+        'briefcase' => '<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
+        'plus' => '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+        'edit' => '<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/>',
+        'trash' => '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
+        'eye' => '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+        'rotate-ccw' => '<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>',
+        'arrow-right' => '<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>',
+        'inbox' => '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
         'truck' => '<rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
     ];
 
@@ -153,4 +161,77 @@ function has_vendored_bootstrap(): bool
 {
     return is_file(BASE_PATH . '/public/assets/vendor/bootstrap/css/bootstrap.min.css')
         && is_file(BASE_PATH . '/public/assets/vendor/bootstrap/js/bootstrap.bundle.min.js');
+}
+
+/** Submitted value if the previous request flashed one for this field, otherwise $fallback (edit forms). */
+function old_or(string $key, mixed $fallback): string
+{
+    $old = Session::flashed('old', []);
+    if (is_array($old) && array_key_exists($key, $old) && is_scalar($old[$key])) {
+        return (string) $old[$key];
+    }
+    return is_scalar($fallback) ? (string) $fallback : '';
+}
+
+/** "Nov 6, 2026" from a Y-m-d date; '' for empty or invalid input. */
+function fmt_date(?string $date): string
+{
+    if ($date === null || $date === '') {
+        return '';
+    }
+    $parsed = DateTimeImmutable::createFromFormat('!Y-m-d', substr($date, 0, 10));
+    return $parsed === false ? '' : $parsed->format('M j, Y');
+}
+
+/** UTC timestamp from the database shown in the configured time zone. */
+function fmt_datetime(?string $datetime): string
+{
+    if ($datetime === null || $datetime === '') {
+        return '';
+    }
+    try {
+        $zone = new DateTimeZone(setting('timezone', 'UTC') ?: 'UTC');
+    } catch (Throwable) {
+        $zone = new DateTimeZone('UTC');
+    }
+    try {
+        return (new DateTimeImmutable($datetime, new DateTimeZone('UTC')))->setTimezone($zone)->format('M j, Y g:i A');
+    } catch (Throwable) {
+        return '';
+    }
+}
+
+/** Currency amount with the symbol from settings, e.g. "$1,200.50". Plain text - escape with e(). */
+function fmt_money(mixed $amount): string
+{
+    if ($amount === null || $amount === '' || !is_numeric($amount)) {
+        return '';
+    }
+    return (setting('currency_symbol', '$') ?? '$') . number_format((float) $amount, 2);
+}
+
+/** Number with up to two decimals and no trailing zeros ("900", "12.5"). */
+function fmt_number(mixed $number): string
+{
+    if ($number === null || $number === '' || !is_numeric($number)) {
+        return '';
+    }
+    return rtrim(rtrim(number_format((float) $number, 2, '.', ','), '0'), '.');
+}
+
+/** Coloured status pill. Unknown statuses fall back to a neutral label. Output is escaped HTML. */
+function status_badge(string $status): string
+{
+    $definition = Config::get('statuses.statuses.' . $status);
+    $label = is_array($definition) ? (string) $definition['label'] : ucfirst(str_replace('_', ' ', $status));
+    $class = is_array($definition) ? (string) $definition['badge'] : 'booked';
+    return '<span class="jt-badge jt-badge-' . e($class) . '">' . e($label) . '</span>';
+}
+
+/** Link to $page of a list, keeping the current query string (search, filters, sort). */
+function page_url(string $path, int $page): string
+{
+    $query = $_GET;
+    $query['page'] = $page;
+    return url($path) . '?' . http_build_query($query);
 }

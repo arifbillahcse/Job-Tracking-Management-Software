@@ -48,6 +48,17 @@ abstract class Controller
             return $validator->validated();
         }
 
+        return $this->redirectWithErrors($request, $validator->errors(), $backTo, $sensitive);
+    }
+
+    /**
+     * Send the user back with field errors and their submitted values (never passwords or the CSRF token).
+     *
+     * @param array<string,array<int,string>> $errors
+     * @param array<int,string> $sensitive field names that must not be flashed back
+     */
+    protected function redirectWithErrors(Request $request, array $errors, string $backTo, array $sensitive = []): Response
+    {
         $old = $request->allPost();
         foreach (array_merge($sensitive, ['_csrf']) as $field) {
             unset($old[$field]);
@@ -58,7 +69,7 @@ abstract class Controller
             }
         }
 
-        Session::flash('errors', $validator->errors());
+        Session::flash('errors', $errors);
         Session::flash('old', $old);
         return Response::redirect($backTo);
     }

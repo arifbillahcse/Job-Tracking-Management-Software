@@ -8,5 +8,6 @@ declare(strict_types=1);
  */
 return [
     ['label' => 'Dashboard',  'path' => '/dashboard', 'icon' => 'home', 'permission' => 'dashboard.view'],
+    ['label' => 'All Jobs',   'path' => '/jobs',      'icon' => 'briefcase', 'permission' => 'jobs.view'],
     ['label' => 'My Account', 'path' => '/account',   'icon' => 'user', 'permission' => null],
 ];

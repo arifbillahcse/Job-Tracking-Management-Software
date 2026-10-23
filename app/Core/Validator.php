@@ -14,7 +14,7 @@ use InvalidArgumentException;
  *
  * Rules: required, nullable, string, min:n, max:n (string length), min_value:n,
  * max_value:n, email, date (Y-m-d), numeric, integer, in:a,b, unique:table,column[,ignoreId],
- * confirmed, same:field, different:field, phone, password.
+ * confirmed, same:field, different:field, phone, code (letters, digits and - _ / . only), password.
  * The first failing rule of a field is reported.
  */
 final class Validator
@@ -134,6 +134,7 @@ final class Validator
             'different' => ($this->data[$arg] ?? null) !== $value,
             'phone' => $isScalar && preg_match('/^[0-9+()\-\s.]{7,25}$/', $string) === 1
                 && strlen(preg_replace('/\D/', '', $string) ?? '') >= 7,
+            'code' => $isScalar && preg_match('/^[A-Za-z0-9][A-Za-z0-9\-_\/.]*$/', $string) === 1,
             'password' => $isScalar && PasswordPolicy::check($string) === null,
             default => throw new InvalidArgumentException("Unknown validation rule: {$rule}"),
         };
@@ -182,6 +183,7 @@ final class Validator
             'same' => "{$label} does not match.",
             'different' => "{$label} must be different.",
             'phone' => "{$label} must be a valid phone number.",
+            'code' => "{$label} may only contain letters, numbers and - _ / .",
             'password' => PasswordPolicy::check((string) ($this->data[$field] ?? '')) ?? "{$label} is not acceptable.",
             default => "{$label} is invalid.",
         };

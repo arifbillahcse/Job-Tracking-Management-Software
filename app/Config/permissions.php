@@ -20,7 +20,7 @@ return [
         'jobs.status'           => ['Jobs', 'Change job status (dispatch, deliver, hold, cancel)'],
         'jobs.reopen'           => ['Jobs', 'Reopen delivered or cancelled jobs'],
         'jobs.view_financials'  => ['Jobs', 'See balance and storage fee'],
-        'jobs.edit_financials'  => ['Jobs', 'Edit balance and storage fee'],
+        'jobs.edit_financials'  => ['Jobs', 'Edit balance and storage fee (also lets the user see them)'],
         'jobs.import'           => ['Import / Export', 'Import jobs from CSV/Excel'],
         'jobs.export'           => ['Import / Export', 'Export job lists'],
         'users.manage'          => ['Administration', 'Manage users'],

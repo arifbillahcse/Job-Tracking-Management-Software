@@ -346,3 +346,86 @@ body {
         text-align: left;
     }
 }
+
+/* ---------- Lists, details and forms (Phase 2) ---------- */
+
+.jt-page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.jt-table thead th {
+    padding: 0.8rem 1rem;
+    background: #f8fafc;
+    border-bottom: 1px solid var(--jt-card-border);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--jt-muted);
+    white-space: nowrap;
+}
+
+.jt-table tbody td {
+    padding: 0.8rem 1rem;
+    border-color: var(--jt-card-border);
+}
+
+.jt-table.table-hover > tbody > tr:hover > * {
+    background-color: #f8fafc;
+}
+
+.jt-jobno {
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.jt-actions {
+    white-space: nowrap;
+}
+
+.jt-actions form {
+    display: inline;
+}
+
+.jt-notes {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.jt-empty {
+    padding: 3rem 1.5rem;
+    text-align: center;
+}
+
+.jt-empty-icon {
+    width: 2.75rem;
+    height: 2.75rem;
+    margin-bottom: 0.75rem;
+    color: #98a2b3;
+}
+
+.invalid-feedback {
+    font-size: 0.85rem;
+}
+
+@media (max-width: 767.98px) {
+    .jt-table.table-cards tbody td {
+        padding: 0.4rem 0;
+    }
+
+    .jt-actions {
+        justify-content: flex-end;
+        gap: 0.5rem;
+    }
+
+    .jt-form-actions {
+        position: sticky;
+        bottom: 0;
+        padding: 0.75rem 0;
+        background: var(--jt-canvas);
+    }
+}

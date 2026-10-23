@@ -42,6 +42,7 @@ use App\Core\Validator;
 use App\Database\Migrator;
 use App\Database\Seeder;
 use App\Database\SqliteCompat;
+use App\Helpers\Paginator;
 use App\Helpers\PasswordPolicy;
 use App\Middleware\CsrfMiddleware;
 use App\Middleware\GuestMiddleware;
@@ -50,7 +51,10 @@ use App\Repositories\AuditLogRepository;
 use App\Repositories\RoleRepository;
 use App\Repositories\UserRepository;
 use App\Services\AuditService;
+use App\Repositories\JobRepository;
 use App\Services\AuthService;
+use App\Services\JobService;
+use App\Validation\JobRules;
 use App\Services\PermissionService;
 
 // ---------------------------------------------------------------- fixtures
@@ -135,6 +139,61 @@ function app_router(): Router
 function dispatch(string $method, string $path, array $post = [], array $server = []): Response
 {
     return app_router()->dispatch(Request::make($method, $path, $post, [], $server));
+}
+
+
+function real_router(): Router
+{
+    $router = new Router();
+    $router->middleware(SecurityHeadersMiddleware::class, CsrfMiddleware::class);
+    (require BASE_PATH . '/app/Config/routes.php')($router);
+    return $router;
+}
+
+/**
+ * Call the real application routes as the currently signed-in user, as one fresh HTTP request:
+ * flash data from the previous request becomes readable and older flash data is dropped, like Session::start() does.
+ * POSTs get a valid CSRF token.
+ */
+function call(string $method, string $path, array $post = [], array $query = []): Response
+{
+    if (strtoupper($method) === 'POST') {
+        $post += ['_csrf' => Csrf::token()];
+    }
+    next_request();
+    $_GET = $query;
+    Auth::reset();
+    return real_router()->dispatch(Request::make($method, $path, $post, $query));
+}
+
+/** Simulate the next page load: flash data set before a redirect becomes readable. */
+function next_request(): void
+{
+    $_SESSION['_flash'] = $_SESSION['_flash_next'] ?? [];
+    unset($_SESSION['_flash_next']);
+}
+
+function job_input(array $override = []): array
+{
+    return $override + [
+        'job_number' => 'T-' . bin2hex(random_bytes(3)),
+        'customer_first_name' => 'Ada',
+        'customer_last_name' => 'Smith',
+        'pickup_date' => '2026-11-01',
+        'first_available_date' => '2026-12-01',
+        'from_location' => 'Austin, TX',
+        'to_location' => 'Denver, CO',
+        'job_location' => 'Main warehouse',
+        'cf' => '900',
+        'balance' => '1200.5',
+        'storage_fee' => '40',
+        'notes' => 'Handle with care',
+    ];
+}
+
+function last_audit(string $action): ?array
+{
+    return Database::fetchOne('SELECT * FROM audit_logs WHERE action = ? ORDER BY id DESC LIMIT 1', [$action]);
 }
 
 // ---------------------------------------------------------------- tests
@@ -397,5 +456,267 @@ check((new Migrator())->migrate() === ['004_create_settings.sql'], 'a missing mi
 
 section('Safe output helper');
 check(e('<script>alert("x")</script>\'') === '&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;&#039;', 'e() escapes HTML and quotes');
+
+// ================================================================ PHASE 2: core job management
+
+section('Jobs: validation rules');
+fresh_db();
+fresh_session();
+$ok = job_input();
+$v = Validator::make($ok, JobRules::rules(null, true), JobRules::labels());
+check($v->passes(), 'a complete valid job passes');
+foreach (['job_number', 'customer_first_name', 'customer_last_name', 'first_available_date', 'from_location', 'to_location'] as $field) {
+    $v = Validator::make(job_input([$field => '']), JobRules::rules(null, true), JobRules::labels());
+    check(isset($v->errors()[$field]), "{$field} is required");
+}
+$v = Validator::make(job_input(['pickup_date' => '', 'job_location' => '', 'cf' => '', 'notes' => '']), JobRules::rules(null, true), JobRules::labels());
+check($v->passes(), 'pickup date, job location, CF and notes are optional');
+check(Validator::make(job_input(['job_number' => 'AB C!']), JobRules::rules(), JobRules::labels())->fails(), 'job # rejects spaces and symbols');
+check(Validator::make(job_input(['job_number' => 'JT-1001/A.2']), JobRules::rules(), JobRules::labels())->passes(), 'job # accepts letters, digits and - _ / .');
+check(Validator::make(job_input(['job_number' => str_repeat('A', 41)]), JobRules::rules(), JobRules::labels())->fails(), 'job # max 40 characters');
+check(Validator::make(job_input(['first_available_date' => '2026-13-45']), JobRules::rules(), JobRules::labels())->fails(), 'impossible available date rejected');
+check(Validator::make(job_input(['pickup_date' => 'tomorrow']), JobRules::rules(), JobRules::labels())->fails(), 'non-date pickup rejected');
+check(Validator::make(job_input(['balance' => '-5']), JobRules::rules(null, true), JobRules::labels())->fails(), 'negative balance rejected');
+check(Validator::make(job_input(['storage_fee' => 'abc']), JobRules::rules(null, true), JobRules::labels())->fails(), 'non-numeric storage fee rejected');
+check(Validator::make(job_input(['balance' => '99999999999']), JobRules::rules(null, true), JobRules::labels())->fails(), 'balance above the column limit rejected');
+check(Validator::make(job_input(['cf' => '123456789']), JobRules::rules(null, true), JobRules::labels())->fails(), 'CF above the column limit rejected');
+check(Validator::make(job_input(['customer_first_name' => str_repeat('x', 101)]), JobRules::rules(), JobRules::labels())->fails(), 'first name max 100 characters');
+check(Validator::make(job_input(['notes' => str_repeat('n', 5001)]), JobRules::rules(), JobRules::labels())->fails(), 'notes max 5000 characters');
+check(!array_key_exists('balance', JobRules::rules(null, false)), 'financial fields are not even validated without the financial permission');
+
+section('Jobs: service rules (Manager)');
+$manager = make_user('Manager', 'mgr@example.com');
+$staff = make_user('Staff', 'stf@example.com');
+sign_in($manager);
+$svc = new JobService();
+$input = job_input(['job_number' => 'JT-5001', 'status' => 'delivered', 'carrier_name' => 'Forged Carrier', 'driver_phone' => '555', 'id' => 999, 'deleted_at' => '2020-01-01']);
+$id = $svc->create($input);
+$job = (new JobRepository())->find($id);
+check($job['status'] === 'booked', 'new jobs are always "booked" (forged status ignored)');
+check($job['carrier_name'] === null && $job['driver_phone'] === null && (int) $job['id'] === $id && $job['deleted_at'] === null, 'forged carrier, id and deleted_at ignored');
+check((int) $job['created_by'] === (int) $manager['id'] && (int) $job['updated_by'] === (int) $manager['id'], 'created_by / updated_by recorded');
+check($job['balance'] == 1200.5 && $job['storage_fee'] == 40 && $job['cf'] == 900, 'figures stored as decimals');
+$audit = last_audit('job_created');
+check($audit !== null && (int) $audit['entity_id'] === $id && str_contains((string) $audit['new_values'], 'JT-5001'), 'creation is audited');
+
+$id2 = $svc->create(job_input(['job_number' => 'JT-5002', 'pickup_date' => '', 'cf' => '', 'job_location' => '  ', 'notes' => '', 'balance' => '', 'storage_fee' => '']));
+$j2 = (new JobRepository())->find($id2);
+check($j2['pickup_date'] === null && $j2['cf'] === null && $j2['job_location'] === null && $j2['notes'] === null, 'empty optional fields are stored as NULL');
+check($j2['balance'] == 0 && $j2['storage_fee'] == 0, 'empty money fields default to 0.00');
+
+section('Jobs: financial fields are enforced server-side');
+sign_in($staff);
+check(!$svc->canSeeFinancials() && !$svc->canEditFinancials(), 'Staff has no financial access');
+$sid = $svc->create(job_input(['job_number' => 'JT-5003', 'balance' => '777', 'storage_fee' => '88']));
+$sj = (new JobRepository())->find($sid);
+check($sj['balance'] == 0 && $sj['storage_fee'] == 0, 'a Staff-supplied balance and storage fee are ignored on create');
+$view = $svc->find($id);
+check(!array_key_exists('balance', $view) && !array_key_exists('storage_fee', $view), 'service strips balance and storage fee for Staff (find)');
+$page = $svc->page(50, 0);
+check(array_reduce($page['rows'], static fn (bool $c, array $r): bool => $c && !array_key_exists('balance', $r), true), 'service strips them from list rows too');
+$loaded = (string) (new JobRepository())->find($id)['updated_at'];
+$res = $svc->update($id, job_input(['job_number' => 'JT-5001', 'customer_last_name' => 'Renamed', 'balance' => '1', 'storage_fee' => '1']), $loaded);
+$after = (new JobRepository())->find($id);
+check($res['ok'] && $after['customer_last_name'] === 'Renamed', 'Staff can edit non-financial fields');
+check($after['balance'] == 1200.5 && $after['storage_fee'] == 40, 'Staff cannot change balance or storage fee, even by forging the POST');
+
+sign_in($manager);
+check($svc->canSeeFinancials() && $svc->canEditFinancials() && array_key_exists('balance', $svc->find($id)), 'Manager sees and edits financials');
+
+section('Jobs: update, change detection and locking');
+$id = $svc->create(job_input(['job_number' => 'JT-5010', 'balance' => '100']));
+$loaded = (string) (new JobRepository())->find($id)['updated_at'];
+$res = $svc->update($id, job_input(['job_number' => 'JT-5010', 'customer_first_name' => '  Grace ', 'balance' => '250', 'status' => 'delivered', 'carrier_name' => 'X']), $loaded);
+$row = (new JobRepository())->find($id);
+check($res['ok'] && !$res['conflict'] && $row['customer_first_name'] === 'Grace', 'update saves and trims values');
+check($row['status'] === 'booked' && $row['carrier_name'] === null, 'update ignores forged status and carrier fields');
+check(in_array('customer_first_name', $res['changed'], true) && in_array('balance', $res['changed'], true) && !in_array('job_number', $res['changed'], true), 'only genuinely changed fields are reported');
+$audit = last_audit('job_updated');
+$old = json_decode((string) $audit['old_values'], true);
+$new = json_decode((string) $audit['new_values'], true);
+check($old['balance'] === '100.00' && $new['balance'] === '250.00' && !isset($new['job_number']), 'audit holds old/new values for changed fields only');
+check((int) $row['updated_by'] === (int) $manager['id'], 'updated_by recorded');
+
+$auditCount = (int) Database::fetchValue("SELECT COUNT(*) FROM audit_logs WHERE action = 'job_updated'");
+$loaded = (string) $row['updated_at'];
+$same = $svc->update($id, job_input(['job_number' => 'JT-5010', 'customer_first_name' => 'Grace', 'balance' => '250', 'storage_fee' => '40', 'customer_last_name' => 'Smith']), $loaded);
+check($same['ok'] && $same['changed'] === [], 'saving without changes is a no-op');
+check((int) Database::fetchValue("SELECT COUNT(*) FROM audit_logs WHERE action = 'job_updated'") === $auditCount, 'a no-op writes no audit entry');
+
+Database::execute('UPDATE jobs SET updated_at = ? WHERE id = ?', ['2020-01-01 00:00:00', $id]);
+$stale = $svc->update($id, job_input(['job_number' => 'JT-5010', 'customer_first_name' => 'Overwrite']), $loaded);
+check(!$stale['ok'] && $stale['conflict'], 'a stale form is rejected (optimistic locking)');
+check((new JobRepository())->find($id)['customer_first_name'] === 'Grace', 'the stale save changed nothing');
+check($svc->update($id, job_input(['job_number' => 'JT-5010']), '')['conflict'], 'a missing loaded_at counts as stale');
+check($svc->update(999999, job_input(), '2020-01-01 00:00:00')['ok'] === false, 'updating an unknown job fails cleanly');
+
+section('Jobs: soft delete and restore');
+$before = (new JobRepository())->count();
+$del = $svc->create(job_input(['job_number' => 'JT-5020']));
+check((new JobRepository())->count() === $before + 1, 'count includes the new job');
+check($svc->delete($del), 'delete succeeds');
+check($svc->find($del) === null && (new JobRepository())->count() === $before, 'deleted job vanishes from find and count');
+check(!in_array('JT-5020', array_column($svc->page(500, 0)['rows'], 'job_number'), true), 'deleted job vanishes from the list');
+check(in_array('JT-5020', array_column($svc->trashed(), 'job_number'), true), 'deleted job appears in the trash');
+check(Database::fetchValue('SELECT deleted_at FROM jobs WHERE id = ?', [$del]) !== null, 'the row still exists in the database (soft delete)');
+check(!$svc->delete($del), 'deleting twice fails');
+check(!Validator::make(['job_number' => 'JT-5020'], ['job_number' => 'unique:jobs,job_number'])->passes(), 'a deleted job keeps its job # reserved (validator)');
+$dup = null;
+try {
+    (new JobRepository())->create(['job_number' => 'JT-5020', 'customer_first_name' => 'A', 'customer_last_name' => 'B', 'first_available_date' => '2026-12-01', 'from_location' => 'X', 'to_location' => 'Y', 'status' => 'booked'], null);
+} catch (PDOException $e) {
+    $dup = $e;
+}
+check($dup !== null && (string) $dup->getCode() === '23000' && str_contains($dup->getMessage(), 'job_number'), 'the database itself also refuses a duplicate job # (race-proof)');
+check(last_audit('job_deleted') !== null, 'deletion is audited');
+check($svc->restore($del) && $svc->find($del) !== null, 'restore brings the job back');
+check(!$svc->restore($del), 'restoring a job that is not deleted fails');
+check(last_audit('job_restored') !== null, 'restore is audited');
+
+section('Jobs: routes and permissions (real routes)');
+foreach (real_router()->routes() as $route) {
+    if (!$route->hasAccessRule()) {
+        check(false, "route {$route->method} {$route->pattern} has no access rule");
+    }
+}
+$known = array_keys((array) Config::get('permissions.permissions'));
+$unknown = [];
+foreach (real_router()->routes() as $route) {
+    if ($route->permission !== null && !in_array($route->permission, $known, true)) {
+        $unknown[] = $route->permission;
+    }
+}
+check($unknown === [], 'every permission key used by a route exists in the permission list' . ($unknown ? ' (unknown: ' . implode(',', $unknown) . ')' : ''));
+
+fresh_session();
+sign_in($staff);
+check(call('GET', '/jobs')->status() === 200, 'Staff: job list');
+check(call('GET', '/jobs/create')->status() === 200, 'Staff: new-job form');
+check(call('GET', '/jobs/trash')->status() === 403, 'Staff: trash is forbidden');
+$r = call('POST', '/jobs', job_input(['job_number' => 'JT-6001', 'balance' => '999', 'status' => 'delivered']));
+check($r->status() === 302 && preg_match('#/jobs/(\d+)$#', (string) $r->getHeader('Location'), $m) === 1, 'Staff: creating a job redirects to its page');
+$staffJobId = (int) ($m[1] ?? 0);
+$created = (new JobRepository())->find($staffJobId);
+check($created !== null && $created['status'] === 'booked' && $created['balance'] == 0, 'Staff: forged status/balance ignored through the real route');
+check(str_contains(call('GET', '/jobs/' . $staffJobId)->body(), 'JT-6001'), 'Staff: details page shows the job');
+check(call('GET', '/jobs/' . $staffJobId . '/edit')->status() === 200, 'Staff: edit form');
+check(call('POST', '/jobs/' . $staffJobId . '/delete')->status() === 403, 'Staff: delete is forbidden');
+check(call('POST', '/jobs/' . $staffJobId . '/restore')->status() === 403, 'Staff: restore is forbidden');
+check((new JobRepository())->find($staffJobId) !== null, 'Staff: the forbidden delete changed nothing');
+$staffList = call('GET', '/jobs')->body();
+check(!str_contains($staffList, 'Balance') && !str_contains($staffList, '$'), 'Staff: no balance column or amounts on the list');
+$staffShow = call('GET', '/jobs/' . (int) Database::fetchValue("SELECT id FROM jobs WHERE job_number = 'JT-5001'"))->body();
+check(!str_contains($staffShow, 'Balance') && !str_contains($staffShow, 'Storage fee') && !str_contains($staffShow, '1,200.50'), 'Staff: no financial figures on the details page');
+$staffForm = call('GET', '/jobs/create')->body();
+check(!str_contains($staffForm, 'name="balance"') && !str_contains($staffForm, 'name="storage_fee"'), 'Staff: financial inputs are not in the form');
+check(!str_contains($staffList, 'Delete') && !str_contains($staffList, '/jobs/trash'), 'Staff: no delete/trash links shown');
+
+fresh_session();
+sign_in($manager);
+$list = call('GET', '/jobs')->body();
+check(str_contains($list, 'Balance') && str_contains($list, '$'), 'Manager: balance column and amounts shown');
+check(str_contains(call('GET', '/jobs/create')->body(), 'name="balance"'), 'Manager: financial inputs in the form');
+check(call('GET', '/jobs/trash')->status() === 200, 'Manager: trash page');
+check(call('GET', '/jobs/999999')->status() === 404 && call('GET', '/jobs/999999/edit')->status() === 404 && call('POST', '/jobs/999999/delete')->status() === 404, 'unknown job ids -> 404');
+check(call('GET', '/jobs/abc')->status() === 404, 'non-numeric job id -> 404');
+
+$r = call('POST', '/jobs/' . $staffJobId . '/delete');
+check($r->status() === 302 && str_ends_with((string) $r->getHeader('Location'), '/jobs'), 'Manager: delete redirects to the list');
+check(call('GET', '/jobs/' . $staffJobId)->status() === 404 && call('GET', '/jobs/' . $staffJobId . '/edit')->status() === 404, 'a deleted job is 404 on its page and edit form');
+check(call('POST', '/jobs/' . $staffJobId, job_input())->status() === 404, 'a deleted job cannot be updated');
+check(str_contains(call('GET', '/jobs/trash')->body(), 'JT-6001'), 'deleted job is listed in the trash');
+$r = call('POST', '/jobs/' . $staffJobId . '/restore');
+check($r->status() === 302 && call('GET', '/jobs/' . $staffJobId)->status() === 200, 'Manager: restore makes the job reachable again');
+
+section('Jobs: form handling through the real routes');
+fresh_session();
+sign_in($manager);
+$r = call('POST', '/jobs', ['job_number' => '', 'customer_first_name' => '<b>x</b>', 'balance' => '-1']);
+check($r->status() === 302 && str_ends_with((string) $r->getHeader('Location'), '/jobs/create'), 'invalid create redirects back to the form');
+check(isset($_SESSION['_flash_next']['errors']['job_number'], $_SESSION['_flash_next']['errors']['balance']), 'field errors are flashed');
+check(!isset($_SESSION['_flash_next']['old']['_csrf']), 'the CSRF token is not echoed back');
+$form = call('GET', '/jobs/create')->body();
+check(str_contains($form, 'is-invalid') && str_contains($form, 'Job # is required.'), 'the form shows the error messages');
+check(str_contains($form, 'value="&lt;b&gt;x&lt;/b&gt;"'), 'the submitted value is repopulated and escaped');
+
+$r = call('POST', '/jobs', job_input(['job_number' => 'JT-5001']));
+check($r->status() === 302 && str_ends_with((string) $r->getHeader('Location'), '/jobs/create') && isset($_SESSION['_flash_next']['errors']['job_number']), 'duplicate job # is a field error, not a crash');
+$r = call('POST', '/jobs', job_input(['job_number' => 'JT-5020-X']));
+check($r->status() === 302, 'a fresh job # is accepted');
+
+$xss = '<script>alert(1)</script>';
+$r = call('POST', '/jobs', job_input(['job_number' => 'JT-XSS1', 'customer_first_name' => $xss, 'from_location' => $xss, 'notes' => $xss]));
+preg_match('#/jobs/(\d+)$#', (string) $r->getHeader('Location'), $m);
+$xssId = (int) $m[1];
+foreach (['/jobs' => 'list', '/jobs/' . $xssId => 'details', '/jobs/' . $xssId . '/edit' => 'edit form'] as $path => $label) {
+    $body = call('GET', $path)->body();
+    check(!str_contains($body, $xss) && str_contains($body, '&lt;script&gt;alert(1)&lt;/script&gt;'), "script tags are escaped on the {$label}");
+}
+check(!str_contains(call('GET', '/jobs')->body(), '<td ') || preg_match('/<td(?![^>]*data-label)/', call('GET', '/jobs')->body()) === 0, 'every table cell has a data-label (table-to-card layout on phones)');
+
+// optimistic locking through the form
+$editBody = call('GET', '/jobs/' . $xssId . '/edit')->body();
+preg_match('/name="loaded_at" value="([^"]+)"/', $editBody, $lm);
+check(isset($lm[1]), 'the edit form carries loaded_at');
+Database::execute('UPDATE jobs SET updated_at = ? WHERE id = ?', ['2020-01-01 00:00:00', $xssId]); // someone else saved
+$r = call('POST', '/jobs/' . $xssId, job_input(['job_number' => 'JT-XSS1', 'customer_first_name' => 'Mine', 'loaded_at' => $lm[1]]));
+check($r->status() === 302 && str_ends_with((string) $r->getHeader('Location'), '/edit'), 'stale edit is sent back to the form');
+check(str_contains((string) ($_SESSION['_flash_next']['alert']['message'] ?? ''), 'Someone else changed this job'), 'with a conflict warning');
+check((string) (new JobRepository())->find($xssId)['customer_first_name'] === $xss, "and the other user's data is untouched");
+$again = call('GET', '/jobs/' . $xssId . '/edit')->body();
+check(str_contains($again, 'value="Mine"') && str_contains($again, '2020-01-01 00:00:00'), "the user's entries are kept and the form now carries the fresh loaded_at");
+$r = call('POST', '/jobs/' . $xssId, job_input(['job_number' => 'JT-XSS1', 'customer_first_name' => 'Mine', 'loaded_at' => '2020-01-01 00:00:00']));
+check($r->status() === 302 && (string) (new JobRepository())->find($xssId)['customer_first_name'] === 'Mine', 'resubmitting with the fresh loaded_at saves');
+
+$r = call('POST', '/jobs/' . $xssId, job_input(['job_number' => 'JT-5001', 'loaded_at' => (string) (new JobRepository())->find($xssId)['updated_at']]));
+check(isset($_SESSION['_flash_next']['errors']['job_number']), 'renaming to an existing job # is rejected on update');
+$cur = (string) (new JobRepository())->find($xssId)['updated_at'];
+$r = call('POST', '/jobs/' . $xssId, job_input(['job_number' => 'JT-XSS1', 'loaded_at' => $cur]));
+check(!isset($_SESSION['_flash_next']['errors']), 'keeping its own job # is fine on update');
+check(call('POST', '/jobs', job_input())->status() === 302, 'CSRF-valid create passes');
+$noToken = real_router()->dispatch(Request::make('POST', '/jobs', job_input()));
+check($noToken->status() === 403, 'create without a CSRF token is refused');
+$noToken = real_router()->dispatch(Request::make('POST', '/jobs/' . $xssId . '/delete'));
+check($noToken->status() === 403 && (new JobRepository())->find($xssId) !== null, 'delete without a CSRF token is refused and changes nothing');
+
+section('Jobs: list pagination');
+fresh_db();
+fresh_session();
+$manager = make_user('Manager', 'mgr2@example.com');
+sign_in($manager);
+for ($i = 1; $i <= 60; $i++) {
+    (new JobRepository())->create(['job_number' => sprintf('P-%03d', $i), 'customer_first_name' => 'A', 'customer_last_name' => 'B', 'first_available_date' => '2026-12-01', 'from_location' => 'X', 'to_location' => 'Y', 'status' => 'booked'], null);
+}
+$p1 = call('GET', '/jobs')->body();
+check(str_contains($p1, 'P-060') && !str_contains($p1, 'P-035') && str_contains($p1, 'P-036'), 'page 1 holds the newest 25 jobs');
+check(str_contains($p1, 'aria-label="Pagination"') && str_contains($p1, 'Showing 1&ndash;25 of 60'), 'pagination controls and counts shown');
+$p3 = call('GET', '/jobs', [], ['page' => '3'])->body();
+check(str_contains($p3, 'P-001') && str_contains($p3, 'P-010') && !str_contains($p3, 'P-011'), 'page 3 holds the oldest 10 jobs');
+check(str_contains(call('GET', '/jobs', [], ['page' => '999'])->body(), 'P-001'), 'a page past the end is clamped to the last page');
+check(str_contains(call('GET', '/jobs', [], ['page' => '-4'])->body(), 'P-060'), 'a negative page is treated as page 1');
+$pg = new Paginator(60, 25, 2);
+check($pg->lastPage === 3 && $pg->offset() === 25 && $pg->from() === 26 && $pg->to() === 50, 'paginator arithmetic');
+$pg = new Paginator(0, 25, 5);
+check($pg->page === 1 && $pg->from() === 0 && $pg->to() === 0, 'paginator handles an empty list');
+$pg = new Paginator(1000, 10, 50);
+$win = $pg->window();
+check(in_array(null, $win, true) && $win[0] === 1 && $win[array_key_last($win)] === 100, 'paginator window keeps first/last page and marks gaps');
+
+section('Jobs: empty states and formatting helpers');
+fresh_db();
+fresh_session();
+sign_in(make_user('Manager', 'mgr3@example.com'));
+check(str_contains(call('GET', '/jobs')->body(), 'No jobs yet'), 'empty list shows a friendly empty state');
+check(str_contains(call('GET', '/jobs/trash')->body(), 'The trash is empty'), 'empty trash shows an empty state');
+check(fmt_date('2026-11-06') === 'Nov 6, 2026' && fmt_date(null) === '' && fmt_date('garbage') === '', 'fmt_date');
+check(fmt_money('1200.5') === '$1,200.50' && fmt_money(null) === '' && fmt_money('abc') === '', 'fmt_money uses the currency setting');
+check(fmt_number('900.00') === '900' && fmt_number('12.50') === '12.5' && fmt_number('1234.5') === '1,234.5' && fmt_number(null) === '', 'fmt_number trims trailing zeros');
+check(fmt_datetime('2026-11-06 15:30:00') === 'Nov 6, 2026 3:30 PM', 'fmt_datetime converts from UTC');
+check(str_contains(status_badge('in_transit'), 'jt-badge-transit') && str_contains(status_badge('in_transit'), 'In Transit'), 'status_badge maps known statuses');
+check(str_contains(status_badge('weird<x>'), 'Weird&lt;x&gt;'), 'status_badge escapes unknown statuses');
+$_SESSION['_flash'] = ['old' => ['a' => 'typed']];
+check(old_or('a', 'db') === 'typed' && old_or('b', 'db') === 'db', 'old_or prefers the submitted value, else the stored one');
+$_SESSION['_flash'] = [];
+
 
 finish();
