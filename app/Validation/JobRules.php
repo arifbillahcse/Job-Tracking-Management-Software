@@ -10,14 +10,15 @@ namespace App\Validation;
 final class JobRules
 {
     /**
+     * @param bool $checkUnique false for bulk imports, which check duplicates themselves in one query
      * @return array<string,string>
      */
-    public static function rules(?int $ignoreId = null, bool $withFinancials = false, bool $withCarrier = false): array
+    public static function rules(?int $ignoreId = null, bool $withFinancials = false, bool $withCarrier = false, bool $checkUnique = true): array
     {
-        $unique = 'unique:jobs,job_number' . ($ignoreId !== null ? ',' . $ignoreId : '');
+        $unique = $checkUnique ? '|unique:jobs,job_number' . ($ignoreId !== null ? ',' . $ignoreId : '') : '';
 
         $rules = [
-            'job_number' => "required|code|max:40|{$unique}",
+            'job_number' => "required|code|max:40{$unique}",
             'customer_first_name' => 'required|max:100',
             'customer_last_name' => 'required|max:100',
             'pickup_date' => 'nullable|date',

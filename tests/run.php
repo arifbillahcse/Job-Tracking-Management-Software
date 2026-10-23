@@ -156,7 +156,7 @@ function real_router(): Router
  * flash data from the previous request becomes readable and older flash data is dropped, like Session::start() does.
  * POSTs get a valid CSRF token.
  */
-function call(string $method, string $path, array $post = [], array $query = []): Response
+function call(string $method, string $path, array $post = [], array $query = [], array $files = []): Response
 {
     if (strtoupper($method) === 'POST') {
         $post += ['_csrf' => Csrf::token()];
@@ -165,7 +165,7 @@ function call(string $method, string $path, array $post = [], array $query = [])
     $_GET = $query;
     Auth::reset();
     PermissionService::flush(); // per-request caches start empty in production, so they do here too
-    return real_router()->dispatch(Request::make($method, $path, $post, $query));
+    return real_router()->dispatch(Request::make($method, $path, $post, $query, [], $files));
 }
 
 /** Simulate the next page load: flash data set before a redirect becomes readable. */
@@ -723,5 +723,6 @@ $_SESSION['_flash'] = [];
 
 require __DIR__ . '/phase3.php';
 require __DIR__ . '/phase4.php';
+require __DIR__ . '/phase5.php';
 
 finish();

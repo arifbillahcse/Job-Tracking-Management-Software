@@ -259,6 +259,26 @@ final class JobRepository
         );
     }
 
+    /**
+     * Which of these job numbers already exist (deleted jobs included), lower-cased for comparison.
+     *
+     * @param array<int,string> $numbers
+     * @return array<string,true>
+     */
+    public function existingNumbers(array $numbers): array
+    {
+        $found = [];
+        foreach (array_chunk(array_values(array_unique($numbers)), 500) as $chunk) {
+            $placeholders = implode(', ', array_fill(0, count($chunk), '?'));
+            // MySQL's collation already ignores letter case (and keeps the index usable); SQLite needs to be told.
+            $column = Database::driver() === 'sqlite' ? 'job_number COLLATE NOCASE' : 'job_number';
+            foreach (Database::fetchAll("SELECT job_number FROM jobs WHERE {$column} IN ({$placeholders})", $chunk) as $row) {
+                $found[strtolower((string) $row['job_number'])] = true;
+            }
+        }
+        return $found;
+    }
+
     public function jobNumberExists(string $jobNumber): bool
     {
         return (int) Database::fetchValue('SELECT COUNT(*) FROM jobs WHERE job_number = ?', [$jobNumber]) > 0;

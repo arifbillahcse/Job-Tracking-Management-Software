@@ -11,6 +11,9 @@ final class Response
     /** @var array<string,string> */
     private array $headers;
 
+    /** @var (callable():void)|null */
+    private $stream = null;
+
     /**
      * @param array<string,string> $headers
      */
@@ -28,6 +31,19 @@ final class Response
             throw new InvalidArgumentException('Redirects must target an internal path.');
         }
         return new self('', $status, ['Location' => url($path)]);
+    }
+
+    /**
+     * A response whose body is produced while it is being sent (large exports), so memory stays flat.
+     *
+     * @param callable():void $producer echoes the body
+     * @param array<string,string> $headers
+     */
+    public static function stream(callable $producer, array $headers = [], int $status = 200): self
+    {
+        $response = new self('', $status, $headers);
+        $response->stream = $producer;
+        return $response;
     }
 
     /**
@@ -50,6 +66,26 @@ final class Response
     public function body(): string
     {
         return $this->body;
+    }
+
+    /** Full body as a string, running a streamed response's producer into a buffer (tests, small exports). */
+    public function content(): string
+    {
+        if ($this->stream === null) {
+            return $this->body;
+        }
+        ob_start();
+        try {
+            ($this->stream)();
+        } finally {
+            $captured = (string) ob_get_clean();
+        }
+        return $captured;
+    }
+
+    public function isStreamed(): bool
+    {
+        return $this->stream !== null;
     }
 
     public function withStatus(int $status): self
@@ -92,8 +128,13 @@ final class Response
                 header($name . ': ' . str_replace(["\r", "\n"], '', $value));
             }
         }
-        if (!$headOnly) {
-            echo $this->body;
+        if ($headOnly) {
+            return;
         }
+        if ($this->stream !== null) {
+            ($this->stream)();
+            return;
+        }
+        echo $this->body;
     }
 }

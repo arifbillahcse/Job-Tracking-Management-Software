@@ -6,5 +6,4 @@
 /storage/exports/*
 /storage/*.sqlite
 !/storage/**/.gitkeep
-/public/assets/vendor/
 .phpunit.result.cache

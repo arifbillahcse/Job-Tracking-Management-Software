@@ -368,6 +368,7 @@ $sheetRoles = [
 ];
 $targets = ['jobs' => $jobId, 'users' => (int) $w['staff']['id'], 'roles' => role_id('Staff')];
 $resolve = static function (string $pattern) use ($targets): ?string {
+    $pattern = str_replace(['{format}', '{bucket}'], ['csv', 'all'], $pattern);
     $path = preg_replace_callback('/\{id:int\}/', static fn (): string => '@@', $pattern) ?? $pattern;
     if (str_contains($path, '@@')) {
         $kind = explode('/', trim($path, '/'))[0];
@@ -394,9 +395,11 @@ foreach ($sheetRoles as $roleName => $rid) {
             continue;
         }
         $allowed = $route->permission === null || PermissionService::roleHas($rid, $route->permission);
+        // Import batches belong to the user who uploaded them, so for a permitted role "not found" is the correct answer here.
+        $ownerScoped = str_starts_with($route->pattern, '/jobs/import/{id');
         if ($route->method === 'GET') {
             $status = call('GET', $path)->status();
-            $ok = $allowed ? in_array($status, [200, 302], true) : $status === 403;
+            $ok = $allowed ? in_array($status, $ownerScoped ? [200, 302, 404] : [200, 302], true) : $status === 403;
         } else {
             if ($allowed) {
                 continue; // allowed POSTs have their own behaviour (validation, redirects); here we prove the refusals

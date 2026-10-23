@@ -65,6 +65,21 @@ actually works.** The "Where to change" column shows how cheap each change is.
 | D9 | **`users.manage` and `roles.manage` are powerful by nature.** Whoever holds `roles.manage` can grant themselves any permission they already hold and edit other roles within that limit, and `users.manage` can create accounts up to their own level. Give them only to people you trust with administration. | Permissions |
 | D10 | A user may change only their own **name** (My Account). Email and role are changed by an administrator. | `AccountController` |
 
+## Phase 5 - import and export
+
+| # | Decision | Where |
+|---|---|---|
+| E1 | **Two-step import.** Upload -> preview (counts, per-row reasons, column mapping, warnings) -> explicit confirm. Nothing is saved before confirm; the stored file is re-validated at confirm and deleted afterwards. A preview expires after **24 hours** and is visible only to the user who uploaded it. | `ImportService` |
+| E2 | **Limits:** 5 MB, 5,000 data rows, 60 columns, and never more than PHP's `upload_max_filesize` / `post_max_size` (the CLI default is only 2 MB: raise both in php.ini for real use). A request over `post_max_size` gets a clear 413 page. | `ImportService`, `CsrfMiddleware` |
+| E3 | **Formats:** CSV (UTF-8, UTF-8 BOM, UTF-16, Windows-1252; comma, semicolon, tab or pipe separators sniffed) and Excel `.xlsx` (first sheet). Legacy `.xls` is not supported. The XLSX reader/writer is native (needs `ext-zip`), with zip-bomb and XXE defences, so no Composer dependency. Generated workbooks were checked for valid XML and read back; they have not been opened in Microsoft Excel itself. | `app/Services/Import/` |
+| E4 | **Files are judged by content, not extension** (finfo MIME + zip signature); files are stored under random names with mode 0600 outside the web root. | `ImportService::stage` |
+| E5 | **Headings are matched leniently** (case, spacing, punctuation and the client's own typos in the sample sheet). Unknown columns are ignored and listed; the first column claiming a field wins. | `ColumnMapper`, `JobFields` |
+| E6 | **Dates:** ISO `2026-03-31` and US `3/31/2026` are accepted; `d/m/Y` only when unambiguous (day > 12); ambiguous values such as `04/05/2026` are read as month/day. Excel serial dates are understood in spreadsheets. | `ValueParser` |
+| E7 | **Duplicates:** a job number that already exists (case-insensitive) or appears twice in the file is a problem row and is skipped, never overwritten. Import only creates; it does not update. | `ImportService::analyse` |
+| E8 | **Permission-aware:** balance and storage fee are imported only with `jobs.edit_financials`; status, carrier, driver, phone and delivered date only with `jobs.status`. Otherwise those columns are ignored with a visible warning. Import also writes a history row for jobs created beyond Booked. | `ImportService` |
+| E9 | **Spreadsheet-formula safety:** exported cells starting with `= + - @`, tab or CR get a leading apostrophe; the same prefix is stripped on import so round trips are stable. Job numbers starting with such characters are refused on import. | `ExportService::safeCell` |
+| E10 | **Export** follows the current section, search, filters and sort; requires `jobs.export` and `jobs.view`; money columns are left out for users without financial access. Streamed in chunks; caps: CSV 50,000 rows, Excel 20,000. Every export is audited. | `ExportService` |
+
 The generated role x route matrix is in `docs/permission-matrix.md` (`php cli/permission-report.php`).
 
 ## Security defaults (can be tuned in `app/Config/app.php` / `.env`)

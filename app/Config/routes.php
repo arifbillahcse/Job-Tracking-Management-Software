@@ -5,6 +5,8 @@ declare(strict_types=1);
 use App\Controllers\AccountController;
 use App\Controllers\AuthController;
 use App\Controllers\DashboardController;
+use App\Controllers\ExportController;
+use App\Controllers\ImportController;
 use App\Controllers\JobController;
 use App\Controllers\JobListController;
 use App\Controllers\RoleController;
@@ -37,6 +39,16 @@ return static function (Router $router): void {
     $router->get('/jobs/create', [JobController::class, 'create'])->can('jobs.create')->name('jobs.create');
     $router->post('/jobs', [JobController::class, 'store'])->can('jobs.create')->name('jobs.store');
     $router->get('/jobs/trash', [JobController::class, 'trash'])->can('jobs.delete')->name('jobs.trash');
+    // Import and export. /jobs/import and /jobs/export/... are literal paths; {id:int} only matches digits.
+    $router->get('/jobs/import', [ImportController::class, 'index'])->can('jobs.import')->name('import');
+    $router->post('/jobs/import', [ImportController::class, 'upload'])->can('jobs.import')->name('import.upload');
+    $router->get('/jobs/import/template/{format}', [ImportController::class, 'template'])->can('jobs.import')->name('import.template');
+    $router->get('/jobs/import/{id:int}', [ImportController::class, 'show'])->can('jobs.import')->name('import.show');
+    $router->post('/jobs/import/{id:int}/commit', [ImportController::class, 'commit'])->can('jobs.import')->name('import.commit');
+    $router->post('/jobs/import/{id:int}/cancel', [ImportController::class, 'cancel'])->can('jobs.import')->name('import.cancel');
+    $router->get('/jobs/import/{id:int}/problems', [ImportController::class, 'errors'])->can('jobs.import')->name('import.problems');
+    $router->get('/jobs/export/{bucket}', [ExportController::class, 'export'])->can('jobs.export')->name('export');
+
     $router->get('/jobs/{id:int}', [JobController::class, 'show'])->can('jobs.view')->name('jobs.show');
     $router->get('/jobs/{id:int}/edit', [JobController::class, 'edit'])->can('jobs.edit')->name('jobs.edit');
     $router->post('/jobs/{id:int}', [JobController::class, 'update'])->can('jobs.edit')->name('jobs.update');

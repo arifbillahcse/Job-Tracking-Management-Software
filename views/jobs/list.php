@@ -73,6 +73,21 @@ $sortHeader = static function (string $label, ?string $sortKey) use ($criteria, 
     <?php if (can('jobs.delete') && $bucket === JobBucket::ALL): ?>
         <a class="btn btn-outline-secondary" href="<?= e(url('/jobs/trash')) ?>"><?= icon('trash') ?> Trash</a>
     <?php endif; ?>
+    <?php if (can('jobs.import') && $bucket === JobBucket::ALL): ?>
+        <a class="btn btn-outline-secondary" href="<?= e(url('/jobs/import')) ?>"><?= icon('upload') ?> Import</a>
+    <?php endif; ?>
+    <?php if (can('jobs.export') && $paginator->total > 0): ?>
+        <div class="dropdown">
+            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"><?= icon('download') ?> Export</button>
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                <li><span class="dropdown-item-text small text-body-secondary">Exports this list<?= $criteria->hasFilters() ? ' with your filters' : '' ?>, all pages.</span></li>
+                <li><a class="dropdown-item" href="<?= e(list_url('/jobs/export/' . $bucket, $criteria->linkParams() + ['format' => 'csv'])) ?>">CSV (opens in Excel)</a></li>
+                <?php if (\App\Services\Import\XlsxReader::available()): ?>
+                    <li><a class="dropdown-item" href="<?= e(list_url('/jobs/export/' . $bucket, $criteria->linkParams() + ['format' => 'xlsx'])) ?>">Excel (.xlsx)</a></li>
+                <?php endif; ?>
+            </ul>
+        </div>
+    <?php endif; ?>
     <?php if (can('jobs.create')): ?>
         <a class="btn btn-primary" href="<?= e(url('/jobs/create')) ?>"><?= icon('plus') ?> New job</a>
     <?php endif; ?>

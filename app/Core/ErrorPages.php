@@ -16,6 +16,7 @@ final class ErrorPages
         403 => ['Access denied', "You don't have permission to do that."],
         404 => ['Page not found', "The page you're looking for doesn't exist or has moved."],
         405 => ['Method not allowed', 'That action is not supported for this page.'],
+        413 => ['File too large', 'The upload is larger than this server accepts.'],
         500 => ['Something went wrong', 'An unexpected error occurred. It has been logged and we will look into it.'],
     ];
 

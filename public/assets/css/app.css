@@ -1,3 +1,9 @@
+/* Inter, self-hosted (SIL OFL licence in /assets/fonts/Inter-LICENSE.txt). font-display: swap shows text immediately in the system font. */
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 400; font-display: swap; src: url("../fonts/Inter-Regular.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 500; font-display: swap; src: url("../fonts/Inter-Medium.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 600; font-display: swap; src: url("../fonts/Inter-SemiBold.woff2") format("woff2"); }
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 700; font-display: swap; src: url("../fonts/Inter-Bold.woff2") format("woff2"); }
+
 /* Job Tracker theme layer on top of Bootstrap 5.3.
    Colours are CSS variables so the whole app can be re-branded in one place. */
 
@@ -713,3 +719,21 @@ body {
         background: #f8fafc;
     }
 }
+
+/* ---------- Layout fixes found by browser testing (Phase 6) ---------- */
+
+/* The visually-hidden "Actions" header is absolutely positioned. Without a positioned ancestor it escapes the
+   scroll container and makes the whole page scroll sideways; making the container its containing block clips it. */
+.table-responsive {
+    position: relative;
+}
+
+/* ---------- Import / export (Phase 5) ---------- */
+
+.jt-steps {
+    margin: 0 0 1.25rem;
+    padding-left: 1.2rem;
+    color: var(--jt-text);
+}
+
+.jt-steps li { margin-bottom: 0.4rem; }

@@ -2,7 +2,7 @@
 
 Custom job tracking software built with **Core PHP 8.1+, MySQL/MariaDB, Bootstrap 5.3, HTML, CSS and JavaScript** - no PHP framework.
 
-Status: **Phase 4 complete** - user management, role management and a permission matrix on top of the dashboard, the five job sections and status workflow (Phase 3), job CRUD (Phase 2) and the security core (Phase 1). Next: CSV / Excel import and export (Phase 5). See `docs/assumptions.md` for the demo business rules and `docs/permission-matrix.md` for what each role can do.
+Status: **Phase 5 complete** - CSV / Excel import (preview and confirm) and filtered export on top of user management, role management and a permission matrix on top of the dashboard, the five job sections and status workflow (Phase 3), job CRUD (Phase 2) and the security core (Phase 1). Next: final UI polish (Phase 6). See `docs/assumptions.md` for the demo business rules and `docs/permission-matrix.md` for what each role can do.
 
 ## Quick start (local)
 
@@ -25,10 +25,11 @@ Point the document root at **`public/`** only. `public/.htaccess` handles Apache
 
 ## Tests
 ```bash
-php tests/run.php                                   # 720 unit/integration checks (SQLite in memory)
+php tests/run.php                                   # 1002 unit/integration checks (SQLite in memory)
 tests/smoke.sh http://localhost:8000 EMAIL PASSWORD # Phase 1 end-to-end over HTTP (changes then restores that account's password)
 tests/smoke-jobs.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS       # job CRUD as Admin and Staff (leaves soft-deleted SMOKE-* jobs)
 tests/smoke-workflow.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS   # sections, dashboard and workflow (leaves soft-deleted WF-* jobs; needs GNU date)
+tests/smoke-import.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS MANAGER_EMAIL MANAGER_PASS   # import/export over real multipart HTTP (needs python3; cleans up after itself)
 tests/smoke-admin.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS MANAGER_EMAIL MANAGER_PASS   # users, roles, matrix, lockout, forced password change (makes ~6 failed sign-ins on purpose)
 ```
 Tests use SQLite as a stand-in because they need no server; **MySQL/MariaDB is the production database**.

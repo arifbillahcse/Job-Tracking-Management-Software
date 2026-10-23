@@ -16,6 +16,8 @@ return [
     ['group' => 'Jobs', 'label' => 'In Transit',         'path' => '/jobs/in-transit',   'icon' => 'truck',        'permission' => 'jobs.view'],
     ['group' => 'Jobs', 'label' => 'Delivered',          'path' => '/jobs/delivered',    'icon' => 'check-circle', 'permission' => 'jobs.view'],
 
+    ['group' => 'Jobs', 'label' => 'Import Jobs',        'path' => '/jobs/import',       'icon' => 'upload',       'permission' => 'jobs.import'],
+
     ['group' => 'Administration', 'label' => 'Users',             'path' => '/users', 'icon' => 'users',  'permission' => 'users.manage'],
     ['group' => 'Administration', 'label' => 'Roles & Permissions', 'path' => '/roles', 'icon' => 'shield', 'permission' => 'roles.manage'],
 

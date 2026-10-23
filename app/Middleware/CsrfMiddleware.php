@@ -23,6 +23,12 @@ final class CsrfMiddleware implements MiddlewareInterface
             return $next($request);
         }
 
+        // PHP discards the whole body of a multipart request that exceeds post_max_size, token included.
+        // Say so plainly instead of showing a confusing "invalid form" page.
+        if ($request->allPost() === [] && $request->isMultipart() && !$request->hasFiles() && $request->contentLength() > 0) {
+            return ErrorPages::response(413, 'The file you uploaded is larger than this server accepts (' . ini_get('post_max_size') . '). Choose a smaller file or split it.');
+        }
+
         $origin = $request->header('Origin');
         if ($origin !== null && $origin !== 'null') {
             $originHost = strtolower((string) parse_url($origin, PHP_URL_HOST));

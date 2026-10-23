@@ -21,7 +21,8 @@ final class Request
         private string $path,
         private array $query,
         private array $post,
-        private array $server
+        private array $server,
+        private array $files = []
     ) {
     }
 
@@ -37,13 +38,18 @@ final class Request
             $path = substr($path, strlen($base));
         }
 
-        return self::$current = new self($method, self::normalizePath($path), $_GET, $_POST, $server);
+        return self::$current = new self($method, self::normalizePath($path), $_GET, $_POST, $server, $_FILES);
     }
 
     /** Build a request by hand (tests). */
-    public static function make(string $method, string $path, array $post = [], array $query = [], array $server = []): self
+    public function hasFiles(): bool
     {
-        return self::$current = new self(strtoupper($method), self::normalizePath($path), $query, $post, $server);
+        return $this->files !== [];
+    }
+
+    public static function make(string $method, string $path, array $post = [], array $query = [], array $server = [], array $files = []): self
+    {
+        return self::$current = new self(strtoupper($method), self::normalizePath($path), $query, $post, $server, $files);
     }
 
     public static function current(): ?self
@@ -162,6 +168,37 @@ final class Request
     {
         return str_contains((string) $this->header('Accept'), 'application/json')
             || strtolower((string) $this->header('X-Requested-With')) === 'xmlhttprequest';
+    }
+
+    /**
+     * One uploaded file as PHP reported it (name, tmp_name, size, error, type), or null if the field is absent
+     * or holds several files.
+     *
+     * @return array{name:string,tmp_name:string,size:int,error:int,type:string}|null
+     */
+    public function file(string $key): ?array
+    {
+        $file = $this->files[$key] ?? null;
+        if (!is_array($file) || is_array($file['name'] ?? null)) {
+            return null;
+        }
+        return [
+            'name' => (string) ($file['name'] ?? ''),
+            'tmp_name' => (string) ($file['tmp_name'] ?? ''),
+            'size' => (int) ($file['size'] ?? 0),
+            'error' => (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE),
+            'type' => (string) ($file['type'] ?? ''),
+        ];
+    }
+
+    public function contentLength(): int
+    {
+        return (int) ($this->server['CONTENT_LENGTH'] ?? 0);
+    }
+
+    public function isMultipart(): bool
+    {
+        return str_starts_with(strtolower((string) ($this->server['CONTENT_TYPE'] ?? '')), 'multipart/form-data');
     }
 
     public function setAttribute(string $key, mixed $value): void
