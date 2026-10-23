@@ -9,8 +9,8 @@ use App\Core\ErrorPages;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Session;
-use App\Helpers\Paginator;
 use App\Services\JobService;
+use App\Services\JobWorkflowService;
 use App\Validation\JobRules;
 use PDOException;
 
@@ -27,27 +27,6 @@ final class JobController extends Controller
         $this->jobs = new JobService();
     }
 
-    public function index(Request $request): Response
-    {
-        $perPage = Paginator::pageSizeFromSettings();
-        $requested = max(1, (int) $request->query('page', 1));
-
-        $result = $this->jobs->page($perPage, ($requested - 1) * $perPage);
-        $paginator = new Paginator($result['total'], $perPage, $requested);
-
-        // A page beyond the end (e.g. after deletions) is re-fetched at the last valid page.
-        if ($paginator->page !== $requested) {
-            $result = $this->jobs->page($perPage, $paginator->offset());
-        }
-
-        return $this->view('jobs/index', [
-            'title' => 'All Jobs',
-            'jobs' => $result['rows'],
-            'paginator' => $paginator,
-            'showFinancials' => $this->jobs->canSeeFinancials(),
-        ]);
-    }
-
     public function show(Request $request, int $id): Response
     {
         $job = $this->jobs->find($id);
@@ -55,10 +34,20 @@ final class JobController extends Controller
             return ErrorPages::response(404);
         }
 
+        $workflow = new JobWorkflowService();
+        $transitions = $workflow->availableTransitions($job);
+
+        // Reopen the dialog the user was filling in (validation error) or the one a list shortcut asked for (?do=in_transit).
+        $wanted = (string) (Session::flashed('open_modal') ?? $request->query('do', ''));
+        $autoOpen = in_array($wanted, array_column($transitions, 'to'), true) ? $wanted : null;
+
         return $this->view('jobs/show', [
             'title' => 'Job ' . $job['job_number'],
             'job' => $job,
             'showFinancials' => $this->jobs->canSeeFinancials(),
+            'transitions' => $transitions,
+            'timeline' => $workflow->timeline($job),
+            'autoOpen' => $autoOpen,
         ]);
     }
 
@@ -118,14 +107,15 @@ final class JobController extends Controller
 
     public function update(Request $request, int $id): Response
     {
-        if ($this->jobs->find($id) === null) {
+        $job = $this->jobs->find($id);
+        if ($job === null) {
             return ErrorPages::response(404);
         }
 
         $editUrl = '/jobs/' . $id . '/edit';
         $data = $this->validate(
             $request,
-            JobRules::rules($id, $this->jobs->canEditFinancials()),
+            JobRules::rules($id, $this->jobs->canEditFinancials(), $job['status'] === 'in_transit'),
             $editUrl,
             JobRules::labels()
         );
@@ -156,6 +146,36 @@ final class JobController extends Controller
 
         $this->flash('success', $result['changed'] === [] ? 'No changes were made.' : 'Job ' . $data['job_number'] . ' was updated.');
         return $this->redirect('/jobs/' . $id);
+    }
+
+    /** One endpoint for every status change; JobWorkflowService decides what is allowed. */
+    public function changeStatus(Request $request, int $id): Response
+    {
+        $to = $request->str('to');
+        $back = '/jobs/' . $id;
+        $result = (new JobWorkflowService())->change($id, $to, $request->allPost());
+
+        if ($result['ok']) {
+            $label = (string) \App\Core\Config::get('statuses.statuses.' . $result['to'] . '.label', $result['to']);
+            $this->flash('success', 'Job ' . $result['job_number'] . ' is now ' . $label . '.');
+            return $this->redirect($back);
+        }
+
+        switch ($result['code']) {
+            case 'not_found':
+                return ErrorPages::response(404);
+            case 'forbidden':
+                return ErrorPages::response(403);
+            case 'validation':
+                Session::flash('open_modal', $to);
+                return $this->redirectWithErrors($request, $result['errors'], $back);
+            case 'conflict':
+                $this->flash('warning', 'This job was just changed by someone else. Check its current status and try again.');
+                return $this->redirect($back);
+            default:
+                $this->flash('danger', 'That status change is not allowed for this job.');
+                return $this->redirect($back);
+        }
     }
 
     public function destroy(Request $request, int $id): Response

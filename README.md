@@ -2,7 +2,7 @@
 
 Custom job tracking software built with **Core PHP 8.1+, MySQL/MariaDB, Bootstrap 5.3, HTML, CSS and JavaScript** - no PHP framework.
 
-Status: **Phase 2 complete** (job create / edit / view / soft-delete on top of the Phase 1 security core). Phase 3 adds the dashboard, the section lists, search/filter/sort and the status workflow. See `docs/assumptions.md` for the demo business rules.
+Status: **Phase 3 complete** - dashboard, the five job sections (All, Ready for Delivery, More Than 30 Days, In Transit, Delivered), search / filters / sorting / pagination, and the status workflow with history, on top of job CRUD (Phase 2) and the security core (Phase 1). Next: user and role management (Phase 4). See `docs/assumptions.md` for the demo business rules.
 
 ## Quick start (local)
 
@@ -12,7 +12,7 @@ php cli/migrate.php               # create tables
 php cli/seed.php                  # permissions, Admin/Manager/Staff roles, default settings
 php cli/create-admin.php --email=you@example.com --name="Your Name"
 php cli/create-user.php --email=staff@example.com --name="A Staff Member" --role=Staff   # or Manager
-php cli/seed-demo.php             # optional: 60 realistic demo jobs spread across every section
+php cli/seed-demo.php             # optional: 60 realistic demo jobs (with status history) spread across every section
 php cli/fetch-assets.php          # vendor Bootstrap 5.3.3 locally (needs internet once)
 php -S localhost:8000 -t public public/index.php
 ```
@@ -25,9 +25,10 @@ Point the document root at **`public/`** only. `public/.htaccess` handles Apache
 
 ## Tests
 ```bash
-php tests/run.php                                   # 215 unit/integration checks (SQLite in memory)
+php tests/run.php                                   # 510 unit/integration checks (SQLite in memory)
 tests/smoke.sh http://localhost:8000 EMAIL PASSWORD # Phase 1 end-to-end over HTTP (changes then restores that account's password)
-tests/smoke-jobs.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS   # job flows as Admin and Staff (leaves soft-deleted SMOKE-* jobs)
+tests/smoke-jobs.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS       # job CRUD as Admin and Staff (leaves soft-deleted SMOKE-* jobs)
+tests/smoke-workflow.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS   # sections, dashboard and workflow (leaves soft-deleted WF-* jobs; needs GNU date)
 ```
 Tests use SQLite as a stand-in because they need no server; **MySQL/MariaDB is the production database**.
 
@@ -50,4 +51,5 @@ session cookies HttpOnly/SameSite, id regenerated on login, idle and absolute ti
 login throttling per account and per IP with identical error messages (no account enumeration) - deny-by-default routing
 (every route must declare public / authOnly / permission) - strict CSP and security headers - errors logged, never displayed in production -
 audit log for sign-ins, lockouts, password changes, denied access and every job change -
-balance / storage fee removed server-side for users without financial permission - optimistic locking on job edits - soft-deleted jobs keep their job # reserved.
+balance / storage fee removed server-side for users without financial permission - optimistic locking on job edits - soft-deleted jobs keep their job # reserved -
+sort columns and filters whitelisted, LIKE input escaped - every status change checked against the transition rules and the permission of that specific change, saved atomically with its history.

@@ -46,7 +46,7 @@ signin "$AJ" "$A_EMAIL" "$A_PASS"; signin "$SJ" "$S_EMAIL" "$S_PASS"
 
 echo "== Admin: list"
 L=$(curl -s -b "$AJ" -c "$AJ" "$BASE/jobs")
-check "list shows jobs, the Balance column and the New job button" 'grep -q "jt-jobno" <<<"$L" && grep -q ">Balance<" <<<"$L" && grep -q "New job" <<<"$L"'
+check "list shows jobs, the Balance column and the New job button" 'grep -q "jt-jobno" <<<"$L" && grep -q "Balance" <<<"$L" && grep -q "New job" <<<"$L"'
 check "every table cell carries a data-label (card layout on phones)" '! grep -qP "<td(?![^>]*data-label)" <<<"$L"'
 check "pagination is shown for a long list" 'grep -q "aria-label=\"Pagination\"" <<<"$L"'
 check "page 2 works" 'curl -s -b "$AJ" "$BASE/jobs?page=2" | grep -q "Showing 26"'
@@ -89,7 +89,7 @@ R=$(post_job "$AJ" "/jobs/$JID" "$RUN" "Grace" "1300" --data-urlencode "loaded_a
 check "a valid edit redirects to the details page" 'grep -qi "^location: .*/jobs/$JID" <<<"$R"'
 D=$(curl -s -b "$AJ" -c "$AJ" "$BASE/jobs/$JID")
 check "the edit is saved (name, balance) with a success message" 'grep -q "Grace Tester" <<<"$D" && grep -q "\$1,300.00" <<<"$D" && grep -q "was updated" <<<"$D"'
-check "'Last updated' appears in the activity card" 'grep -q "Last updated" <<<"$D"'
+check "'Last updated' appears under the history" 'grep -q "Last updated" <<<"$D"'
 R=$(post_job "$AJ" "/jobs/$JID" "$RUN" "Stale" "1" --data-urlencode "loaded_at=$LOADED")
 check "a stale form is bounced back to the edit page" 'grep -qi "^location: .*/jobs/$JID/edit" <<<"$R"'
 E2=$(curl -s -b "$AJ" -c "$AJ" "$BASE/jobs/$JID/edit")
@@ -99,7 +99,7 @@ check "saving unchanged data says no changes were made" 'curl -s -b "$AJ" "$BASE
 
 echo "== Staff"
 SL=$(curl -s -b "$SJ" -c "$SJ" "$BASE/jobs")
-check "Staff sees the list without a Balance column or amounts" 'grep -q "jt-jobno" <<<"$SL" && ! grep -q ">Balance<" <<<"$SL" && ! grep -qE "[$][0-9]" <<<"$SL"'
+check "Staff sees the list without a Balance column or amounts" 'grep -q "jt-jobno" <<<"$SL" && ! grep -q "Balance" <<<"$SL" && ! grep -qE "[$][0-9]" <<<"$SL"'
 check "Staff sees no Trash link" '! grep -q "/jobs/trash" <<<"$SL"'
 SF=$(curl -s -b "$SJ" "$BASE/jobs/create")
 check "the Staff form has no balance or storage fee inputs" '! grep -q "name=\"balance\"" <<<"$SF" && ! grep -q "name=\"storage_fee\"" <<<"$SF"'

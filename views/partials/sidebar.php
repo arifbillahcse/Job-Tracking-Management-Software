@@ -14,10 +14,13 @@ $items = array_filter(
         <a class="jt-brand d-none d-lg-flex" href="<?= e(url('/dashboard')) ?>"><?= icon('truck') ?> <span><?= e(app_name()) ?></span></a>
         <nav class="jt-nav" aria-label="Main">
             <?php foreach ($items as $item):
-                $active = $current === $item['path'] || str_starts_with($current, rtrim($item['path'], '/') . '/');
+                // Items sharing a path prefix (/jobs vs /jobs/ready) declare an explicit match pattern.
+                $active = isset($item['match'])
+                    ? preg_match($item['match'], $current) === 1
+                    : $current === $item['path'] || str_starts_with($current, rtrim($item['path'], '/') . '/');
                 ?>
                 <a class="jt-nav-link<?= $active ? ' active' : '' ?>" href="<?= e(url($item['path'])) ?>"<?= $active ? ' aria-current="page"' : '' ?>>
-                    <?= icon($item['icon']) ?> <span><?= e($item['label']) ?></span>
+                    <?= icon($item['icon']) ?> <span><?= e($item['label'] === 'More Than 30 Days' ? \App\Services\JobBucket::label('later') : $item['label']) ?></span>
                 </a>
             <?php endforeach; ?>
         </nav>

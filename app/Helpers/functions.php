@@ -6,7 +6,7 @@ use App\Core\Auth;
 use App\Core\Config;
 use App\Core\Csrf;
 use App\Core\Session;
-use App\Repositories\SettingsRepository;
+use App\Services\SettingsService;
 
 if (!function_exists('base_path')) {
     function base_path(string $path = ''): string
@@ -110,15 +110,7 @@ function auth_user(): ?array
 /** Value from the settings table, falling back to $default if the table is unavailable. */
 function setting(string $key, ?string $default = null): ?string
 {
-    static $all = null;
-    if ($all === null) {
-        try {
-            $all = (new SettingsRepository())->all();
-        } catch (Throwable) {
-            $all = [];
-        }
-    }
-    return $all[$key] ?? $default;
+    return SettingsService::get($key, $default);
 }
 
 function app_name(): string
@@ -148,6 +140,17 @@ function icon(string $name, string $class = ''): string
         'rotate-ccw' => '<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>',
         'arrow-right' => '<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>',
         'inbox' => '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+        'clock' => '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+        'calendar' => '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+        'search' => '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+        'sliders' => '<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>',
+        'phone' => '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+        'chevron-up' => '<polyline points="18 15 12 9 6 15"/>',
+        'chevron-down' => '<polyline points="6 9 12 15 18 9"/>',
+        'chevrons' => '<polyline points="7 15 12 20 17 15"/><polyline points="7 9 12 4 17 9"/>',
+        'activity' => '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+        'dollar' => '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+        'alert-circle' => '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>',
         'truck' => '<rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
     ];
 
@@ -234,4 +237,31 @@ function page_url(string $path, int $page): string
     $query = $_GET;
     $query['page'] = $page;
     return url($path) . '?' . http_build_query($query);
+}
+
+/** URL of a list page with the given query parameters (empty values are dropped). */
+function list_url(string $path, array $params = []): string
+{
+    $params = array_filter($params, static fn (mixed $v): bool => $v !== '' && $v !== null);
+    return url($path) . ($params === [] ? '' : '?' . http_build_query($params));
+}
+
+/** Days-until chip next to a booked job's available date, e.g. "in 5 days" / "Overdue by 2 days". HTML, escaped. */
+function availability_chip(array $job): string
+{
+    $hint = \App\Services\JobBucket::availability($job);
+    return $hint === null ? '' : '<span class="jt-chip jt-chip-' . e($hint['tone']) . '">' . e($hint['text']) . '</span>';
+}
+
+/** Tap-to-call link for a phone number; plain text when it has too few digits to dial. HTML, escaped. */
+function tel_link(?string $phone): string
+{
+    $phone = trim((string) $phone);
+    if ($phone === '') {
+        return '—';
+    }
+    $dial = preg_replace('/[^0-9+]/', '', $phone) ?? '';
+    return strlen($dial) >= 7
+        ? '<a class="jt-tel" href="tel:' . e($dial) . '">' . icon('phone') . ' ' . e($phone) . '</a>'
+        : e($phone);
 }

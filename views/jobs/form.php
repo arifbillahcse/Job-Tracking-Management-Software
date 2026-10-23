@@ -77,6 +77,20 @@ $input = static function (string $name, string $label, array $opts = []) use ($v
                 </div>
             </div>
 
+            <?php if ($job !== null && (string) $job['status'] === 'in_transit'): ?>
+                <div class="card jt-card mb-4">
+                    <div class="card-header bg-transparent fw-semibold">Carrier</div>
+                    <div class="card-body">
+                        <p class="small text-body-secondary">Correct the carrier details of a job that is in transit.</p>
+                        <div class="row g-3">
+                            <div class="col-12"><?= $input('carrier_name', 'Carrier name', ['required' => true, 'maxlength' => 150]) ?></div>
+                            <div class="col-12 col-sm-6 col-xl-12"><?= $input('driver_name', 'Driver name', ['required' => true, 'maxlength' => 150]) ?></div>
+                            <div class="col-12 col-sm-6 col-xl-12"><?= $input('driver_phone', 'Phone number', ['type' => 'tel', 'required' => true, 'maxlength' => 30, 'inputmode' => 'tel']) ?></div>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+
             <div class="d-flex gap-2 jt-form-actions">
                 <a class="btn btn-outline-secondary" href="<?= e(url($cancelTo)) ?>">Cancel</a>
                 <button type="submit" class="btn btn-primary flex-grow-1 flex-md-grow-0"><?= e($submitLabel) ?></button>

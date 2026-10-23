@@ -42,6 +42,18 @@
         button.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
     });
 
+    // Open a dialog on page load: <span data-auto-open-modal="statusModal-in_transit" hidden></span>
+    document.addEventListener('DOMContentLoaded', function () {
+        var marker = document.querySelector('[data-auto-open-modal]');
+        if (!marker || !window.bootstrap) {
+            return;
+        }
+        var modal = document.getElementById(marker.getAttribute('data-auto-open-modal'));
+        if (modal) {
+            window.bootstrap.Modal.getOrCreateInstance(modal).show();
+        }
+    });
+
     // Re-enable submit buttons when the page is restored from the back/forward cache.
     window.addEventListener('pageshow', function (event) {
         if (event.persisted) {

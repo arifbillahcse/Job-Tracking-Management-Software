@@ -6,6 +6,7 @@ use App\Controllers\AccountController;
 use App\Controllers\AuthController;
 use App\Controllers\DashboardController;
 use App\Controllers\JobController;
+use App\Controllers\JobListController;
 use App\Core\Router;
 use App\Middleware\GuestMiddleware;
 
@@ -26,13 +27,19 @@ return static function (Router $router): void {
     $router->get('/dashboard', [DashboardController::class, 'index'])->can('dashboard.view')->name('dashboard');
 
     // /jobs/create and /jobs/trash are literal paths; {id:int} only ever matches digits, so there is no clash.
-    $router->get('/jobs', [JobController::class, 'index'])->can('jobs.view')->name('jobs');
+    $router->get('/jobs', [JobListController::class, 'all'])->can('jobs.view')->name('jobs');
+    $router->get('/jobs/ready', [JobListController::class, 'ready'])->can('jobs.view')->name('jobs.ready');
+    $router->get('/jobs/more-than-30', [JobListController::class, 'later'])->can('jobs.view')->name('jobs.later');
+    $router->get('/jobs/in-transit', [JobListController::class, 'transit'])->can('jobs.view')->name('jobs.transit');
+    $router->get('/jobs/delivered', [JobListController::class, 'delivered'])->can('jobs.view')->name('jobs.delivered');
     $router->get('/jobs/create', [JobController::class, 'create'])->can('jobs.create')->name('jobs.create');
     $router->post('/jobs', [JobController::class, 'store'])->can('jobs.create')->name('jobs.store');
     $router->get('/jobs/trash', [JobController::class, 'trash'])->can('jobs.delete')->name('jobs.trash');
     $router->get('/jobs/{id:int}', [JobController::class, 'show'])->can('jobs.view')->name('jobs.show');
     $router->get('/jobs/{id:int}/edit', [JobController::class, 'edit'])->can('jobs.edit')->name('jobs.edit');
     $router->post('/jobs/{id:int}', [JobController::class, 'update'])->can('jobs.edit')->name('jobs.update');
+    // Coarse gate only: JobWorkflowService checks the permission of the specific transition (jobs.status or jobs.reopen).
+    $router->post('/jobs/{id:int}/status', [JobController::class, 'changeStatus'])->can('jobs.view')->name('jobs.status');
     $router->post('/jobs/{id:int}/delete', [JobController::class, 'destroy'])->can('jobs.delete')->name('jobs.delete');
     $router->post('/jobs/{id:int}/restore', [JobController::class, 'restore'])->can('jobs.delete')->name('jobs.restore');
 

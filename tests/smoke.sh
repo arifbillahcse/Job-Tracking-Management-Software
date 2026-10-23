@@ -59,7 +59,7 @@ AFTER=$(grep JT_SESSID "$JAR" | awk '{print $7}')
 check "session id changed on login" '[[ -n "$BEFORE" && -n "$AFTER" && "$BEFORE" != "$AFTER" ]]'
 D=$(curl -s -b "$JAR" -c "$JAR" "$BASE/dashboard")
 check "dashboard shows the signed-in user and role" 'grep -q "Welcome" <<<"$D" && grep -q "Admin" <<<"$D"'
-check "Admin sees the full permission list" 'grep -q "users.manage" <<<"$D"'
+check "dashboard shows the job figures and section cards" 'grep -q "jt-stat" <<<"$D" && grep -q "Ready for delivery" <<<"$D"'
 check "/login redirects signed-in users away" '[[ $(code -b "$JAR" "$BASE/login") == 302 ]]'
 check "unknown URL -> 404 page (no stack trace)" 'N=$(curl -s -b "$JAR" "$BASE/does-not-exist"); grep -q "Page not found" <<<"$N" && ! grep -q "Stack trace" <<<"$N"'
 check "wrong method -> 405" '[[ $(code -b "$JAR" -X POST "$BASE/dashboard") =~ ^(403|405)$ ]]'

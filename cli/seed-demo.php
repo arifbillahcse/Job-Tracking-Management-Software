@@ -22,6 +22,7 @@ require dirname(__DIR__) . '/app/bootstrap.php';
 use App\Core\App;
 use App\Core\Database;
 use App\Repositories\JobRepository;
+use App\Repositories\StatusHistoryRepository;
 
 App::boot();
 
@@ -34,6 +35,7 @@ foreach (array_slice($argv, 1) as $arg) {
 $count = max(1, min(500, (int) ($options['count'] ?? 60)));
 
 $jobs = new JobRepository();
+$history = new StatusHistoryRepository();
 if ($jobs->count() > 0 && !isset($options['force'])) {
     fwrite(STDERR, "Jobs already exist. Re-run with --force to add demo jobs anyway.\n");
     exit(1);
@@ -110,7 +112,26 @@ for ($i = 1; $i <= $count; $i++) {
         continue;
     }
 
-    $jobs->create($row, $userId);
+    $id = $jobs->create($row, $userId);
+
+    // Status history that matches each job's state, so timelines and the dashboard activity feed look real.
+    $carrierDetails = isset($row['carrier_name']) ? ['carrier_name' => $row['carrier_name'], 'driver_name' => $row['driver_name'], 'driver_phone' => $row['driver_phone']] : null;
+    switch ($status) {
+        case 'in_transit':
+        case 'delivered':
+            $history->insert($id, 'booked', 'in_transit', null, $carrierDetails, $userId, $row['in_transit_at']);
+            if ($status === 'delivered') {
+                $history->insert($id, 'in_transit', 'delivered', null, ['delivered_on' => substr($row['delivered_at'], 0, 10)], $userId, $row['delivered_at']);
+            }
+            break;
+        case 'on_hold':
+            $history->insert($id, 'booked', 'on_hold', $pick(['Customer asked to wait.', 'Awaiting payment.', 'Destination access not ready.']), null, $userId, $day($available - 2) . ' 10:00:00');
+            break;
+        case 'cancelled':
+            $history->insert($id, 'booked', 'cancelled', $pick(['Customer cancelled the move.', 'Duplicate booking.', 'Quote not accepted.']), null, $userId, $day($available - 3) . ' 11:15:00');
+            break;
+    }
+
     $created++;
     $byStatus[$status] = ($byStatus[$status] ?? 0) + 1;
 }

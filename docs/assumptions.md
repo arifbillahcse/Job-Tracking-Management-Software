@@ -33,7 +33,22 @@ actually works.** The "Where to change" column shows how cheap each change is.
 | B5 | **Delete is a soft delete** (job moves to Trash, recoverable). Deleting and restoring both need `jobs.delete` (Admin and Manager by default). | `permissions.php` |
 | B6 | **Editing is protected against overwriting a colleague's changes.** If a job was saved by someone else after the form was opened, the save is refused, the user's entries are kept on screen and they can review and save again. | `JobService::update` |
 | B7 | Creating, editing, deleting and restoring jobs are written to the audit log with old and new values of the fields that changed. | `JobService` |
-| B8 | The Phase 2 "All Jobs" list is newest-first with pagination only. Search, filters, sorting and the section lists arrive in Phase 3. | Phase 3 |
+
+## Sections, dashboard and workflow decisions (Phase 3)
+
+| # | Decision | Where to change |
+|---|---|---|
+| C1 | **One definition of the sections.** The dashboard counts and every list use the same condition, so a card's number always equals the list it links to. A job's section is never stored; it is worked out from its status and 1st available date each time, so it moves by itself when either changes. | `app/Services/JobBucket.php` |
+| C2 | "Today" is the business's today (time-zone setting), not the server's or UTC's. | `settings.timezone` |
+| C3 | A threshold that is blank or not a number falls back to **30** (not 0, which would empty Ready). It is capped between 0 and 3650. The section title ("More Than 30 Days") follows the setting. | `settings.ready_threshold_days` |
+| C4 | **Resume returns a job to Booked.** Any carrier details are cleared (kept in the history) and the job has to be dispatched again. Putting a job on hold or cancelling it needs a reason. | `app/Config/statuses.php` |
+| C5 | **Reopening** a delivered job (back to In Transit) or a cancelled job (back to Booked) needs the `jobs.reopen` permission and a reason. A reopened delivered job keeps its carrier details and loses its delivery date. | `statuses.php`, permissions |
+| C6 | **Dispatching** needs carrier name, driver name and a valid phone number. **Delivering** needs a delivery date that is not in the future (stored as a date; the time of day is not tracked). | `JobRules::dispatchRules`, `JobWorkflowService` |
+| C7 | Status and its history row are saved in one transaction. If another user moved the job first, the second change is refused with a message instead of overwriting. | `JobWorkflowService`, `JobRepository::changeStatus` |
+| C8 | The carrier details of a job that is **In Transit** can be corrected in the normal Edit form (e.g. a wrong phone number) without changing its status. | `JobService::update` |
+| C9 | Search looks in job #, customer name, from, to, job location, carrier, driver and phone as typed; every word must match somewhere. Sorting and filtering by money are only available to users who may see money. Filters on the Delivered section use the delivery date; elsewhere the 1st available date. | `JobCriteria`, `JobRepository` |
+| C10 | Dashboard money: **Outstanding balance** = balance of all jobs except cancelled. **Storage fees** = storage fee of jobs that are booked, in transit or on hold. Both are hidden from users without financial permission, and a user without `jobs.view` sees no job figures on the dashboard at all. | `JobRepository::moneyTotals`, `DashboardService` |
+| C11 | List rows have one shortcut: **Dispatch** (booked) or **Mark delivered** (in transit). It opens the job with the right dialog already open. There is no "undo" toast; reversing a status change is done with the reopen / resume actions. | `JobListController` |
 
 ## Security defaults (can be tuned in `app/Config/app.php` / `.env`)
 

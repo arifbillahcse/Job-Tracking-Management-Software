@@ -86,6 +86,7 @@ function fresh_db(): void
     (new Migrator())->migrate();
     (new Seeder())->run();
     PermissionService::flush();
+    \App\Services\SettingsService::flush();
     Auth::reset();
 }
 
@@ -512,8 +513,8 @@ $sj = (new JobRepository())->find($sid);
 check($sj['balance'] == 0 && $sj['storage_fee'] == 0, 'a Staff-supplied balance and storage fee are ignored on create');
 $view = $svc->find($id);
 check(!array_key_exists('balance', $view) && !array_key_exists('storage_fee', $view), 'service strips balance and storage fee for Staff (find)');
-$page = $svc->page(50, 0);
-check(array_reduce($page['rows'], static fn (bool $c, array $r): bool => $c && !array_key_exists('balance', $r), true), 'service strips them from list rows too');
+$rows = $svc->search(App\Services\JobCriteria::forBucket('all'), 50, 0);
+check($rows !== [] && array_reduce($rows, static fn (bool $c, array $r): bool => $c && !array_key_exists('balance', $r), true), 'service strips them from list rows too');
 $loaded = (string) (new JobRepository())->find($id)['updated_at'];
 $res = $svc->update($id, job_input(['job_number' => 'JT-5001', 'customer_last_name' => 'Renamed', 'balance' => '1', 'storage_fee' => '1']), $loaded);
 $after = (new JobRepository())->find($id);
@@ -556,7 +557,7 @@ $del = $svc->create(job_input(['job_number' => 'JT-5020']));
 check((new JobRepository())->count() === $before + 1, 'count includes the new job');
 check($svc->delete($del), 'delete succeeds');
 check($svc->find($del) === null && (new JobRepository())->count() === $before, 'deleted job vanishes from find and count');
-check(!in_array('JT-5020', array_column($svc->page(500, 0)['rows'], 'job_number'), true), 'deleted job vanishes from the list');
+check(!in_array('JT-5020', array_column($svc->search(App\Services\JobCriteria::forBucket('all'), 500, 0), 'job_number'), true), 'deleted job vanishes from the list');
 check(in_array('JT-5020', array_column($svc->trashed(), 'job_number'), true), 'deleted job appears in the trash');
 check(Database::fetchValue('SELECT deleted_at FROM jobs WHERE id = ?', [$del]) !== null, 'the row still exists in the database (soft delete)');
 check(!$svc->delete($del), 'deleting twice fails');
@@ -718,5 +719,7 @@ $_SESSION['_flash'] = ['old' => ['a' => 'typed']];
 check(old_or('a', 'db') === 'typed' && old_or('b', 'db') === 'db', 'old_or prefers the submitted value, else the stored one');
 $_SESSION['_flash'] = [];
 
+
+require __DIR__ . '/phase3.php';
 
 finish();

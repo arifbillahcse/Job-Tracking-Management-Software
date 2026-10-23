@@ -6,6 +6,6 @@
     <h2 class="h5 mb-1"><?= e($heading) ?></h2>
     <p class="text-body-secondary mb-3"><?= e($message) ?></p>
     <?php if (!empty($actionUrl)): ?>
-        <a class="btn btn-primary" href="<?= e(url($actionUrl)) ?>"><?= icon('plus') ?> <?= e($actionLabel ?? 'Add') ?></a>
+        <a class="btn btn-primary" href="<?= e(url($actionUrl)) ?>"><?= icon($actionIcon ?? 'plus') ?> <?= e($actionLabel ?? 'Add') ?></a>
     <?php endif; ?>
 </div>

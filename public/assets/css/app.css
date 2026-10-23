@@ -429,3 +429,205 @@ body {
         background: var(--jt-canvas);
     }
 }
+
+/* ---------- Sections, dashboard and workflow (Phase 3) ---------- */
+
+/* Section tabs */
+.jt-tabs {
+    display: flex;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.25rem;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.jt-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.85rem;
+    border: 1px solid var(--jt-card-border);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--jt-text);
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.jt-tab:hover {
+    border-color: #c5cedd;
+    color: var(--jt-text);
+}
+
+.jt-tab-count {
+    min-width: 1.6rem;
+    padding: 0.05rem 0.45rem;
+    border-radius: 999px;
+    background: #eef1f6;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.jt-tab.active { color: #fff; border-color: transparent; background: var(--jt-primary); }
+.jt-tab.active .jt-tab-count { background: rgba(255, 255, 255, 0.22); color: #fff; }
+.jt-tab-ready.active { background: var(--jt-ready); }
+.jt-tab-later.active { background: var(--jt-later); }
+.jt-tab-transit.active { background: var(--jt-transit); }
+.jt-tab-delivered.active { background: var(--jt-delivered); }
+
+/* Search and filters */
+.jt-search {
+    flex: 1 1 18rem;
+    min-width: 0;
+}
+
+.jt-more-filters summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--jt-primary);
+    list-style: none;
+}
+
+.jt-more-filters summary::-webkit-details-marker { display: none; }
+
+.jt-sort {
+    color: inherit;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.jt-sort .icon { width: 0.9em; height: 0.9em; opacity: 0.4; }
+.jt-sort.active .icon { opacity: 1; color: var(--jt-primary); }
+.jt-sort:hover { color: var(--jt-primary); }
+
+.jt-section-note { max-width: 46rem; }
+
+/* Chips, small text */
+.jt-chip {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.74rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.jt-chip-ready { background: var(--jt-ready-bg); color: var(--jt-ready); }
+.jt-chip-later { background: #eef1f6; color: var(--jt-muted); }
+.jt-chip-warning { background: #fde68a; color: #92400e; }
+.jt-chip-danger { background: var(--jt-later-bg); color: var(--jt-later); }
+
+.jt-subtle { font-size: 0.78rem; color: var(--jt-muted); }
+.jt-date { font-variant-numeric: tabular-nums; }
+.jt-money { font-variant-numeric: tabular-nums; }
+.jt-tel { text-decoration: none; white-space: nowrap; }
+.jt-tel .icon { width: 0.95em; height: 0.95em; }
+
+/* Dashboard stat cards */
+.jt-stat {
+    --tone: var(--jt-primary);
+    --tone-bg: #e3ebfa;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    height: 100%;
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--jt-card-border);
+    border-left: 4px solid var(--tone);
+    border-radius: var(--jt-radius);
+    background: #fff;
+    color: var(--jt-text);
+    text-decoration: none;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+    transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.jt-stat:hover {
+    color: var(--jt-text);
+    box-shadow: 0 6px 16px rgba(16, 24, 40, 0.1);
+    transform: translateY(-1px);
+}
+
+.jt-stat-ready { --tone: var(--jt-ready); --tone-bg: var(--jt-ready-bg); }
+.jt-stat-later { --tone: var(--jt-later); --tone-bg: var(--jt-later-bg); }
+.jt-stat-transit { --tone: var(--jt-transit); --tone-bg: var(--jt-transit-bg); }
+.jt-stat-delivered { --tone: var(--jt-delivered); --tone-bg: var(--jt-delivered-bg); }
+
+.jt-stat-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.1rem;
+    height: 2.1rem;
+    margin-bottom: 0.35rem;
+    border-radius: 0.55rem;
+    background: var(--tone-bg);
+    color: var(--tone);
+}
+
+.jt-stat-value { font-size: 1.9rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.jt-stat-label { font-weight: 600; }
+.jt-stat-hint { font-size: 0.78rem; color: var(--jt-muted); }
+
+.jt-joblist .list-group-item,
+.jt-activity .list-group-item { padding: 0.8rem 1.15rem; }
+
+/* Workflow history timeline */
+.jt-timeline {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 1.25rem;
+    border-left: 2px solid var(--jt-card-border);
+}
+
+.jt-timeline-item {
+    --dot: #94a3b8;
+    position: relative;
+    padding-bottom: 1.15rem;
+}
+
+.jt-timeline-item:last-child { padding-bottom: 0; }
+
+.jt-timeline-item::before {
+    content: "";
+    position: absolute;
+    left: -1.72rem;
+    top: 0.3rem;
+    width: 0.7rem;
+    height: 0.7rem;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: var(--dot);
+    box-shadow: 0 0 0 1px var(--dot);
+}
+
+.jt-timeline-transit { --dot: var(--jt-transit); }
+.jt-timeline-delivered { --dot: var(--jt-delivered); }
+.jt-timeline-hold { --dot: #ca8a04; }
+.jt-timeline-cancelled { --dot: #94a3b8; }
+.jt-timeline-booked { --dot: #4f46e5; }
+
+.jt-timeline-head .icon { width: 0.95em; height: 0.95em; color: var(--jt-muted); }
+
+.jt-note {
+    padding: 0.35rem 0.75rem;
+    border-left: 3px solid var(--jt-card-border);
+    background: #f8fafc;
+    color: var(--jt-text);
+    font-size: 0.88rem;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+@media (max-width: 767.98px) {
+    .jt-tabs { margin-right: -1rem; padding-right: 1rem; }
+    .jt-stat-value { font-size: 1.6rem; }
+}

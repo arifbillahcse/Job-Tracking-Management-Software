@@ -22,6 +22,9 @@ final class JobService
     /** Columns only users with jobs.edit_financials may write. */
     private const FINANCIAL = ['balance', 'storage_fee'];
 
+    /** Writable only while the job is In Transit (to correct a typo); otherwise they change through the workflow. */
+    private const CARRIER = ['carrier_name', 'driver_name', 'driver_phone'];
+
     private const DECIMAL = ['cf', 'balance', 'storage_fee'];
 
     public function __construct(private JobRepository $jobs = new JobRepository())
@@ -57,15 +60,20 @@ final class JobService
         return $job === null ? null : $this->forViewer($job);
     }
 
-    /**
-     * @return array{rows:array<int,array<string,mixed>>,total:int}
-     */
-    public function page(int $limit, int $offset): array
+    /** Number of jobs matching the criteria. */
+    public function count(JobCriteria $criteria): int
     {
-        return [
-            'rows' => array_map(fn (array $job): array => $this->forViewer($job), $this->jobs->page($limit, $offset)),
-            'total' => $this->jobs->count(),
-        ];
+        return $this->jobs->count($criteria);
+    }
+
+    /**
+     * One page of jobs for a list screen, with financial fields stripped for users who may not see them.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function search(JobCriteria $criteria, int $limit, int $offset): array
+    {
+        return array_map(fn (array $job): array => $this->forViewer($job), $this->jobs->fetch($criteria, $limit, $offset));
     }
 
     /**
@@ -130,6 +138,11 @@ final class JobService
         if ($this->canEditFinancials()) {
             foreach (self::FINANCIAL as $column) {
                 $row[$column] = $this->decimal($input[$column] ?? null) ?? '0.00';
+            }
+        }
+        if ((string) $current['status'] === 'in_transit') {
+            foreach (self::CARRIER as $column) {
+                $row[$column] = $this->normalize($column, $input[$column] ?? null);
             }
         }
 

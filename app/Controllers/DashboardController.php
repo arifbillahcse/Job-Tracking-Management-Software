@@ -9,6 +9,8 @@ use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Session;
+use App\Services\DashboardService;
+use App\Services\JobService;
 use App\Services\PermissionService;
 
 final class DashboardController extends Controller
@@ -24,8 +26,12 @@ final class DashboardController extends Controller
     {
         $user = Auth::user();
 
+        // Dashboard access alone does not reveal job data: that needs jobs.view.
+        $data = can('jobs.view') ? (new DashboardService())->build((new JobService())->canSeeFinancials()) : null;
+
         return $this->view('dashboard/index', [
             'title' => 'Dashboard',
+            'data' => $data,
             'permissions' => PermissionService::forRole((int) $user['role_id']),
         ]);
     }

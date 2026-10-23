@@ -12,7 +12,7 @@ final class JobRules
     /**
      * @return array<string,string>
      */
-    public static function rules(?int $ignoreId = null, bool $withFinancials = false): array
+    public static function rules(?int $ignoreId = null, bool $withFinancials = false, bool $withCarrier = false): array
     {
         $unique = 'unique:jobs,job_number' . ($ignoreId !== null ? ',' . $ignoreId : '');
 
@@ -34,7 +34,25 @@ final class JobRules
             $rules['storage_fee'] = 'nullable|numeric|min_value:0|max_value:9999999999.99';
         }
 
+        if ($withCarrier) {
+            $rules += self::dispatchRules();
+        }
+
         return $rules;
+    }
+
+    /**
+     * Carrier details required to dispatch a job (and to correct them while it is in transit).
+     *
+     * @return array<string,string>
+     */
+    public static function dispatchRules(): array
+    {
+        return [
+            'carrier_name' => 'required|max:150',
+            'driver_name' => 'required|max:150',
+            'driver_phone' => 'required|phone|max:30',
+        ];
     }
 
     /**
@@ -55,6 +73,10 @@ final class JobRules
             'balance' => 'Balance',
             'storage_fee' => 'Storage fee',
             'notes' => 'Notes',
+            'carrier_name' => 'Carrier name',
+            'driver_name' => 'Driver name',
+            'driver_phone' => 'Phone number',
+            'delivered_on' => 'Delivery date',
         ];
     }
 }
