@@ -50,6 +50,23 @@ actually works.** The "Where to change" column shows how cheap each change is.
 | C10 | Dashboard money: **Outstanding balance** = balance of all jobs except cancelled. **Storage fees** = storage fee of jobs that are booked, in transit or on hold. Both are hidden from users without financial permission, and a user without `jobs.view` sees no job figures on the dashboard at all. | `JobRepository::moneyTotals`, `DashboardService` |
 | C11 | List rows have one shortcut: **Dispatch** (booked) or **Mark delivered** (in transit). It opens the job with the right dialog already open. There is no "undo" toast; reversing a status change is done with the reopen / resume actions. | `JobListController` |
 
+## User and role administration decisions (Phase 4)
+
+| # | Decision | Where to change |
+|---|---|---|
+| D1 | **Temporary passwords.** New users and admin password resets get a generated 16-character password that is shown **once** on screen, stored only as a hash, flagged "must change at next sign-in", and never written to the audit log or any log file. There is no email delivery in the demo, so the administrator passes it on in person or over a private channel. | `UserService`, `flash.php` |
+| D2 | **Resetting a password ends that user's open sessions** immediately and unlocks the account. An administrator cannot reset their own password this way; My Account asks for the current password. | `UserService::resetPassword` |
+| D3 | **Least privilege.** You can only assign a role, edit a user, reset a password, deactivate, unlock or delete a user whose permissions you hold **all** of yourself. A user with `users.manage` but not the Manager permissions cannot make anyone a Manager; a Manager-level user cannot touch an Admin. In the permission matrix you can only tick or untick permissions you hold yourself. | `AdminGuard` |
+| D4 | **Never zero administrators.** At least one active person must hold both `users.manage` and `roles.manage`; any change (role change, deactivate, delete, matrix save) that would break this is rolled back. | `AdminGuard`, `UserRepository::countAdministrators` |
+| D5 | **Self-protection.** You cannot change your own role, deactivate yourself, delete yourself or reset your own password through user administration. | `UserService` |
+| D6 | **Soft-deleted users** keep their rows (jobs and history still point at them) and their **email stays reserved**. There is no "restore user" screen in the demo; an administrator can re-create access with a new account on a different email. | `UserRepository::softDelete` |
+| D7 | **Roles.** The built-in **Admin** role cannot be renamed or deleted and always holds every permission (re-synced on every seed); other roles can be created (optionally as a copy), renamed and deleted. A role cannot be deleted while any user, including a deleted one, still references it. Names are unique regardless of case. | `RoleService`, `Seeder` |
+| D8 | **Permission matrix.** One page, roles as columns, permissions as rows grouped by area. If someone else changes permissions while you have the page open, your save is refused and you see the current state. Changes take effect on each user's next request, without signing out. Every change is audited with what was added and removed. | `RoleService::saveMatrix` |
+| D9 | **`users.manage` and `roles.manage` are powerful by nature.** Whoever holds `roles.manage` can grant themselves any permission they already hold and edit other roles within that limit, and `users.manage` can create accounts up to their own level. Give them only to people you trust with administration. | Permissions |
+| D10 | A user may change only their own **name** (My Account). Email and role are changed by an administrator. | `AccountController` |
+
+The generated role x route matrix is in `docs/permission-matrix.md` (`php cli/permission-report.php`).
+
 ## Security defaults (can be tuned in `app/Config/app.php` / `.env`)
 
 * Sessions end after **30 minutes idle** or **8 hours** in total.

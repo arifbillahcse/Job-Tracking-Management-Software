@@ -631,3 +631,85 @@ body {
     .jt-tabs { margin-right: -1rem; padding-right: 1rem; }
     .jt-stat-value { font-size: 1.6rem; }
 }
+
+/* ---------- Administration (Phase 4) ---------- */
+
+.jt-nav-heading {
+    padding: 0.9rem 0.85rem 0.3rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #6b7c96;
+}
+
+.jt-badge-neutral { background: #e2e8f0; color: #475569; }
+
+.jt-secret {
+    background: #fffbeb;
+}
+
+.jt-secret-value {
+    padding: 0.3rem 0.6rem;
+    border: 1px solid #fcd34d;
+    border-radius: 0.4rem;
+    background: #fff;
+    color: var(--jt-text);
+    font-size: 1.05rem;
+    letter-spacing: 0.04em;
+    user-select: all;
+    overflow-wrap: anywhere;
+}
+
+/* Permission matrix: the permission column stays visible while the role columns scroll sideways on small screens. */
+.jt-matrix th,
+.jt-matrix td {
+    padding: 0.6rem 0.75rem;
+    vertical-align: middle;
+}
+
+.jt-matrix thead th {
+    background: #f8fafc;
+    font-size: 0.82rem;
+    white-space: nowrap;
+}
+
+.jt-matrix .jt-matrix-group th {
+    background: #eef2f7;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--jt-muted);
+}
+
+.jt-matrix-perm {
+    min-width: 15rem;
+    max-width: 22rem;
+}
+
+.jt-matrix .form-check-input {
+    width: 1.15rem;
+    height: 1.15rem;
+    margin: 0;
+    cursor: pointer;
+}
+
+.jt-matrix .form-check-input:disabled {
+    cursor: not-allowed;
+}
+
+@media (max-width: 991.98px) {
+    .jt-matrix tbody th.jt-matrix-perm,
+    .jt-matrix thead th.jt-matrix-perm {
+        position: sticky;
+        left: 0;
+        z-index: 1;
+        background: #fff;
+        min-width: 11rem;
+        box-shadow: 1px 0 0 var(--jt-card-border);
+    }
+
+    .jt-matrix thead th.jt-matrix-perm {
+        background: #f8fafc;
+    }
+}

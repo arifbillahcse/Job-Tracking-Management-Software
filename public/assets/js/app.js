@@ -42,6 +42,23 @@
         button.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
     });
 
+    // Copy text to the clipboard: <button data-copy="#elementId">
+    document.addEventListener('click', function (event) {
+        var button = event.target.closest('[data-copy]');
+        if (!button) {
+            return;
+        }
+        var source = document.querySelector(button.getAttribute('data-copy'));
+        if (!source || !navigator.clipboard) {
+            return;
+        }
+        navigator.clipboard.writeText(source.textContent.trim()).then(function () {
+            var original = button.innerHTML;
+            button.textContent = 'Copied';
+            window.setTimeout(function () { button.innerHTML = original; }, 1500);
+        });
+    });
+
     // Open a dialog on page load: <span data-auto-open-modal="statusModal-in_transit" hidden></span>
     document.addEventListener('DOMContentLoaded', function () {
         var marker = document.querySelector('[data-auto-open-modal]');

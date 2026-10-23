@@ -7,6 +7,8 @@ use App\Controllers\AuthController;
 use App\Controllers\DashboardController;
 use App\Controllers\JobController;
 use App\Controllers\JobListController;
+use App\Controllers\RoleController;
+use App\Controllers\UserController;
 use App\Core\Router;
 use App\Middleware\GuestMiddleware;
 
@@ -43,6 +45,29 @@ return static function (Router $router): void {
     $router->post('/jobs/{id:int}/delete', [JobController::class, 'destroy'])->can('jobs.delete')->name('jobs.delete');
     $router->post('/jobs/{id:int}/restore', [JobController::class, 'restore'])->can('jobs.delete')->name('jobs.restore');
 
+    // User administration. The services add finer rules (only manage users whose permissions you hold, never remove the last administrator).
+    $router->get('/users', [UserController::class, 'index'])->can('users.manage')->name('users');
+    $router->get('/users/create', [UserController::class, 'create'])->can('users.manage')->name('users.create');
+    $router->post('/users', [UserController::class, 'store'])->can('users.manage')->name('users.store');
+    $router->get('/users/{id:int}/edit', [UserController::class, 'edit'])->can('users.manage')->name('users.edit');
+    $router->post('/users/{id:int}', [UserController::class, 'update'])->can('users.manage')->name('users.update');
+    $router->post('/users/{id:int}/activate', [UserController::class, 'activate'])->can('users.manage')->name('users.activate');
+    $router->post('/users/{id:int}/deactivate', [UserController::class, 'deactivate'])->can('users.manage')->name('users.deactivate');
+    $router->post('/users/{id:int}/reset-password', [UserController::class, 'resetPassword'])->can('users.manage')->name('users.reset');
+    $router->post('/users/{id:int}/unlock', [UserController::class, 'unlock'])->can('users.manage')->name('users.unlock');
+    $router->post('/users/{id:int}/delete', [UserController::class, 'destroy'])->can('users.manage')->name('users.delete');
+
+    // Roles and the permission matrix (/roles/matrix is a literal path; {id:int} only matches digits).
+    $router->get('/roles', [RoleController::class, 'index'])->can('roles.manage')->name('roles');
+    $router->get('/roles/create', [RoleController::class, 'create'])->can('roles.manage')->name('roles.create');
+    $router->post('/roles', [RoleController::class, 'store'])->can('roles.manage')->name('roles.store');
+    $router->get('/roles/matrix', [RoleController::class, 'matrix'])->can('roles.manage')->name('roles.matrix');
+    $router->post('/roles/matrix', [RoleController::class, 'saveMatrix'])->can('roles.manage')->name('roles.matrix.save');
+    $router->get('/roles/{id:int}/edit', [RoleController::class, 'edit'])->can('roles.manage')->name('roles.edit');
+    $router->post('/roles/{id:int}', [RoleController::class, 'update'])->can('roles.manage')->name('roles.update');
+    $router->post('/roles/{id:int}/delete', [RoleController::class, 'destroy'])->can('roles.manage')->name('roles.delete');
+
     $router->get('/account', [AccountController::class, 'show'])->authOnly()->name('account');
+    $router->post('/account/profile', [AccountController::class, 'updateProfile'])->authOnly()->name('account.profile');
     $router->post('/account/password', [AccountController::class, 'updatePassword'])->authOnly()->name('account.password');
 };

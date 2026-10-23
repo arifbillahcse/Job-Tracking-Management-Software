@@ -2,7 +2,7 @@
 
 Custom job tracking software built with **Core PHP 8.1+, MySQL/MariaDB, Bootstrap 5.3, HTML, CSS and JavaScript** - no PHP framework.
 
-Status: **Phase 3 complete** - dashboard, the five job sections (All, Ready for Delivery, More Than 30 Days, In Transit, Delivered), search / filters / sorting / pagination, and the status workflow with history, on top of job CRUD (Phase 2) and the security core (Phase 1). Next: user and role management (Phase 4). See `docs/assumptions.md` for the demo business rules.
+Status: **Phase 4 complete** - user management, role management and a permission matrix on top of the dashboard, the five job sections and status workflow (Phase 3), job CRUD (Phase 2) and the security core (Phase 1). Next: CSV / Excel import and export (Phase 5). See `docs/assumptions.md` for the demo business rules and `docs/permission-matrix.md` for what each role can do.
 
 ## Quick start (local)
 
@@ -25,10 +25,11 @@ Point the document root at **`public/`** only. `public/.htaccess` handles Apache
 
 ## Tests
 ```bash
-php tests/run.php                                   # 510 unit/integration checks (SQLite in memory)
+php tests/run.php                                   # 720 unit/integration checks (SQLite in memory)
 tests/smoke.sh http://localhost:8000 EMAIL PASSWORD # Phase 1 end-to-end over HTTP (changes then restores that account's password)
 tests/smoke-jobs.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS       # job CRUD as Admin and Staff (leaves soft-deleted SMOKE-* jobs)
 tests/smoke-workflow.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS   # sections, dashboard and workflow (leaves soft-deleted WF-* jobs; needs GNU date)
+tests/smoke-admin.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS MANAGER_EMAIL MANAGER_PASS   # users, roles, matrix, lockout, forced password change (makes ~6 failed sign-ins on purpose)
 ```
 Tests use SQLite as a stand-in because they need no server; **MySQL/MariaDB is the production database**.
 
@@ -41,8 +42,8 @@ app/Controllers, Services, Repositories, Middleware, Database (migrator, seeder)
 views/         layouts, partials and page templates
 database/      numbered SQL migrations
 storage/       logs, sessions, uploads (never web-accessible)
-cli/           migrate, seed, seed-demo, create-user, create-admin, fetch-assets
-docs/          assumptions, coding standards, wireframes
+cli/           migrate, seed, seed-demo, create-user, create-admin, permission-report, fetch-assets
+docs/          assumptions, coding standards, wireframes, permission-matrix
 ```
 
 ## Security summary
@@ -52,4 +53,5 @@ login throttling per account and per IP with identical error messages (no accoun
 (every route must declare public / authOnly / permission) - strict CSP and security headers - errors logged, never displayed in production -
 audit log for sign-ins, lockouts, password changes, denied access and every job change -
 balance / storage fee removed server-side for users without financial permission - optimistic locking on job edits - soft-deleted jobs keep their job # reserved -
-sort columns and filters whitelisted, LIKE input escaped - every status change checked against the transition rules and the permission of that specific change, saved atomically with its history.
+sort columns and filters whitelisted, LIKE input escaped - every status change checked against the transition rules and the permission of that specific change, saved atomically with its history -
+least-privilege user and role administration (you can only grant what you hold), the last administrator can never be removed, one-time temporary passwords stored only as hashes, permission and account changes effective on the next request.

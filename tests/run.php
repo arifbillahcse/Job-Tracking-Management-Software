@@ -164,6 +164,7 @@ function call(string $method, string $path, array $post = [], array $query = [])
     next_request();
     $_GET = $query;
     Auth::reset();
+    PermissionService::flush(); // per-request caches start empty in production, so they do here too
     return real_router()->dispatch(Request::make($method, $path, $post, $query));
 }
 
@@ -721,5 +722,6 @@ $_SESSION['_flash'] = [];
 
 
 require __DIR__ . '/phase3.php';
+require __DIR__ . '/phase4.php';
 
 finish();

@@ -4,14 +4,23 @@
         <div class="card jt-card h-100">
             <div class="card-header bg-transparent fw-semibold">Profile</div>
             <div class="card-body">
+                <form method="post" action="<?= e(url('/account/profile')) ?>" novalidate data-loading>
+                    <?= csrf_field() ?>
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Name</label>
+                        <input type="text" class="form-control<?= has_error('name') ? ' is-invalid' : '' ?>" id="name" name="name"
+                               value="<?= e(old_or('name', $user['name'])) ?>" maxlength="120" required autocomplete="name">
+                        <?= error_text('name') ?>
+                    </div>
+                    <button type="submit" class="btn btn-outline-primary btn-sm mb-3">Save name</button>
+                </form>
                 <dl class="row mb-0">
-                    <dt class="col-4 text-body-secondary fw-normal">Name</dt>
-                    <dd class="col-8"><?= e($user['name']) ?></dd>
                     <dt class="col-4 text-body-secondary fw-normal">Email</dt>
                     <dd class="col-8 text-break"><?= e($user['email']) ?></dd>
                     <dt class="col-4 text-body-secondary fw-normal">Role</dt>
                     <dd class="col-8"><span class="badge text-bg-light border"><?= e($user['role_name']) ?></span></dd>
                 </dl>
+                <div class="form-text mt-2">Your email and role are changed by an administrator.</div>
             </div>
         </div>
     </div>

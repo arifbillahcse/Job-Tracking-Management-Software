@@ -22,6 +22,25 @@ final class AccountController extends Controller
         return $this->view('account/show', ['title' => 'My Account']);
     }
 
+    public function updateProfile(Request $request): Response
+    {
+        $user = Auth::user();
+
+        $data = $this->validate($request, ['name' => 'required|max:120'], '/account', ['name' => 'Name']);
+        if ($data instanceof Response) {
+            return $data;
+        }
+
+        if ((string) $data['name'] !== (string) $user['name']) {
+            (new UserRepository())->update((int) $user['id'], ['name' => $data['name']]);
+            AuditService::record('profile_updated', 'user', (int) $user['id'], ['name' => $user['name']], ['name' => $data['name']]);
+            $this->flash('success', 'Your name was updated.');
+        } else {
+            $this->flash('info', 'No changes were made.');
+        }
+        return $this->redirect('/account');
+    }
+
     public function updatePassword(Request $request): Response
     {
         $user = Auth::user();

@@ -13,7 +13,11 @@ $items = array_filter(
     <div class="offcanvas-body flex-column p-0">
         <a class="jt-brand d-none d-lg-flex" href="<?= e(url('/dashboard')) ?>"><?= icon('truck') ?> <span><?= e(app_name()) ?></span></a>
         <nav class="jt-nav" aria-label="Main">
-            <?php foreach ($items as $item):
+            <?php $lastGroup = null; foreach ($items as $item):
+                if (($item['group'] ?? null) !== $lastGroup && isset($item['group'])): ?>
+                    <div class="jt-nav-heading"><?= e($item['group']) ?></div>
+                <?php endif;
+                $lastGroup = $item['group'] ?? null;
                 // Items sharing a path prefix (/jobs vs /jobs/ready) declare an explicit match pattern.
                 $active = isset($item['match'])
                     ? preg_match($item['match'], $current) === 1

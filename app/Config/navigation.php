@@ -3,15 +3,21 @@
 declare(strict_types=1);
 
 /**
- * Sidebar items. An item is shown only when the user holds its permission
- * (null = any signed-in user). Later phases add their entries here.
+ * Sidebar items. An item is shown only when the user holds its permission (null = any signed-in user).
+ * "group" prints a small heading when it changes; "match" is an optional regex for items whose path is a
+ * prefix of siblings (/jobs vs /jobs/ready). Later phases add their entries here.
  */
 return [
-    ['label' => 'Dashboard',  'path' => '/dashboard', 'icon' => 'home', 'permission' => 'dashboard.view'],
-    ['label' => 'All Jobs',            'path' => '/jobs',              'icon' => 'briefcase',    'permission' => 'jobs.view', 'match' => '#^/jobs(/(create|trash|\d+(/.*)?))?$#'],
-    ['label' => 'Ready for Delivery',  'path' => '/jobs/ready',        'icon' => 'clock',        'permission' => 'jobs.view'],
-    ['label' => 'More Than 30 Days',   'path' => '/jobs/more-than-30', 'icon' => 'calendar',     'permission' => 'jobs.view'],
-    ['label' => 'In Transit',          'path' => '/jobs/in-transit',   'icon' => 'truck',        'permission' => 'jobs.view'],
-    ['label' => 'Delivered',           'path' => '/jobs/delivered',    'icon' => 'check-circle', 'permission' => 'jobs.view'],
-    ['label' => 'My Account', 'path' => '/account',   'icon' => 'user', 'permission' => null],
+    ['label' => 'Dashboard', 'path' => '/dashboard', 'icon' => 'home', 'permission' => 'dashboard.view'],
+
+    ['group' => 'Jobs', 'label' => 'All Jobs',           'path' => '/jobs',              'icon' => 'briefcase',    'permission' => 'jobs.view', 'match' => '#^/jobs(/(create|trash|\d+(/.*)?))?$#'],
+    ['group' => 'Jobs', 'label' => 'Ready for Delivery', 'path' => '/jobs/ready',        'icon' => 'clock',        'permission' => 'jobs.view'],
+    ['group' => 'Jobs', 'label' => 'More Than 30 Days',  'path' => '/jobs/more-than-30', 'icon' => 'calendar',     'permission' => 'jobs.view'],
+    ['group' => 'Jobs', 'label' => 'In Transit',         'path' => '/jobs/in-transit',   'icon' => 'truck',        'permission' => 'jobs.view'],
+    ['group' => 'Jobs', 'label' => 'Delivered',          'path' => '/jobs/delivered',    'icon' => 'check-circle', 'permission' => 'jobs.view'],
+
+    ['group' => 'Administration', 'label' => 'Users',             'path' => '/users', 'icon' => 'users',  'permission' => 'users.manage'],
+    ['group' => 'Administration', 'label' => 'Roles & Permissions', 'path' => '/roles', 'icon' => 'shield', 'permission' => 'roles.manage'],
+
+    ['group' => 'Account', 'label' => 'My Account', 'path' => '/account', 'icon' => 'user', 'permission' => null],
 ];

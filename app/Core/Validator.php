@@ -14,7 +14,7 @@ use InvalidArgumentException;
  *
  * Rules: required, nullable, string, min:n, max:n (string length), min_value:n,
  * max_value:n, email, date (Y-m-d), numeric, integer, in:a,b, unique:table,column[,ignoreId],
- * confirmed, same:field, different:field, phone, code (letters, digits and - _ / . only), password.
+ * confirmed, same:field, different:field, phone, code (letters, digits and - _ / . only), label (a readable name), exists:table,column, password.
  * The first failing rule of a field is reported.
  */
 final class Validator
@@ -135,6 +135,8 @@ final class Validator
             'phone' => $isScalar && preg_match('/^[0-9+()\-\s.]{7,25}$/', $string) === 1
                 && strlen(preg_replace('/\D/', '', $string) ?? '') >= 7,
             'code' => $isScalar && preg_match('/^[A-Za-z0-9][A-Za-z0-9\-_\/.]*$/', $string) === 1,
+            'label' => $isScalar && preg_match('/^[\p{L}\p{N}][\p{L}\p{N} _.&\-]*$/u', $string) === 1,
+            'exists' => $isScalar && $this->exists($arg, $string),
             'password' => $isScalar && PasswordPolicy::check($string) === null,
             default => throw new InvalidArgumentException("Unknown validation rule: {$rule}"),
         };
@@ -163,6 +165,16 @@ final class Validator
         return (int) Database::fetchValue($sql, $params) === 0;
     }
 
+    private function exists(string $arg, string $value): bool
+    {
+        [$table, $column] = array_pad(explode(',', $arg), 2, '');
+        $identifier = '/^[A-Za-z_][A-Za-z0-9_]*$/';
+        if (!preg_match($identifier, $table) || !preg_match($identifier, $column)) {
+            throw new InvalidArgumentException('Invalid exists rule definition.');
+        }
+        return (int) Database::fetchValue("SELECT COUNT(*) FROM {$table} WHERE {$column} = ?", [$value]) > 0;
+    }
+
     private function fail(string $field, string $rule, string $arg = ''): void
     {
         $label = $this->labels[$field] ?? ucfirst(str_replace('_', ' ', $field));
@@ -184,6 +196,8 @@ final class Validator
             'different' => "{$label} must be different.",
             'phone' => "{$label} must be a valid phone number.",
             'code' => "{$label} may only contain letters, numbers and - _ / .",
+            'label' => "{$label} may only contain letters, numbers, spaces and - _ . &",
+            'exists' => "{$label} is not valid.",
             'password' => PasswordPolicy::check((string) ($this->data[$field] ?? '')) ?? "{$label} is not acceptable.",
             default => "{$label} is invalid.",
         };
