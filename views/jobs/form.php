@@ -21,7 +21,7 @@ $input = static function (string $name, string $label, array $opts = []) use ($v
         . $help . error_text($name);
 };
 ?>
-<form method="post" action="<?= e(url($action)) ?>" novalidate data-loading>
+<form method="post" action="<?= e(url($action)) ?>" novalidate data-loading data-unsaved>
     <?= csrf_field() ?>
     <?php if ($job !== null): ?>
         <input type="hidden" name="loaded_at" value="<?= e($job['updated_at']) ?>">

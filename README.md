@@ -2,7 +2,7 @@
 
 Custom job tracking software built with **Core PHP 8.1+, MySQL/MariaDB, Bootstrap 5.3, HTML, CSS and JavaScript** - no PHP framework.
 
-Status: **Phase 5 complete** - CSV / Excel import (preview and confirm) and filtered export on top of user management, role management and a permission matrix on top of the dashboard, the five job sections and status workflow (Phase 3), job CRUD (Phase 2) and the security core (Phase 1). Next: final UI polish (Phase 6). See `docs/assumptions.md` for the demo business rules and `docs/permission-matrix.md` for what each role can do.
+Status: **Phase 6 complete** - UI polish and accessibility (`docs/ui-guide.md`) on top of CSV / Excel import and export, user and role management, user management, role management and a permission matrix on top of the dashboard, the five job sections and status workflow (Phase 3), job CRUD (Phase 2) and the security core (Phase 1). Next: audit viewer, settings and security hardening (Phase 7). See `docs/assumptions.md` for the demo business rules and `docs/permission-matrix.md` for what each role can do.
 
 ## Quick start (local)
 

@@ -8,11 +8,12 @@
 <?= \App\Core\View::partial('partials/head-assets') ?>
 </head>
 <body class="jt-app">
+<a class="jt-skip-link" href="#main">Skip to main content</a>
 <div class="jt-shell">
     <?= \App\Core\View::partial('partials/sidebar') ?>
     <div class="jt-main">
         <?= \App\Core\View::partial('partials/topbar', ['title' => $title ?? '']) ?>
-        <main class="jt-content">
+        <main class="jt-content" id="main" tabindex="-1">
             <?= \App\Core\View::partial('partials/flash') ?>
             <?= $content ?>
         </main>

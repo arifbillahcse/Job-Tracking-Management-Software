@@ -9,7 +9,7 @@ $locked = $editing && !empty($user['locked_until']) && (string) $user['locked_un
 ?>
 <div class="row g-4">
     <div class="col-12 col-xl-7">
-        <form class="card jt-card" method="post" action="<?= e(url($editing ? '/users/' . $user['id'] : '/users')) ?>" novalidate data-loading>
+        <form class="card jt-card" method="post" action="<?= e(url($editing ? '/users/' . $user['id'] : '/users')) ?>" novalidate data-loading data-unsaved>
             <?= csrf_field() ?>
             <div class="card-header bg-transparent fw-semibold"><?= $editing ? 'Account details' : 'New user' ?></div>
             <div class="card-body">

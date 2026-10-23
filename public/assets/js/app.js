@@ -71,6 +71,36 @@
         }
     });
 
+    // Warn before leaving a form with unsaved edits: <form data-unsaved>
+    (function () {
+        var dirty = false;
+        document.addEventListener('input', function (event) {
+            if (event.target.closest && event.target.closest('form[data-unsaved]')) {
+                dirty = true;
+            }
+        });
+        document.addEventListener('submit', function () {
+            dirty = false;
+        });
+        window.addEventListener('beforeunload', function (event) {
+            if (dirty) {
+                event.preventDefault();
+                event.returnValue = '';
+            }
+        });
+    })();
+
+    // After a failed save, mark invalid fields for assistive technology and move focus to the first one.
+    document.addEventListener('DOMContentLoaded', function () {
+        var invalid = document.querySelectorAll('.is-invalid');
+        invalid.forEach(function (field) {
+            field.setAttribute('aria-invalid', 'true');
+        });
+        if (invalid.length > 0 && typeof invalid[0].focus === 'function') {
+            invalid[0].focus({ preventScroll: false });
+        }
+    });
+
     // Re-enable submit buttons when the page is restored from the back/forward cache.
     window.addEventListener('pageshow', function (event) {
         if (event.persisted) {

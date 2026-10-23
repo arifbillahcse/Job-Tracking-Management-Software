@@ -16,10 +16,10 @@
     --jt-canvas: #f3f5f9;
     --jt-card-border: #e3e8f0;
     --jt-text: #1c2536;
-    --jt-muted: #667085;
+    --jt-muted: #586174;
 
     /* Section colours from the client's sheet: amber / rose / green / grey-green */
-    --jt-ready: #d97706;
+    --jt-ready: #b45309;
     --jt-ready-bg: #fef3c7;
     --jt-later: #be123c;
     --jt-later-bg: #ffe4e6;
@@ -57,6 +57,20 @@ body {
     --bs-btn-disabled-bg: var(--jt-primary);
     --bs-btn-disabled-border-color: var(--jt-primary);
     font-weight: 500;
+}
+
+.btn-outline-secondary {
+    --bs-btn-color: #4b5565;
+    --bs-btn-border-color: #aeb6c4;
+}
+
+.btn-outline-primary {
+    --bs-btn-color: var(--jt-primary);
+    --bs-btn-border-color: var(--jt-primary);
+    --bs-btn-hover-bg: var(--jt-primary);
+    --bs-btn-hover-border-color: var(--jt-primary);
+    --bs-btn-active-bg: var(--jt-primary-hover);
+    --bs-btn-active-border-color: var(--jt-primary-hover);
 }
 
 .form-control:focus,
@@ -103,6 +117,8 @@ body {
         top: 0;
         height: 100vh;
         overflow-y: auto;
+        /* Bootstrap's .offcanvas-lg makes itself transparent from lg up. */
+        background-color: var(--jt-sidebar-bg) !important;
     }
 }
 
@@ -309,7 +325,7 @@ body {
 .jt-badge-transit { background: var(--jt-transit-bg); color: var(--jt-transit); }
 .jt-badge-delivered { background: var(--jt-delivered-bg); color: var(--jt-delivered); }
 .jt-badge-hold { background: #fef9c3; color: #854d0e; }
-.jt-badge-cancelled { background: #f1f5f9; color: #64748b; text-decoration: line-through; }
+.jt-badge-cancelled { background: #f1f5f9; color: #4b5565; text-decoration: line-through; }
 
 /* ---------- Responsive table -> cards (used from Phase 2 on) ----------
    Add class "table-cards" and a data-label="Column" attribute on every <td>. */
@@ -479,7 +495,7 @@ body {
 }
 
 .jt-tab.active { color: #fff; border-color: transparent; background: var(--jt-primary); }
-.jt-tab.active .jt-tab-count { background: rgba(255, 255, 255, 0.22); color: #fff; }
+.jt-tab.active .jt-tab-count { background: rgba(0, 0, 0, 0.22); color: #fff; }
 .jt-tab-ready.active { background: var(--jt-ready); }
 .jt-tab-later.active { background: var(--jt-later); }
 .jt-tab-transit.active { background: var(--jt-transit); }
@@ -525,7 +541,7 @@ body {
     white-space: nowrap;
 }
 
-.jt-chip-ready { background: var(--jt-ready-bg); color: var(--jt-ready); }
+.jt-chip-ready { background: var(--jt-ready-bg); color: #92400e; }
 .jt-chip-later { background: #eef1f6; color: var(--jt-muted); }
 .jt-chip-warning { background: #fde68a; color: #92400e; }
 .jt-chip-danger { background: var(--jt-later-bg); color: var(--jt-later); }
@@ -646,7 +662,7 @@ body {
     font-weight: 600;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #6b7c96;
+    color: #94a3bc;
 }
 
 .jt-badge-neutral { background: #e2e8f0; color: #475569; }
@@ -737,3 +753,54 @@ body {
 }
 
 .jt-steps li { margin-bottom: 0.4rem; }
+
+
+/* ---------- Accessibility and print (Phase 6) ---------- */
+.jt-skip-link {
+    position: absolute;
+    left: 0.75rem;
+    top: -4rem;
+    z-index: 2000;
+    padding: 0.6rem 1rem;
+    border-radius: 0.5rem;
+    background: #fff;
+    color: var(--jt-primary);
+    font-weight: 600;
+    box-shadow: 0 4px 16px rgba(15, 27, 45, 0.25);
+}
+
+.jt-skip-link:focus { top: 0.75rem; }
+
+.jt-content:focus { outline: none; }
+
+a:focus-visible,
+.form-check-input:focus-visible,
+.jt-tab:focus-visible,
+.jt-nav-link:focus-visible,
+summary:focus-visible {
+    outline: 3px solid #5b8def;
+    outline-offset: 2px;
+    border-radius: 0.35rem;
+}
+
+.jt-sidebar a:focus-visible { outline-color: #9db9f2; }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+@media print {
+    .jt-sidebar, .jt-topbar, .jt-footer, .jt-skip-link, .btn, .jt-filters, .jt-tabs, .pagination,
+    .dropdown, .modal, .alert .btn-close { display: none !important; }
+    body, .jt-main { background: #fff !important; }
+    .jt-shell, .jt-main { display: block !important; }
+    .jt-content { padding: 0 !important; }
+    .card, .jt-card { box-shadow: none !important; border: 1px solid #ccc !important; break-inside: avoid; }
+    a { color: inherit !important; text-decoration: none !important; }
+    .table-responsive { overflow: visible !important; }
+}
