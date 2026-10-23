@@ -1,0 +1,348 @@
+/* Job Tracker theme layer on top of Bootstrap 5.3.
+   Colours are CSS variables so the whole app can be re-branded in one place. */
+
+:root {
+    --jt-primary: #1f4b99;
+    --jt-primary-hover: #183c7a;
+    --jt-sidebar-bg: #0f1b2d;
+    --jt-sidebar-text: #aab7cb;
+    --jt-sidebar-active-bg: rgba(255, 255, 255, 0.09);
+    --jt-canvas: #f3f5f9;
+    --jt-card-border: #e3e8f0;
+    --jt-text: #1c2536;
+    --jt-muted: #667085;
+
+    /* Section colours from the client's sheet: amber / rose / green / grey-green */
+    --jt-ready: #d97706;
+    --jt-ready-bg: #fef3c7;
+    --jt-later: #be123c;
+    --jt-later-bg: #ffe4e6;
+    --jt-transit: #15803d;
+    --jt-transit-bg: #dcfce7;
+    --jt-delivered: #475569;
+    --jt-delivered-bg: #e2e8f0;
+
+    --jt-sidebar-width: 15.5rem;
+    --jt-radius: 0.65rem;
+
+    --bs-primary: var(--jt-primary);
+    --bs-primary-rgb: 31, 75, 153;
+    --bs-link-color: var(--jt-primary);
+    --bs-link-hover-color: var(--jt-primary-hover);
+    --bs-body-color: var(--jt-text);
+    --bs-body-font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --bs-border-radius: 0.5rem;
+}
+
+body {
+    background: var(--jt-canvas);
+    color: var(--jt-text);
+    font-feature-settings: "tnum" 1, "cv11" 1; /* tabular numbers keep job #, dates and money aligned */
+    -webkit-font-smoothing: antialiased;
+}
+
+.btn-primary {
+    --bs-btn-bg: var(--jt-primary);
+    --bs-btn-border-color: var(--jt-primary);
+    --bs-btn-hover-bg: var(--jt-primary-hover);
+    --bs-btn-hover-border-color: var(--jt-primary-hover);
+    --bs-btn-active-bg: var(--jt-primary-hover);
+    --bs-btn-active-border-color: var(--jt-primary-hover);
+    --bs-btn-disabled-bg: var(--jt-primary);
+    --bs-btn-disabled-border-color: var(--jt-primary);
+    font-weight: 500;
+}
+
+.form-control:focus,
+.form-select:focus,
+.btn:focus-visible {
+    border-color: var(--jt-primary);
+    box-shadow: 0 0 0 0.2rem rgba(31, 75, 153, 0.18);
+}
+
+.icon {
+    width: 1.15em;
+    height: 1.15em;
+    flex-shrink: 0;
+    vertical-align: -0.2em;
+}
+
+/* ---------- App shell ---------- */
+
+.jt-shell {
+    display: flex;
+    min-height: 100vh;
+}
+
+.jt-main {
+    flex: 1 1 auto;
+    min-width: 0; /* lets wide tables scroll inside the card instead of stretching the page */
+    display: flex;
+    flex-direction: column;
+}
+
+.jt-sidebar {
+    background: var(--jt-sidebar-bg);
+    color: var(--jt-sidebar-text);
+    --bs-offcanvas-width: 17rem;
+    --bs-offcanvas-bg: var(--jt-sidebar-bg);
+    --bs-offcanvas-color: var(--jt-sidebar-text);
+}
+
+@media (min-width: 992px) {
+    .jt-sidebar {
+        flex: 0 0 var(--jt-sidebar-width);
+        width: var(--jt-sidebar-width);
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow-y: auto;
+    }
+}
+
+.jt-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 1.15rem 1.25rem;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: #fff;
+    text-decoration: none;
+}
+
+.jt-brand .icon {
+    width: 1.4em;
+    height: 1.4em;
+    color: #7fb0ff;
+}
+
+.jt-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.5rem 0.75rem;
+}
+
+.jt-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.65rem 0.85rem;
+    border-radius: 0.5rem;
+    color: var(--jt-sidebar-text);
+    font-weight: 500;
+    text-decoration: none;
+    transition: background-color 0.15s, color 0.15s;
+}
+
+.jt-nav-link:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #fff;
+}
+
+.jt-nav-link.active {
+    background: var(--jt-sidebar-active-bg);
+    color: #fff;
+}
+
+.jt-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-height: 3.75rem;
+    padding: 0.5rem 1rem;
+    background: #fff;
+    border-bottom: 1px solid var(--jt-card-border);
+}
+
+.jt-page-title {
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 600;
+}
+
+.btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    border: 1px solid var(--jt-card-border);
+    background: #fff;
+}
+
+.jt-user-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 0;
+    font-weight: 500;
+}
+
+.jt-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--jt-primary);
+    color: #fff;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.jt-content {
+    flex: 1 1 auto;
+    padding: 1.25rem 1rem;
+}
+
+@media (min-width: 768px) {
+    .jt-content {
+        padding: 1.75rem 2rem;
+    }
+
+    .jt-topbar {
+        padding: 0.5rem 2rem;
+    }
+}
+
+.jt-footer {
+    padding: 1rem;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--jt-muted);
+}
+
+/* ---------- Cards ---------- */
+
+.jt-card {
+    border: 1px solid var(--jt-card-border);
+    border-radius: var(--jt-radius);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.jt-card .card-header {
+    border-bottom: 1px solid var(--jt-card-border);
+    padding: 0.9rem 1.15rem;
+}
+
+.jt-alert {
+    border-radius: var(--jt-radius);
+}
+
+/* ---------- Auth pages ---------- */
+
+.jt-auth {
+    background: linear-gradient(160deg, #0f1b2d 0%, #1f4b99 100%);
+    min-height: 100vh;
+}
+
+.jt-auth-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 1.5rem 1rem;
+}
+
+.jt-auth-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1.25rem;
+    color: #fff;
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.jt-auth-brand .icon {
+    width: 1.5em;
+    height: 1.5em;
+    color: #7fb0ff;
+}
+
+.jt-auth-card {
+    width: 100%;
+    max-width: 26rem;
+    border: 0;
+    border-radius: 0.9rem;
+}
+
+.jt-error-code {
+    font-size: 4rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--jt-primary);
+    opacity: 0.85;
+}
+
+/* ---------- Status badges (used from Phase 2 on) ---------- */
+
+.jt-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.28rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.jt-badge-booked { background: #e0e7ff; color: #3730a3; }
+.jt-badge-ready { background: var(--jt-ready-bg); color: var(--jt-ready); }
+.jt-badge-later { background: var(--jt-later-bg); color: var(--jt-later); }
+.jt-badge-transit { background: var(--jt-transit-bg); color: var(--jt-transit); }
+.jt-badge-delivered { background: var(--jt-delivered-bg); color: var(--jt-delivered); }
+.jt-badge-hold { background: #fef9c3; color: #854d0e; }
+.jt-badge-cancelled { background: #f1f5f9; color: #64748b; text-decoration: line-through; }
+
+/* ---------- Responsive table -> cards (used from Phase 2 on) ----------
+   Add class "table-cards" and a data-label="Column" attribute on every <td>. */
+
+@media (max-width: 767.98px) {
+    .table-cards thead {
+        display: none;
+    }
+
+    .table-cards,
+    .table-cards tbody,
+    .table-cards tr,
+    .table-cards td {
+        display: block;
+        width: 100%;
+    }
+
+    .table-cards tr {
+        margin-bottom: 0.85rem;
+        padding: 0.5rem 0.9rem;
+        background: #fff;
+        border: 1px solid var(--jt-card-border);
+        border-radius: var(--jt-radius);
+    }
+
+    .table-cards td {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.4rem 0;
+        border: 0;
+        text-align: right;
+    }
+
+    .table-cards td::before {
+        content: attr(data-label);
+        flex-shrink: 0;
+        font-weight: 600;
+        color: var(--jt-muted);
+        text-align: left;
+    }
+}

@@ -1,0 +1,19 @@
+{
+    "name": "softorio/job-tracker",
+    "description": "Custom Job Tracking Management Software (Core PHP, MySQL, Bootstrap 5.3)",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.1",
+        "ext-pdo": "*",
+        "ext-mbstring": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}

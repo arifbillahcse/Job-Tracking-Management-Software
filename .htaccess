@@ -1,0 +1,6 @@
+# Safety net: if the web server's document root is ever pointed at this folder by mistake,
+# nothing but /public is reachable. The correct setup is document root = job-tracker/public.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(?!public/) - [F,L]
+</IfModule>

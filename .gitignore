@@ -1,0 +1,10 @@
+.env
+/vendor/
+/storage/logs/*
+/storage/sessions/*
+/storage/imports/*
+/storage/exports/*
+/storage/*.sqlite
+!/storage/**/.gitkeep
+/public/assets/vendor/
+.phpunit.result.cache
