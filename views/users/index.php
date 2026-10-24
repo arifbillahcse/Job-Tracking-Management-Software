@@ -26,7 +26,7 @@ $sort = static function (string $label, string $key) use ($criteria): string {
         <div class="row g-2 align-items-end">
             <div class="col-12 col-md-5">
                 <label class="form-label" for="u-q">Search</label>
-                <input type="search" class="form-control" id="u-q" name="q" value="<?= e($criteria->q) ?>" maxlength="100" placeholder="Name or email">
+                <input type="search" class="form-control" id="u-q" name="q" value="<?= e($criteria->q) ?>" maxlength="100" placeholder="Name, username or email">
             </div>
             <div class="col-6 col-md-3">
                 <label class="form-label" for="u-role">Role</label>
@@ -72,7 +72,7 @@ $sort = static function (string $label, string $key) use ($criteria): string {
                 <thead>
                 <tr>
                     <th scope="col"><?= $sort('Name', 'name') ?></th>
-                    <th scope="col"><?= $sort('Email', 'email') ?></th>
+                    <th scope="col"><?= $sort('Username', 'username') ?></th>
                     <th scope="col"><?= $sort('Role', 'role') ?></th>
                     <th scope="col">Status</th>
                     <th scope="col"><?= $sort('Last sign-in', 'last_login') ?></th>
@@ -92,7 +92,7 @@ $sort = static function (string $label, string $key) use ($criteria): string {
                             <?php endif; ?>
                             <?= $user['self'] ? ' <span class="badge text-bg-light border fw-normal">you</span>' : '' ?>
                         </td>
-                        <td data-label="Email" class="text-break"><?= e($user['email']) ?></td>
+                        <td data-label="Username" class="text-break"><?= e($user['username']) ?><?= !empty($user['email']) ? '<div class="jt-subtle">' . e($user['email']) . '</div>' : '' ?></td>
                         <td data-label="Role"><span class="badge text-bg-light border"><?= e($user['role_name']) ?></span></td>
                         <td data-label="Status">
                             <?= (int) $user['is_active'] === 1 ? '<span class="jt-badge jt-badge-transit">Active</span>' : '<span class="jt-badge jt-badge-neutral">Inactive</span>' ?>

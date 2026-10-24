@@ -5,10 +5,10 @@
     <?= csrf_field() ?>
 
     <div class="mb-3">
-        <label for="email" class="form-label">Email</label>
-        <input type="email" class="form-control<?= has_error('email') ? ' is-invalid' : '' ?>" id="email" name="email"
-               value="<?= e(old('email')) ?>" maxlength="190" autocomplete="username" autofocus required>
-        <?= error_text('email') ?>
+        <label for="username" class="form-label">Username</label>
+        <input type="text" class="form-control<?= has_error('username') ? ' is-invalid' : '' ?>" id="username" name="username"
+               value="<?= e(old('username')) ?>" maxlength="60" autocomplete="username" autocapitalize="none" spellcheck="false" autofocus required>
+        <?= error_text('username') ?>
     </div>
 
     <div class="mb-4">

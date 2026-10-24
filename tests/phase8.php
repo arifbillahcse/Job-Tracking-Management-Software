@@ -10,6 +10,7 @@ declare(strict_types=1);
 use App\Core\Clock;
 use App\Core\Config;
 use App\Core\Database;
+use App\Core\Validator;
 
 function p8_job(array $override = []): ?array
 {
@@ -230,3 +231,87 @@ check(call('POST', '/account/password', ['current_password' => $arr, 'password' 
 check(call('POST', '/roles', ['name' => $arr, 'description' => $arr, 'copy_from' => $arr])->status() === 302, 'POST /roles with arrays is refused');
 restore_error_handler();
 check($warnings === [], 'none of that raised a PHP warning' . ($warnings === [] ? '' : ': ' . $warnings[0]));
+
+section('Usernames instead of e-mail');
+fresh_db();
+fresh_session();
+$names = [
+    'maria.lopez' => true, 'jo' => false, 'abc' => true, 'a-b_c.d' => true, '9lives' => true, '-start' => false, '.start' => false, '_start' => false,
+    'has space' => false, 'UPPER' => false, 'émile' => false, 'a@b.com' => false, 'semi;colon' => false, "new\nline" => false, '' => false,
+    str_repeat('a', 40) => true, str_repeat('a', 41) => false,
+];
+foreach ($names as $name => $valid) {
+    check(Validator::make(['u' => $name], ['u' => 'required|username'])->passes() === $valid, 'username ' . json_encode($name, JSON_UNESCAPED_UNICODE) . ' is ' . ($valid ? 'accepted' : 'refused'));
+}
+check(Validator::make(['u' => 'MariaLopez'], ['u' => 'required|lower|username'])->validated()['u'] === 'marialopez', 'the "lower" rule folds case before the other rules and in the value kept');
+
+$admin = make_user('Admin', 'un-admin@example.com');
+sign_in($admin);
+$staffRole = (string) role_id('Staff');
+$post = static fn (array $over = []): \App\Core\Response => call('POST', '/users', $over + ['name' => 'Maria Lopez', 'username' => 'Maria.Lopez', 'email' => '', 'role_id' => $staffRole]);
+
+$res = $post();
+$maria = Database::fetchOne("SELECT * FROM users WHERE username = 'maria.lopez'");
+check($res->status() === 302 && $maria !== null, 'an administrator can create a user with a username and no e-mail');
+check($maria['email'] === null, '...the missing e-mail is stored as NULL, not as an empty string');
+check($maria['username'] === 'maria.lopez', 'the username is stored in lower case');
+check($post(['name' => 'Jose', 'username' => 'jose', 'email' => ''])->status() === 302 && (int) Database::fetchValue('SELECT COUNT(*) FROM users WHERE email IS NULL') === 2, 'any number of users may have no e-mail');
+$r = $post(['name' => 'Dup', 'username' => 'MARIA.LOPEZ']);
+check(isset($_SESSION['_flash_next']['errors']['username']) && (int) Database::fetchValue("SELECT COUNT(*) FROM users WHERE username = 'maria.lopez'") === 1, 'a username that exists in another case is refused');
+$post(['name' => 'Bad', 'username' => 'bad name']);
+check(isset($_SESSION['_flash_next']['errors']['username']), 'an invalid username is a field error');
+$post(['name' => 'NoName', 'username' => '']);
+check(isset($_SESSION['_flash_next']['errors']['username']), 'a missing username is a field error');
+$post(['name' => 'Mail', 'username' => 'mailer', 'email' => 'Mailer@Example.com']);
+check(Database::fetchValue("SELECT email FROM users WHERE username = 'mailer'") === 'mailer@example.com', 'an optional e-mail is stored lower-cased');
+$post(['name' => 'Mail2', 'username' => 'mailer2', 'email' => 'MAILER@example.com']);
+check(isset($_SESSION['_flash_next']['errors']['email']) && Database::fetchValue("SELECT COUNT(*) FROM users WHERE username = 'mailer2'") == 0, 'a duplicate e-mail is still refused');
+$post(['name' => 'BadMail', 'username' => 'badmail', 'email' => 'not-an-email']);
+check(isset($_SESSION['_flash_next']['errors']['email']), 'a malformed e-mail is refused');
+
+$id = (int) $maria['id'];
+$edit = static fn (array $over = []): \App\Core\Response => call('POST', "/users/{$id}", $over + ['name' => 'Maria Lopez', 'username' => 'maria.lopez', 'email' => '', 'role_id' => $staffRole]);
+$edit(['username' => 'Maria.Gomez']);
+check(Database::fetchValue('SELECT username FROM users WHERE id = ?', [$id]) === 'maria.gomez', 'an administrator can rename a username');
+$a = last_audit('user_updated');
+check(str_contains((string) $a['old_values'], 'maria.lopez') && str_contains((string) $a['new_values'], 'maria.gomez'), '...and it is audited with old and new value');
+$edit(['username' => 'jose']);
+check(isset($_SESSION['_flash_next']['errors']['username']) && Database::fetchValue('SELECT username FROM users WHERE id = ?', [$id]) === 'maria.gomez', 'renaming to a taken username is refused');
+$edit(['username' => 'maria.gomez', 'email' => 'maria@example.com']);
+check(Database::fetchValue('SELECT email FROM users WHERE id = ?', [$id]) === 'maria@example.com', 'an e-mail can be added later');
+$edit(['username' => 'maria.gomez', 'email' => '']);
+check(Database::fetchValue('SELECT email FROM users WHERE id = ?', [$id]) === null, '...and removed again (back to NULL)');
+
+// signing in
+$svc = new \App\Services\AuthService();
+$req = static fn (string $ip): \App\Core\Request => \App\Core\Request::make('POST', '/login', [], [], ['REMOTE_ADDR' => $ip]);
+$pw = 'correct horse battery';
+$u = make_user('Staff', 'sam@example.com', $pw);
+check($svc->attempt('sam', $pw, $req('198.51.100.1'))['ok'], 'a user signs in with their username');
+check($svc->attempt('  SAM ', $pw, $req('198.51.100.2'))['ok'], '...in any letter case and with stray spaces');
+check(!$svc->attempt('sam@example.com', $pw, $req('198.51.100.3'))['ok'], 'the e-mail address does NOT sign anyone in');
+$bad = $svc->attempt('sam', 'wrong password!', $req('198.51.100.4'));
+$unknown = $svc->attempt('nobody', 'wrong password!', $req('198.51.100.5'));
+check($bad['error'] === $unknown['error'] && $bad['error'] === 'Invalid username or password.', 'a wrong password and an unknown username give the same message');
+$f = last_audit('login_failed');
+check(str_contains((string) $f['new_values'], '"username":"nobody"') && !str_contains((string) $f['new_values'], 'email'), 'failed sign-ins are audited by username');
+
+// the pages
+fresh_session();
+$login = call('GET', '/login')->content();
+check(str_contains($login, 'name="username"') && !str_contains($login, 'name="email"') && str_contains($login, 'autocomplete="username"') && !str_contains($login, 'type="email"'), 'the sign-in page asks for a username, not an e-mail');
+sign_in($admin);
+$users = call('GET', '/users')->content();
+check(str_contains($users, 'Username') && str_contains($users, 'maria.gomez') && str_contains($users, 'mailer@example.com'), 'the user list shows usernames, and e-mail where there is one');
+check(str_contains(call('GET', '/users', [], ['q' => 'gomez'])->content(), 'maria.gomez') && !str_contains(call('GET', '/users', [], ['q' => 'gomez'])->content(), 'mailer@'), 'users can be searched by username');
+check(str_contains(call('GET', '/users', [], ['sort' => 'username'])->status() . '', '200'), 'the list can be sorted by username');
+$form = call('GET', '/users/create')->content();
+check(str_contains($form, 'name="username"') && str_contains($form, '(optional)') && !preg_match('/name="email"[^>]*required/', $form), 'the new-user form has a required username and an optional e-mail');
+check(str_contains(call('GET', '/account')->content(), 'un-admin') && !str_contains(call('GET', '/account')->content(), 'name="email"'), 'My Account shows the username');
+check(str_contains(call('GET', '/dashboard')->content(), 'un-admin'), 'the account menu shows the username');
+$audit = call('GET', '/audit')->content();
+check(str_contains($audit, 'Login failed') || str_contains($audit, 'Failed sign-in'), 'the audit log lists the failed sign-in');
+$aid = (int) Database::fetchValue("SELECT id FROM audit_logs WHERE action = 'user_created' ORDER BY id DESC LIMIT 1");
+check(str_contains(call('GET', '/audit/' . $aid)->content(), 'un-admin'), 'an audit entry shows who did it by username');
+$reset = (new \App\Services\UserService())->resetPassword((int) $u['id']);
+check($reset['ok'] && $reset['username'] === 'sam' && !isset($reset['email']), 'resetting a password reports the username');

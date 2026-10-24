@@ -5,7 +5,7 @@ declare(strict_types=1);
 /**
  * Create a user account. No default credentials ship with the app.
  *
- *   php cli/create-user.php --email=you@example.com --name="Your Name" [--role=Admin|Manager|Staff] [--password=...] [--force-change]
+ *   php cli/create-user.php --username=maria.lopez --name="Maria Lopez" [--email=maria@example.com] [--role=Admin|Manager|Staff] [--password=...] [--force-change]
  *
  * The role defaults to Staff (cli/create-admin.php is a shortcut for --role=Admin).
  * Without --password a strong random one is generated and printed once.
@@ -39,13 +39,15 @@ $password = $generated ? PasswordPolicy::generate(20) : $options['password'];
 
 $input = [
     'name' => is_string($options['name'] ?? null) ? $options['name'] : 'Administrator',
-    'email' => is_string($options['email'] ?? null) ? $options['email'] : '',
+    'username' => is_string($options['username'] ?? null) ? strtolower(trim($options['username'])) : '',
+    'email' => is_string($options['email'] ?? null) && trim($options['email']) !== '' ? strtolower(trim($options['email'])) : null,
     'password' => $password,
 ];
 
 $validator = Validator::make($input, [
     'name' => 'required|max:120',
-    'email' => 'required|email|max:190|unique:users,email',
+    'username' => 'required|username|unique:users,username',
+    'email' => 'nullable|email|max:190|unique:users,email',
     'password' => 'required|password',
 ]);
 
@@ -53,7 +55,7 @@ if ($validator->fails()) {
     foreach ($validator->errors() as $messages) {
         fwrite(STDERR, '  - ' . $messages[0] . PHP_EOL);
     }
-    fwrite(STDERR, "Usage: php cli/create-user.php --email=you@example.com --name=\"Your Name\" [--role=Admin|Manager|Staff] [--password=...] [--force-change]\n");
+    fwrite(STDERR, "Usage: php cli/create-user.php --username=maria.lopez --name=\"Maria Lopez\" [--email=maria@example.com] [--role=Admin|Manager|Staff] [--password=...] [--force-change]\n");
     exit(1);
 }
 
@@ -66,15 +68,16 @@ if ($role === null) {
 
 $id = (new UserRepository())->create([
     'name' => $input['name'],
+    'username' => $input['username'],
     'email' => $input['email'],
     'password_hash' => PasswordPolicy::hash($password),
     'role_id' => (int) $role['id'],
     'must_change_password' => isset($options['force-change']) ? 1 : 0,
 ]);
 
-AuditService::record('user_created', 'user', $id, null, ['email' => strtolower($input['email']), 'role' => $roleName, 'via' => 'cli']);
+AuditService::record('user_created', 'user', $id, null, ['username' => $input['username'], 'email' => $input['email'], 'role' => $roleName, 'via' => 'cli']);
 
-echo "{$roleName} created: {$input['email']}\n";
+echo "{$roleName} created: {$input['username']}\n";
 if ($generated) {
     echo "Generated password (shown once): {$password}\n";
 }

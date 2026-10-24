@@ -18,7 +18,7 @@ sleep 1
 
 token() { grep -o 'name="_csrf" value="[^"]*"' | head -1 | sed 's/.*value="//; s/"$//'; }
 t=$(curl -s -c "$JAR" "$BASE/login" | token)
-curl -s -o /dev/null -b "$JAR" -c "$JAR" --data-urlencode "_csrf=$t" --data-urlencode "email=perf@example.com" --data-urlencode "password=Perf test passphrase 1" "$BASE/login"
+curl -s -o /dev/null -b "$JAR" -c "$JAR" --data-urlencode "_csrf=$t" --data-urlencode "username=perf" --data-urlencode "password=Perf test passphrase 1" "$BASE/login"
 
 # name  path  budget_seconds
 measure() {

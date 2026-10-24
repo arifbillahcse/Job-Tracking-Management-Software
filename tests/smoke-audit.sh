@@ -4,8 +4,8 @@
 # Changes settings and puts them back at the end. Use a dev database.
 set -u
 
-BASE="${1:?base url}"; A_EMAIL="${2:?admin email}"; A_PASS="${3:?admin password}"
-S_EMAIL="${4:?staff email}"; S_PASS="${5:?staff password}"; M_EMAIL="${6:?manager email}"; M_PASS="${7:?manager password}"
+BASE="${1:?base url}"; A_USER="${2:?admin username}"; A_PASS="${3:?admin password}"
+S_USER="${4:?staff username}"; S_PASS="${5:?staff password}"; M_USER="${6:?manager username}"; M_PASS="${7:?manager password}"
 AJ="$(mktemp)"; SJ="$(mktemp)"; MJ="$(mktemp)"; PASSED=0; FAILED=0
 trap 'rm -f "$AJ" "$SJ" "$MJ"' EXIT
 
@@ -18,7 +18,7 @@ code()  { curl -s -o /dev/null -w '%{http_code}' "$@"; }
 get()   { curl -s -b "$1" -c "$1" "$BASE$2"; }
 text()  { sed 's/<[^>]*>/ /g' | tr -s ' \n' ' '; }
 flat()  { tr '\n' ' ' | sed 's/  */ /g'; }
-signin() { local t; t=$(curl -s -c "$1" "$BASE/login" | token); curl -s -o /dev/null -b "$1" -c "$1" --data-urlencode "_csrf=$t" --data-urlencode "email=$2" --data-urlencode "password=$3" "$BASE/login"; }
+signin() { local t; t=$(curl -s -c "$1" "$BASE/login" | token); curl -s -o /dev/null -b "$1" -c "$1" --data-urlencode "_csrf=$t" --data-urlencode "username=$2" --data-urlencode "password=$3" "$BASE/login"; }
 tok()  { curl -s -b "$1" -c "$1" "$BASE/account" | token; }
 total() { get "$1" "$2" | flat | grep -oP 'of \K[0-9]+(?= job)' | head -1; }
 field() { get "$AJ" /settings | grep -oP "name=\"$1\"[^>]*value=\"\K[^\"]*" | head -1; }
@@ -26,7 +26,7 @@ selected() { get "$AJ" /settings | tr '\n' ' ' | grep -oP "<select[^>]*id=\"$1\"
 save() { curl -s -i -b "$AJ" -c "$AJ" --data-urlencode "_csrf=$(tok "$AJ")" "$@" "$BASE/settings" | head -1 | tr -d '\r'; }
 sv() { save --data-urlencode "company_name=${1:-$NAME0}" --data-urlencode "ready_threshold_days=${2:-$DAYS0}" --data-urlencode "currency_symbol=$SYM0" --data-urlencode "timezone=$TZ0" --data-urlencode "page_size=$PS0"; }
 
-signin "$AJ" "$A_EMAIL" "$A_PASS"; signin "$SJ" "$S_EMAIL" "$S_PASS"; signin "$MJ" "$M_EMAIL" "$M_PASS"
+signin "$AJ" "$A_USER" "$A_PASS"; signin "$SJ" "$S_USER" "$S_PASS"; signin "$MJ" "$M_USER" "$M_PASS"
 NAME0=$(field company_name); DAYS0=$(field ready_threshold_days); SYM0=$(field currency_symbol); TZ0=$(selected timezone); PS0=$(selected page_size)
 echo "(current: $NAME0 / $DAYS0 days / $SYM0 / $TZ0 / $PS0 per page)"
 
@@ -75,7 +75,7 @@ check "no file contents leak on a probe of the SQLite database" '! curl -s "$BAS
 check "directory listing is not offered for assets" '! curl -s "$BASE/assets/" | grep -qi "index of"'
 check "a very long URL is handled" '[[ $(code "$BASE/$(head -c 6000 /dev/zero | tr "\0" a)") =~ ^(404|414|400)$ ]]'
 check "a hostile Host header does not appear in redirects" 'H=$(curl -s -i -H "Host: evil.example" "$BASE/dashboard" | grep -i "^location:"); ! grep -qi "evil.example" <<<"$H"'
-check "open redirect through the sign-in return path is refused" 'C=$(mktemp); t=$(curl -s -c $C "$BASE/login?next=//evil.example" | token); R=$(curl -s -i -b $C -c $C --data-urlencode "_csrf=$t" --data-urlencode "email=$A_EMAIL" --data-urlencode "password=$A_PASS" "$BASE/login?next=//evil.example" | grep -i "^location:"); rm -f $C; ! grep -qi "evil.example" <<<"$R"'
+check "open redirect through the sign-in return path is refused" 'C=$(mktemp); t=$(curl -s -c $C "$BASE/login?next=//evil.example" | token); R=$(curl -s -i -b $C -c $C --data-urlencode "_csrf=$t" --data-urlencode "username=$A_USER" --data-urlencode "password=$A_PASS" "$BASE/login?next=//evil.example" | grep -i "^location:"); rm -f $C; ! grep -qi "evil.example" <<<"$R"'
 
 echo "== Restore"
 check "settings are put back" 'sv "$NAME0" "$DAYS0" >/dev/null; [[ "$(field company_name)" == "$NAME0" && "$(field ready_threshold_days)" == "$DAYS0" && "$(total "$AJ" /jobs/ready)" == "$READY0" ]]'

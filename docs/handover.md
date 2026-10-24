@@ -28,7 +28,7 @@ Everything the client's team needs to own, run, and extend this software.
 | Tool | Purpose |
 |---|---|
 | `migrate`, `seed` | Create/upgrade tables; add permissions, default roles, default settings (safe to repeat) |
-| `create-admin`, `create-user`, `reset-password` | First administrator; more users; break-glass password recovery |
+| `create-admin`, `create-user`, `reset-password` | First administrator; more users (all by `--username`); break-glass password recovery |
 | `backup`, `cleanup` | Database backup; housekeeping (dry run unless `--apply`) |
 | `doctor`, `route-audit` | Environment self-check; access-rule check of every route |
 | `permission-report` | Regenerates `docs/permission-matrix.md` from the live system |
@@ -36,7 +36,7 @@ Everything the client's team needs to own, run, and extend this software.
 
 ## 3. Evidence of quality
 
-1,363 automated unit/integration checks, a 44-check proof that the release archive runs on its own, 336 HTTP checks in 6 suites, a 19-step browser walkthrough, a scale test (20,000 and 100,000 jobs), WCAG-AA contrast and layout audits, and about 20 deliberate-breakage checks proving the tests can fail. Run all with `tests/all.sh --perf --e2e`. Details and what is *not* covered: `docs/test-plan.md`.
+1,420 automated unit/integration checks, a 44-check proof that the release archive runs on its own, 336 HTTP checks in 6 suites, a 19-step browser walkthrough, a scale test (20,000 and 100,000 jobs), WCAG-AA contrast and layout audits, and about 20 deliberate-breakage checks proving the tests can fail. Run all with `tests/all.sh --perf --e2e`. Details and what is *not* covered: `docs/test-plan.md`.
 
 ## 4. Known limits and things not verified
 

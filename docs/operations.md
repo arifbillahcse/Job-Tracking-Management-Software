@@ -84,7 +84,7 @@ A one-line check for trouble: `grep -c ERROR storage/logs/app-$(date -u +%F).log
 
 | Situation | Do this |
 |---|---|
-| **The only administrator forgot their password** | `php cli/reset-password.php --email=owner@yourcompany.com`. It prints a temporary password once, unlocks the account and forces a new password. The reset is in the Audit Log |
+| **The only administrator forgot their password** | `php cli/reset-password.php --username=owner`. It prints a temporary password once, unlocks the account and forces a new password. The reset is in the Audit Log |
 | A user is locked out (5 wrong passwords) | Administrator: Users -> the person -> **Unlock**. It also clears itself after 15 minutes |
 | A user forgot their password | Administrator: Users -> the person -> **Reset password**; give them the temporary password in person or by phone |
 | Someone should lose access now | Users -> **Deactivate**. Their open sessions stop on their next click |

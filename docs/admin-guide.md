@@ -21,11 +21,11 @@ You can change this: **Roles & Permissions -> Permission matrix**. The full list
 
 ## Adding a person
 
-1. **Users -> New user.** Enter name, e-mail and role.
+1. **Users -> New user.** Enter the person's name, a **username** and a role. The username is what they type to sign in: 3 to 40 lower-case letters, numbers, dots, dashes or underscores, such as `maria.lopez`. An e-mail address is optional contact information and is not used to sign in.
 2. A **temporary password** is shown **once**. Give it to the person in person or by phone (never by e-mail or chat). If you lose it, use *Reset password*.
 3. At first sign-in they must choose their own password (at least 10 characters; a long phrase is best).
 
-To remove access: **Deactivate** (keeps their name on old jobs and history) or **Delete** (hides the account; their e-mail stays reserved). Deactivated people are signed out on their next click.
+To remove access: **Deactivate** (keeps their name on old jobs and history) or **Delete** (hides the account; their username stays reserved). Deactivated people are signed out on their next click.
 
 ## Safeguards you will run into (on purpose)
 

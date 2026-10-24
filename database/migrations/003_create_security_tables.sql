@@ -3,13 +3,13 @@
 
 CREATE TABLE login_attempts (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    email VARCHAR(190) NOT NULL,
+    username VARCHAR(190) NOT NULL,
     ip VARCHAR(45) NOT NULL,
     successful TINYINT(1) NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE INDEX idx_login_attempts_email ON login_attempts (email, created_at);
+CREATE INDEX idx_login_attempts_username ON login_attempts (username, created_at);
 CREATE INDEX idx_login_attempts_ip ON login_attempts (ip, created_at);
 
 CREATE TABLE audit_logs (

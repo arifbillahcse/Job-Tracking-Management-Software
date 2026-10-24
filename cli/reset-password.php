@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /**
  * Recover access when the only administrator has forgotten their password (or is locked out).
- *   php cli/reset-password.php --email=admin@example.com
+ *   php cli/reset-password.php --username=owner
  * Generates a temporary password (shown once), requires a new one at the next sign-in, unlocks the account and ends
  * that person's other sessions. Needs shell access to the server, which is the point: it is the break-glass path.
  */
@@ -22,21 +22,21 @@ use App\Services\AuditService;
 
 App::boot();
 
-$email = '';
+$username = '';
 foreach ($argv as $arg) {
-    if (preg_match('/^--email=(.+)$/', $arg, $m)) {
-        $email = strtolower(trim($m[1]));
+    if (preg_match('/^--username=(.+)$/', $arg, $m)) {
+        $username = strtolower(trim($m[1]));
     }
 }
-if ($email === '') {
-    fwrite(STDERR, "Usage: php cli/reset-password.php --email=person@example.com\n");
+if ($username === '') {
+    fwrite(STDERR, "Usage: php cli/reset-password.php --username=person\n");
     exit(1);
 }
 
 $users = new UserRepository();
-$user = $users->findByEmail($email);
+$user = $users->findByUsername($username);
 if ($user === null || $user['deleted_at'] !== null) {
-    fwrite(STDERR, "No user with the email {$email}.\n");
+    fwrite(STDERR, "No user with the username {$username}.\n");
     exit(1);
 }
 
@@ -47,7 +47,7 @@ if ((int) $user['is_active'] !== 1) {
     $users->setActive((int) $user['id'], true);
     echo "The account was deactivated; it has been reactivated.\n";
 }
-AuditService::record('password_reset', 'user', (int) $user['id'], null, ['email' => $email, 'via' => 'cli']);
+AuditService::record('password_reset', 'user', (int) $user['id'], null, ['username' => $username, 'via' => 'cli']);
 
-echo "Temporary password for {$email} (shown once): {$password}\n";
+echo "Temporary password for {$username} (shown once): {$password}\n";
 echo "They must choose a new password at their next sign-in. Any other open sessions have ended.\n";

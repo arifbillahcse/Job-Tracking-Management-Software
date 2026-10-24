@@ -17,7 +17,7 @@
                     <dt class="col-4 text-body-secondary fw-normal">Entry</dt><dd class="col-8">#<?= e($entry['id']) ?></dd>
                     <dt class="col-4 text-body-secondary fw-normal">When</dt><dd class="col-8"><?= e(fmt_datetime($entry['created_at'])) ?></dd>
                     <dt class="col-4 text-body-secondary fw-normal">Who</dt>
-                    <dd class="col-8"><?= $entry['user_name'] !== null ? e($entry['user_name']) . ' <span class="text-body-secondary text-break">(' . e($entry['user_email']) . ')</span>' : '<span class="text-body-secondary">Not signed in</span>' ?></dd>
+                    <dd class="col-8"><?= $entry['user_name'] !== null ? e($entry['user_name']) . ' <span class="text-body-secondary text-break">(' . e($entry['user_username']) . ')</span>' : '<span class="text-body-secondary">Not signed in</span>' ?></dd>
                     <dt class="col-4 text-body-secondary fw-normal">Code</dt><dd class="col-8"><code><?= e($entry['action']) ?></code></dd>
                     <dt class="col-4 text-body-secondary fw-normal">Record</dt>
                     <dd class="col-8"><?= $entry['entity'] === null ? '—' : e($entry['entity']) . ($entry['entity_id'] !== null ? ' #' . e($entry['entity_id']) : '') ?></dd>

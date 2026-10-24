@@ -1,9 +1,11 @@
--- Application users. Rows are soft-deleted (deleted_at) so audit history keeps pointing at a real user.
+-- Application users. People sign in with a lower-case username; the e-mail address is optional contact information.
+-- Rows are soft-deleted (deleted_at) so audit history keeps pointing at a real user.
 
 CREATE TABLE users (
     id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(120) NOT NULL,
-    email VARCHAR(190) NOT NULL UNIQUE,
+    username VARCHAR(40) NOT NULL UNIQUE,
+    email VARCHAR(190) NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     role_id INT UNSIGNED NOT NULL,
     is_active TINYINT(1) NOT NULL DEFAULT 1,

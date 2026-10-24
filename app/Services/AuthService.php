@@ -13,14 +13,14 @@ use App\Repositories\UserRepository;
 /**
  * Credential checking with throttling.
  *
- * Every failure - unknown email, wrong password, inactive account - returns
+ * Every failure - unknown username, wrong password, inactive account - returns
  * the same message so accounts cannot be enumerated. Lockouts apply to unknown
- * emails too (by failed-attempt count), so a locked response does not reveal
+ * usernames too (by failed-attempt count), so a locked response does not reveal
  * that an account exists either.
  */
 final class AuthService
 {
-    public const MSG_INVALID = 'Invalid email or password.';
+    public const MSG_INVALID = 'Invalid username or password.';
     public const MSG_LOCKED = 'Too many failed sign-in attempts. Please wait a few minutes and try again.';
 
     private static ?string $dummyHash = null;
@@ -34,9 +34,9 @@ final class AuthService
     /**
      * @return array{ok:bool,user:?array<string,mixed>,error:?string}
      */
-    public function attempt(string $email, string $password, Request $request): array
+    public function attempt(string $username, string $password, Request $request): array
     {
-        $email = strtolower(trim($email));
+        $username = strtolower(trim($username));
         $ip = $request->ip();
         $now = gmdate('Y-m-d H:i:s');
 
@@ -46,21 +46,21 @@ final class AuthService
         $ipWindow = gmdate('Y-m-d H:i:s', time() - (int) Config::get('app.auth.ip_window_minutes', 15) * 60);
 
         if ($ip !== '' && $this->attempts->failuresByIp($ip, $ipWindow) >= $ipLimit) {
-            return $this->fail($email, $ip, self::MSG_LOCKED);
+            return $this->fail($username, $ip, self::MSG_LOCKED);
         }
 
-        $user = $this->users->findByEmail($email);
+        $user = $this->users->findByUsername($username);
 
         if ($user === null) {
-            // Burn comparable CPU time so response timing does not reveal unknown emails.
+            // Burn comparable CPU time so response timing does not reveal unknown usernames.
             password_verify($password, $this->dummyHash());
             $window = gmdate('Y-m-d H:i:s', time() - $lockMinutes * 60);
-            $locked = $this->attempts->failuresByEmail($email, $window) >= $maxFailures;
-            return $this->fail($email, $ip, $locked ? self::MSG_LOCKED : self::MSG_INVALID);
+            $locked = $this->attempts->failuresByUsername($username, $window) >= $maxFailures;
+            return $this->fail($username, $ip, $locked ? self::MSG_LOCKED : self::MSG_INVALID);
         }
 
         if ($user['locked_until'] !== null && (string) $user['locked_until'] > $now) {
-            return $this->fail($email, $ip, self::MSG_LOCKED);
+            return $this->fail($username, $ip, self::MSG_LOCKED);
         }
 
         $valid = password_verify($password, (string) $user['password_hash']);
@@ -73,7 +73,7 @@ final class AuthService
                     AuditService::record('account_locked', 'user', (int) $user['id'], null, ['failed_attempts' => $count], (int) $user['id']);
                 }
             }
-            return $this->fail($email, $ip, self::MSG_INVALID);
+            return $this->fail($username, $ip, self::MSG_INVALID);
         }
 
         if (PasswordPolicy::needsRehash((string) $user['password_hash'])) {
@@ -82,7 +82,7 @@ final class AuthService
         }
 
         $this->users->recordLoginSuccess((int) $user['id']);
-        $this->attempts->record($email, $ip, true);
+        $this->attempts->record($username, $ip, true);
 
         return ['ok' => true, 'user' => $user, 'error' => null];
     }
@@ -118,10 +118,10 @@ final class AuthService
     /**
      * @return array{ok:bool,user:?array<string,mixed>,error:?string}
      */
-    private function fail(string $email, string $ip, string $message): array
+    private function fail(string $username, string $ip, string $message): array
     {
-        $this->attempts->record($email, $ip, false);
-        AuditService::record('login_failed', null, null, null, ['email' => $email], null);
+        $this->attempts->record($username, $ip, false);
+        AuditService::record('login_failed', null, null, null, ['username' => $username], null);
         return ['ok' => false, 'user' => null, 'error' => $message];
     }
 

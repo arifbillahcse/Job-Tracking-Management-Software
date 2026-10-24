@@ -73,9 +73,10 @@ final class UserController extends Controller
     {
         $data = $this->validate($request, [
             'name' => 'required|max:120',
-            'email' => 'required|email|max:190|unique:users,email',
+            'username' => 'required|lower|username|unique:users,username',
+            'email' => 'nullable|lower|email|max:190|unique:users,email',
             'role_id' => 'required|integer|exists:roles,id',
-        ], '/users/create', ['name' => 'Name', 'email' => 'Email', 'role_id' => 'Role']);
+        ], '/users/create', ['name' => 'Name', 'username' => 'Username', 'email' => 'Email', 'role_id' => 'Role']);
         if ($data instanceof Response) {
             return $data;
         }
@@ -86,7 +87,7 @@ final class UserController extends Controller
         }
 
         $this->flash('success', 'User ' . $data['name'] . ' was created. They must choose a new password at first sign-in.');
-        Session::flash('secret', ['label' => 'Temporary password for ' . strtolower((string) $data['email']), 'value' => $result['password']]);
+        Session::flash('secret', ['label' => 'Temporary password for ' . $data['username'], 'value' => $result['password']]);
         return $this->redirect('/users/' . $result['id'] . '/edit');
     }
 
@@ -117,9 +118,10 @@ final class UserController extends Controller
         $back = '/users/' . $id . '/edit';
         $data = $this->validate($request, [
             'name' => 'required|max:120',
-            'email' => 'required|email|max:190|unique:users,email,' . $id,
+            'username' => 'required|lower|username|unique:users,username,' . $id,
+            'email' => 'nullable|lower|email|max:190|unique:users,email,' . $id,
             'role_id' => 'required|integer|exists:roles,id',
-        ], $back, ['name' => 'Name', 'email' => 'Email', 'role_id' => 'Role']);
+        ], $back, ['name' => 'Name', 'username' => 'Username', 'email' => 'Email', 'role_id' => 'Role']);
         if ($data instanceof Response) {
             return $data;
         }
@@ -151,7 +153,7 @@ final class UserController extends Controller
         }
 
         $this->flash('success', 'The password was reset. The user must choose a new one at next sign-in, and any open sessions were ended.');
-        Session::flash('secret', ['label' => 'Temporary password for ' . $result['email'], 'value' => $result['password']]);
+        Session::flash('secret', ['label' => 'Temporary password for ' . $result['username'], 'value' => $result['password']]);
         return $this->redirect('/users/' . $id . '/edit');
     }
 
@@ -174,7 +176,7 @@ final class UserController extends Controller
             return $this->refuse($result['code'], '/users/' . $id . '/edit');
         }
 
-        $this->flash('success', 'User ' . $user['name'] . ' was deleted. Their jobs and history are kept, and the email address stays reserved.');
+        $this->flash('success', 'User ' . $user['name'] . ' was deleted. Their jobs and history are kept, and the username stays reserved.');
         return $this->redirect('/users');
     }
 
@@ -204,6 +206,7 @@ final class UserController extends Controller
     private function refuseForm(Request $request, string $code, string $back): Response
     {
         return match ($code) {
+            'duplicate_username' => $this->redirectWithErrors($request, ['username' => ['That username is already in use (it may belong to a deleted user).']], $back),
             'duplicate_email' => $this->redirectWithErrors($request, ['email' => ['That email address is already in use (it may belong to a deleted user).']], $back),
             'invalid_role', 'forbidden' => $this->redirectWithErrors($request, ['role_id' => [self::MESSAGES[$code]]], $back),
             default => $this->refuse($code, $back),

@@ -23,9 +23,9 @@ summary_of() { grep -E '[0-9]+ passed, [0-9]+ failed|within budget' "$1" | tail 
 
 echo "Preparing a throw-away database..."
 php cli/migrate.php >/dev/null && php cli/seed.php >/dev/null || { echo "setup failed"; exit 1; }
-php cli/create-user.php --email=admin@example.com   --name="Demo Admin"   --role=Admin   --password="$AP" >/dev/null
-php cli/create-user.php --email=manager@example.com --name="Demo Manager" --role=Manager --password="$MP" >/dev/null
-php cli/create-user.php --email=staff@example.com   --name="Demo Staff"   --role=Staff   --password="$SP" >/dev/null
+php cli/create-user.php --username=admin   --name="Demo Admin"   --role=Admin   --password="$AP" >/dev/null
+php cli/create-user.php --username=manager --name="Demo Manager" --role=Manager --password="$MP" >/dev/null
+php cli/create-user.php --username=staff   --name="Demo Staff"   --role=Staff   --password="$SP" >/dev/null
 php cli/seed-demo.php --count=60 >/dev/null
 
 echo "Unit and integration suite..."
@@ -45,11 +45,11 @@ for _ in $(seq 1 30); do curl -s -o /dev/null "$BASE/login" && break; sleep 0.3;
 
 smoke() { # name script
   echo "$1..."
-  bash "tests/$2.sh" "$BASE" admin@example.com "$AP" staff@example.com "$SP" manager@example.com "$MP" >"$LOG/$2.txt" 2>&1; rc=$?
+  bash "tests/$2.sh" "$BASE" admin "$AP" staff "$SP" manager "$MP" >"$LOG/$2.txt" 2>&1; rc=$?
   record "$1" $([[ $rc -eq 0 ]] && echo PASS || echo FAIL) "$(summary_of "$LOG/$2.txt")"
 }
 echo "Sign-in and security smoke..."
-bash tests/smoke.sh "$BASE" admin@example.com "$AP" >"$LOG/smoke.txt" 2>&1; rc=$?
+bash tests/smoke.sh "$BASE" admin "$AP" >"$LOG/smoke.txt" 2>&1; rc=$?
 record "sign-in and security (HTTP)" $([[ $rc -eq 0 ]] && echo PASS || echo FAIL) "$(summary_of "$LOG/smoke.txt")"
 smoke "jobs CRUD (HTTP)" smoke-jobs
 smoke "sections and workflow (HTTP)" smoke-workflow
@@ -57,7 +57,7 @@ smoke "import and export (HTTP)" smoke-import
 smoke "settings, audit, private files (HTTP)" smoke-audit
 if [[ $RUN_E2E -eq 1 ]]; then
   echo "Browser walkthrough..."
-  BASE="$BASE" ADMIN=admin@example.com ADMIN_PASS="$AP" STAFF=staff@example.com STAFF_PASS="$SP" node tests/e2e/uat.js >"$LOG/e2e.txt" 2>&1; rc=$?
+  BASE="$BASE" ADMIN=admin ADMIN_PASS="$AP" STAFF=staff STAFF_PASS="$SP" node tests/e2e/uat.js >"$LOG/e2e.txt" 2>&1; rc=$?
   record "browser walkthrough" $([[ $rc -eq 0 ]] && echo PASS || echo FAIL) "$(summary_of "$LOG/e2e.txt")"
 fi
 smoke "users, roles, lockout (HTTP)" smoke-admin   # last: it deliberately trips the sign-in throttle

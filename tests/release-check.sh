@@ -34,7 +34,7 @@ export DB_DRIVER=sqlite DB_DATABASE="$WORK/rel.sqlite" APP_ENV=local APP_DEBUG=f
 cd "$APP"
 check "migrate" 'php cli/migrate.php >/dev/null 2>&1'
 check "seed" 'php cli/seed.php >/dev/null 2>&1'
-OUT=$(php cli/create-admin.php --email=owner@example.com --name="Owner" 2>&1); PW=$(grep -oP 'password \(shown once\): \K.*' <<<"$OUT")
+OUT=$(php cli/create-admin.php --username=owner --name="Owner" 2>&1); PW=$(grep -oP 'password \(shown once\): \K.*' <<<"$OUT")
 check "create-admin prints a one-time password" '[[ -n "$PW" ]]'
 check "doctor runs and reports a version" 'php cli/doctor.php 2>&1 | grep -q "Job Tracker $VERSION"'
 check "route audit passes" 'php cli/route-audit.php >/dev/null 2>&1'
@@ -45,7 +45,7 @@ check "assets are served from the release" '[[ $(curl -s -o /dev/null -w "%{http
 check "app/, storage/, .env.example are not reachable over HTTP" '[[ $(curl -s -o /dev/null -w "%{http_code}" "$BASE/app/Config/app.php") == 404 && $(curl -s -o /dev/null -w "%{http_code}" "$BASE/.env.example") == 404 && $(curl -s -o /dev/null -w "%{http_code}" "$BASE/storage/logs/") == 404 ]]'
 JAR="$WORK/jar"
 T=$(curl -s -c "$JAR" "$BASE/login" | grep -o 'name="_csrf" value="[^"]*"' | head -1 | sed 's/.*value="//; s/"$//')
-curl -s -o /dev/null -b "$JAR" -c "$JAR" --data-urlencode "_csrf=$T" --data-urlencode "email=owner@example.com" --data-urlencode "password=$PW" "$BASE/login"
+curl -s -o /dev/null -b "$JAR" -c "$JAR" --data-urlencode "_csrf=$T" --data-urlencode "username=owner" --data-urlencode "password=$PW" "$BASE/login"
 check "the administrator can sign in and sees the dashboard" 'curl -s -b "$JAR" -c "$JAR" "$BASE/dashboard" | grep -q "Total jobs"'
 T=$(curl -s -b "$JAR" -c "$JAR" "$BASE/jobs/create" | grep -o 'name="_csrf" value="[^"]*"' | head -1 | sed 's/.*value="//; s/"$//')
 curl -s -o /dev/null -b "$JAR" -c "$JAR" --data-urlencode "_csrf=$T" -d job_number=REL-1 -d customer_first_name=Rel -d customer_last_name=Check -d from_location=A -d to_location=B -d first_available_date=2030-01-01 "$BASE/jobs"
@@ -53,8 +53,8 @@ check "a job can be created and found" 'curl -s -b "$JAR" "$BASE/jobs?q=REL-1" |
 check "a backup can be made from the release" 'php cli/backup.php --keep=2 2>&1 | grep -q "Backup written" && [[ -n "$(find storage/backups -name "job-tracker-*" -print -quit)" ]]'
 check "the backup is not world-readable" '[[ -z "$(find storage/backups -name "job-tracker-*" -perm -o+r -print -quit)" ]]'
 check "cleanup dry run works" 'php cli/cleanup.php 2>&1 | grep -q "dry run"'
-OUT=$(php cli/reset-password.php --email=owner@example.com 2>&1); NEWPW=$(grep -oP 'shown once\): \K.*' <<<"$OUT")
+OUT=$(php cli/reset-password.php --username=owner 2>&1); NEWPW=$(grep -oP 'shown once\): \K.*' <<<"$OUT")
 check "reset-password gives a new one-time password" '[[ -n "$NEWPW" && "$NEWPW" != "$PW" ]]'
-check "the old password no longer works and the new one must be changed" 'T=$(curl -s -c "$WORK/j2" "$BASE/login" | grep -o "name=\"_csrf\" value=\"[^\"]*\"" | head -1 | sed "s/.*value=\"//; s/\"\$//"); curl -s -o /dev/null -b "$WORK/j2" -c "$WORK/j2" --data-urlencode "_csrf=$T" --data-urlencode "email=owner@example.com" --data-urlencode "password=$NEWPW" "$BASE/login"; curl -s -i -b "$WORK/j2" "$BASE/dashboard" | grep -qi "^location: .*account"'
+check "the old password no longer works and the new one must be changed" 'T=$(curl -s -c "$WORK/j2" "$BASE/login" | grep -o "name=\"_csrf\" value=\"[^\"]*\"" | head -1 | sed "s/.*value=\"//; s/\"\$//"); curl -s -o /dev/null -b "$WORK/j2" -c "$WORK/j2" --data-urlencode "_csrf=$T" --data-urlencode "username=owner" --data-urlencode "password=$NEWPW" "$BASE/login"; curl -s -i -b "$WORK/j2" "$BASE/dashboard" | grep -qi "^location: .*account"'
 echo; echo "$PASSED passed, $FAILED failed"
 [[ $FAILED -eq 0 ]]

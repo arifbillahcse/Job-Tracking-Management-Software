@@ -103,12 +103,21 @@ function fresh_session(): void
     Auth::reset();
 }
 
+/** Tests identify people by an e-mail-looking string; their username is its local part (always valid, unique per string). */
+function username_of(string $email): string
+{
+    $name = preg_replace('/[^a-z0-9._-]/', '', strtolower((string) strstr($email, '@', true) ?: $email)) ?? '';
+    $name = ltrim($name, '._-');
+    return str_pad(substr($name, 0, 40), 3, 'x');
+}
+
 function make_user(string $role, string $email = null, string $password = 'correct horse battery'): array
 {
     $email ??= strtolower($role) . '-' . bin2hex(random_bytes(3)) . '@example.com';
     $roleRow = (new RoleRepository())->findByName($role);
     $id = (new UserRepository())->create([
         'name' => $role . ' User',
+        'username' => username_of($email),
         'email' => $email,
         'password_hash' => PasswordPolicy::hash($password),
         'role_id' => (int) $roleRow['id'],
@@ -356,19 +365,19 @@ $svc = new AuthService();
 $req = Request::make('POST', '/login', [], [], ['REMOTE_ADDR' => '203.0.113.9']);
 $victim = make_user('Staff', 'victim@example.com', 'a long enough passphrase');
 
-$unknown = $svc->attempt('ghost@example.com', 'whatever-123', $req);
-$wrong = $svc->attempt('victim@example.com', 'wrong-password-1', $req);
+$unknown = $svc->attempt('ghost', 'whatever-123', $req);
+$wrong = $svc->attempt('victim', 'wrong-password-1', $req);
 check(!$unknown['ok'] && !$wrong['ok'] && $unknown['error'] === $wrong['error'], 'unknown email and wrong password give the identical message');
 
 for ($i = 0; $i < 3; $i++) {
-    $svc->attempt('victim@example.com', 'wrong-password-' . $i, $req);
+    $svc->attempt('victim', 'wrong-password-' . $i, $req);
 }
 $state = Database::fetchOne('SELECT failed_attempts, locked_until FROM users WHERE email = ?', ['victim@example.com']);
 check((int) $state['failed_attempts'] === 4 && $state['locked_until'] === null, 'failures are counted before the threshold');
-$svc->attempt('victim@example.com', 'wrong-password-x', $req);
+$svc->attempt('victim', 'wrong-password-x', $req);
 $state = Database::fetchOne('SELECT failed_attempts, locked_until FROM users WHERE email = ?', ['victim@example.com']);
 check($state['locked_until'] !== null, 'account is locked after 5 failures');
-$locked = $svc->attempt('victim@example.com', 'a long enough passphrase', $req);
+$locked = $svc->attempt('victim', 'a long enough passphrase', $req);
 check(!$locked['ok'] && $locked['error'] === AuthService::MSG_LOCKED, 'correct password is refused while locked');
 check((int) Database::fetchValue("SELECT COUNT(*) FROM audit_logs WHERE action = 'account_locked'") === 1, 'lockout is audited');
 
@@ -376,34 +385,34 @@ check((int) Database::fetchValue("SELECT COUNT(*) FROM audit_logs WHERE action =
 $other = Request::make('POST', '/login', [], [], ['REMOTE_ADDR' => '203.0.113.50']);
 $msg = '';
 for ($i = 0; $i < 6; $i++) {
-    $msg = $svc->attempt('nobody@example.com', 'guess-' . $i . '-xxxx', $other)['error'];
+    $msg = $svc->attempt('nobody', 'guess-' . $i . '-xxxx', $other)['error'];
 }
 check($msg === AuthService::MSG_LOCKED, 'unknown emails hit the same lockout (no account enumeration)');
 
 (new UserRepository())->clearLock((int) $victim['id']);
 Database::execute('DELETE FROM login_attempts');
-$ok = $svc->attempt('victim@example.com', 'a long enough passphrase', $req);
+$ok = $svc->attempt('victim', 'a long enough passphrase', $req);
 check($ok['ok'] && $ok['user']['email'] === 'victim@example.com', 'valid credentials succeed once unlocked');
 check((int) Database::fetchValue('SELECT failed_attempts FROM users WHERE id = ?', [$victim['id']]) === 0, 'success resets the failure counter');
 check(Database::fetchValue('SELECT last_login_at FROM users WHERE id = ?', [$victim['id']]) !== null, 'last login recorded');
 
 $inactive = make_user('Staff', 'inactive@example.com', 'another long passphrase');
 Database::execute('UPDATE users SET is_active = 0 WHERE id = ?', [$inactive['id']]);
-$res = $svc->attempt('inactive@example.com', 'another long passphrase', $req);
+$res = $svc->attempt('inactive', 'another long passphrase', $req);
 check(!$res['ok'] && $res['error'] === AuthService::MSG_INVALID, 'inactive account gets the same generic error even with the right password');
 
 $legacy = make_user('Staff', 'legacy@example.com', 'legacy long passphrase');
 Database::execute('UPDATE users SET password_hash = ? WHERE id = ?', [password_hash('legacy long passphrase', PASSWORD_BCRYPT, ['cost' => 4]), $legacy['id']]);
-$res = $svc->attempt('legacy@example.com', 'legacy long passphrase', $req);
+$res = $svc->attempt('legacy', 'legacy long passphrase', $req);
 check($res['ok'] && str_starts_with((string) Database::fetchValue('SELECT password_hash FROM users WHERE id = ?', [$legacy['id']]), '$argon2id$'), 'old hashes are upgraded to Argon2id on login');
 
 // Per-IP throttle across many accounts.
 Database::execute('DELETE FROM login_attempts');
 $ipReq = Request::make('POST', '/login', [], [], ['REMOTE_ADDR' => '198.51.100.7']);
 for ($i = 0; $i < 20; $i++) {
-    $svc->attempt("spray{$i}@example.com", 'password-guess-1', $ipReq);
+    $svc->attempt("spray{$i}", 'password-guess-1', $ipReq);
 }
-$res = $svc->attempt('victim@example.com', 'a long enough passphrase', $ipReq);
+$res = $svc->attempt('victim', 'a long enough passphrase', $ipReq);
 check(!$res['ok'] && $res['error'] === AuthService::MSG_LOCKED, 'an IP spraying many accounts is throttled');
 
 section('Sessions / Auth state');

@@ -2,6 +2,15 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.0.1 - sign in with a username
+
+* People now sign in with a **username** instead of an e-mail address. E-mail is optional contact information.
+* `create-admin`, `create-user` and `reset-password` take `--username=`.
+* **Fresh installs only:** the users table definition changed in place. An existing development database must be re-created.
+* Command-line tools print a readable message (and a hint when `.env` is missing or the database settings are wrong) instead of an HTML error page.
+* The root `.htaccess` now serves from `public/` on hosts where the document root cannot be changed (cPanel sub-folder), while still refusing every private folder.
+* New: `cli/backup.php`, `cli/reset-password.php`, deployment templates, release builder (see 1.0.0 notes for the rest of the handover pack).
+
 ## 1.0.0 - first complete release (demo handed to the client)
 
 Built in nine phases; each phase is one commit in the history.

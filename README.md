@@ -10,14 +10,14 @@ Status: **Phase 9 complete - version 1.0.0, ready for staging and UAT.** Deploym
 cp .env.example .env              # then set DB_* and APP_URL (APP_ENV=local for development)
 php cli/migrate.php               # create tables
 php cli/seed.php                  # permissions, Admin/Manager/Staff roles, default settings
-php cli/create-admin.php --email=you@example.com --name="Your Name"
-php cli/create-user.php --email=staff@example.com --name="A Staff Member" --role=Staff   # or Manager
+php cli/create-admin.php --username=owner --name="Your Name" [--email=you@example.com]
+php cli/create-user.php --username=maria.lopez --name="Maria Lopez" --role=Staff   # or Manager; people sign in with the username, e-mail is optional
 php cli/seed-demo.php             # optional: 60 realistic demo jobs (with status history) spread across every section
 php cli/fetch-assets.php          # vendor Bootstrap 5.3.3 locally (needs internet once)
 php cli/doctor.php                # environment self-check (exit 1 on failure)
 php cli/route-audit.php           # every route has one access rule, nothing changes data over GET
 php cli/backup.php [--keep=14]    # database backup into storage/backups
-php cli/reset-password.php --email=...   # break-glass: new temporary password for a user
+php cli/reset-password.php --username=...   # break-glass: new temporary password for a user
 php cli/cleanup.php [--apply]     # housekeeping; dry run unless --apply (run --apply daily from cron)
 php -S localhost:8000 -t public public/index.php
 ```
@@ -31,16 +31,16 @@ Point the document root at **`public/`** only. `public/.htaccess` handles Apache
 ## Tests
 ```bash
 tests/all.sh [--perf] [--e2e]               # EVERYTHING below on a throw-away database (recommended)
-php tests/run.php                                   # 1372 unit/integration checks (SQLite in memory)
-tests/smoke.sh http://localhost:8000 EMAIL PASSWORD # Phase 1 end-to-end over HTTP (changes then restores that account's password)
-tests/smoke-jobs.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS       # job CRUD as Admin and Staff (leaves soft-deleted SMOKE-* jobs)
-tests/smoke-workflow.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS   # sections, dashboard and workflow (leaves soft-deleted WF-* jobs; needs GNU date)
-tests/smoke-import.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS MANAGER_EMAIL MANAGER_PASS   # import/export over real multipart HTTP (needs python3; cleans up after itself)
-tests/smoke-audit.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS MANAGER_EMAIL MANAGER_PASS   # settings, audit log, private-file probes (changes settings and restores them)
+php tests/run.php                                   # 1420 unit/integration checks (SQLite in memory)
+tests/smoke.sh http://localhost:8000 USERNAME PASSWORD # Phase 1 end-to-end over HTTP (changes then restores that account's password)
+tests/smoke-jobs.sh http://localhost:8000 ADMIN_USER ADMIN_PASS STAFF_USER STAFF_PASS       # job CRUD as Admin and Staff (leaves soft-deleted SMOKE-* jobs)
+tests/smoke-workflow.sh http://localhost:8000 ADMIN_USER ADMIN_PASS STAFF_USER STAFF_PASS   # sections, dashboard and workflow (leaves soft-deleted WF-* jobs; needs GNU date)
+tests/smoke-import.sh http://localhost:8000 ADMIN_USER ADMIN_PASS STAFF_USER STAFF_PASS MANAGER_USER MANAGER_PASS   # import/export over real multipart HTTP (needs python3; cleans up after itself)
+tests/smoke-audit.sh http://localhost:8000 ADMIN_USER ADMIN_PASS STAFF_USER STAFF_PASS MANAGER_USER MANAGER_PASS   # settings, audit log, private-file probes (changes settings and restores them)
 tests/release-check.sh                              # build the release archive and prove it runs on its own
 tests/perf.sh [jobs]                                # response times with 20,000 (or more) jobs
 node tests/e2e/uat.js                               # browser walkthrough of the client's workflow (needs Playwright; see the file header)
-tests/smoke-admin.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS MANAGER_EMAIL MANAGER_PASS   # users, roles, matrix, lockout, forced password change (makes ~6 failed sign-ins on purpose)
+tests/smoke-admin.sh http://localhost:8000 ADMIN_USER ADMIN_PASS STAFF_USER STAFF_PASS MANAGER_USER MANAGER_PASS   # users, roles, matrix, lockout, forced password change (makes ~6 failed sign-ins on purpose)
 ```
 Tests use SQLite as a stand-in because they need no server; **MySQL/MariaDB is the production database**.
 

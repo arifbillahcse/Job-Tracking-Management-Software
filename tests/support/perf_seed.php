@@ -26,10 +26,10 @@ App::boot();
 $count = max(1, (int) ($argv[1] ?? 20000));
 $roleId = (int) Database::fetchValue("SELECT id FROM roles WHERE name = 'Admin'");
 Database::execute(
-    'INSERT INTO users (name, email, password_hash, role_id, is_active, must_change_password, created_at, updated_at) VALUES (?, ?, ?, ?, 1, 0, ?, ?)',
-    ['Perf Admin', 'perf@example.com', PasswordPolicy::hash('Perf test passphrase 1'), $roleId, gmdate('Y-m-d H:i:s'), gmdate('Y-m-d H:i:s')]
+    'INSERT INTO users (name, username, password_hash, role_id, is_active, must_change_password, created_at, updated_at) VALUES (?, ?, ?, ?, 1, 0, ?, ?)',
+    ['Perf Admin', 'perf', PasswordPolicy::hash('Perf test passphrase 1'), $roleId, gmdate('Y-m-d H:i:s'), gmdate('Y-m-d H:i:s')]
 );
-$userId = (int) Database::fetchValue("SELECT id FROM users WHERE email = 'perf@example.com'");
+$userId = (int) Database::fetchValue("SELECT id FROM users WHERE username = 'perf'");
 
 mt_srand(42);
 $first = ['Ada', 'Ben', 'Chloe', 'Dmitri', 'Elena', 'Farid', 'Grace', 'Hiro', 'Ines', 'Jack', 'Kofi', 'Lena'];

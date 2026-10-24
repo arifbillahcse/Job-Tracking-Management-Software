@@ -22,6 +22,14 @@ final class UserRepository
     /**
      * @return array<string,mixed>|null
      */
+    public function findByUsername(string $username): ?array
+    {
+        return Database::fetchOne(
+            self::SELECT . ' WHERE u.username = ? AND u.deleted_at IS NULL',
+            [strtolower(trim($username))]
+        );
+    }
+
     public function findByEmail(string $email): ?array
     {
         return Database::fetchOne(
@@ -31,17 +39,18 @@ final class UserRepository
     }
 
     /**
-     * @param array{name:string,email:string,password_hash:string,role_id:int,is_active?:int,must_change_password?:int} $data
+     * @param array{name:string,username:string,email?:?string,password_hash:string,role_id:int,is_active?:int,must_change_password?:int} $data
      */
     public function create(array $data): int
     {
         $now = gmdate('Y-m-d H:i:s');
         return Database::insert(
-            'INSERT INTO users (name, email, password_hash, role_id, is_active, must_change_password, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO users (name, username, email, password_hash, role_id, is_active, must_change_password, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 trim($data['name']),
-                strtolower(trim($data['email'])),
+                strtolower(trim($data['username'])),
+                self::cleanEmail($data['email'] ?? null),
                 $data['password_hash'],
                 $data['role_id'],
                 $data['is_active'] ?? 1,
@@ -89,13 +98,16 @@ final class UserRepository
     /**
      * Fields an administrator may change on an account.
      *
-     * @param array<string,mixed> $fields name, email, role_id
+     * @param array<string,mixed> $fields name, username, email, role_id
      */
     public function update(int $id, array $fields): void
     {
-        $allowed = array_intersect_key($fields, array_flip(['name', 'email', 'role_id']));
-        if (isset($allowed['email'])) {
-            $allowed['email'] = strtolower(trim((string) $allowed['email']));
+        $allowed = array_intersect_key($fields, array_flip(['name', 'username', 'email', 'role_id']));
+        if (isset($allowed['username'])) {
+            $allowed['username'] = strtolower(trim((string) $allowed['username']));
+        }
+        if (array_key_exists('email', $allowed)) {
+            $allowed['email'] = self::cleanEmail($allowed['email']);
         }
         $allowed['updated_at'] = gmdate('Y-m-d H:i:s');
 
@@ -111,7 +123,7 @@ final class UserRepository
         );
     }
 
-    /** Soft delete: the row stays (jobs and the audit trail point at it) and the email stays reserved. */
+    /** Soft delete: the row stays (jobs and the audit trail point at it) and the username stays reserved. */
     public function softDelete(int $id): bool
     {
         $now = gmdate('Y-m-d H:i:s');
@@ -150,8 +162,8 @@ final class UserRepository
 
         if ($c->q !== '') {
             $like = '%' . strtr($c->q, ['!' => '!!', '%' => '!%', '_' => '!_']) . '%';
-            $sql .= " AND (u.name LIKE ? ESCAPE '!' OR u.email LIKE ? ESCAPE '!')";
-            array_push($params, $like, $like);
+            $sql .= " AND (u.name LIKE ? ESCAPE '!' OR u.username LIKE ? ESCAPE '!' OR u.email LIKE ? ESCAPE '!')";
+            array_push($params, $like, $like, $like);
         }
         if ($c->roleId > 0) {
             $sql .= ' AND u.role_id = ?';
@@ -192,5 +204,12 @@ final class UserRepository
     public function isAdministrator(int $userId): bool
     {
         return $this->countAdministrators() - $this->countAdministrators($userId) === 1;
+    }
+
+    /** An empty e-mail address is stored as NULL, so any number of users may have none. */
+    private static function cleanEmail(mixed $email): ?string
+    {
+        $email = strtolower(trim((string) $email));
+        return $email === '' ? null : $email;
     }
 }

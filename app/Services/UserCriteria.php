@@ -18,7 +18,7 @@ final class UserCriteria
     /** @var array<string,string> sort key => SQL column */
     private const SORTS = [
         'name' => 'u.name',
-        'email' => 'u.email',
+        'username' => 'u.username',
         'role' => 'r.name',
         'last_login' => 'u.last_login_at',
         'created' => 'u.id',

@@ -4,7 +4,7 @@
 # Use a dev database: it creates WF-* jobs and soft-deletes them again at the end. Needs GNU date.
 set -u
 
-BASE="${1:?base url}"; A_EMAIL="${2:?admin email}"; A_PASS="${3:?admin password}"; S_EMAIL="${4:?staff email}"; S_PASS="${5:?staff password}"
+BASE="${1:?base url}"; A_USER="${2:?admin username}"; A_PASS="${3:?admin password}"; S_USER="${4:?staff username}"; S_PASS="${5:?staff password}"
 AJ="$(mktemp)"; SJ="$(mktemp)"; PASSED=0; FAILED=0; MADE=()
 trap 'rm -f "$AJ" "$SJ"' EXIT
 RUN="WF-$(date +%s)"
@@ -17,7 +17,7 @@ check(){ if eval "$2"; then ok "$1"; else bad "$1"; fi; }
 
 token() { grep -o 'name="_csrf" value="[^"]*"' | head -1 | sed 's/.*value="//; s/"$//'; }
 code()  { curl -s -o /dev/null -w '%{http_code}' "$@"; }
-signin() { local t; t=$(curl -s -c "$1" "$BASE/login" | token); curl -s -o /dev/null -b "$1" -c "$1" --data-urlencode "_csrf=$t" --data-urlencode "email=$2" --data-urlencode "password=$3" "$BASE/login"; }
+signin() { local t; t=$(curl -s -c "$1" "$BASE/login" | token); curl -s -o /dev/null -b "$1" -c "$1" --data-urlencode "_csrf=$t" --data-urlencode "username=$2" --data-urlencode "password=$3" "$BASE/login"; }
 tok() { curl -s -b "$1" -c "$1" "$BASE/dashboard" | token; }
 get() { curl -s -b "$1" -c "$1" "$BASE$2"; }                                  # jar path
 flat() { tr '\n' ' ' | sed 's/  */ /g'; }
@@ -43,7 +43,7 @@ status() { # jar id to [k=v ...]  -> response headers
 }
 in_list() { get "$AJ" "$1" | grep -q "$2<"; }                                 # path number
 
-signin "$AJ" "$A_EMAIL" "$A_PASS"; signin "$SJ" "$S_EMAIL" "$S_PASS"
+signin "$AJ" "$A_USER" "$A_PASS"; signin "$SJ" "$S_USER" "$S_PASS"
 
 echo "== Dashboard and lists agree"
 declare -A PAGE=( ["Total jobs"]=/jobs ["Ready for delivery"]=/jobs/ready ["More than 30 days"]=/jobs/more-than-30 ["In transit"]=/jobs/in-transit ["Delivered"]=/jobs/delivered )

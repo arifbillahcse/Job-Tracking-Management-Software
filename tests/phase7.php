@@ -270,7 +270,7 @@ $auditorRole = (int) Database::fetchValue("SELECT id FROM roles WHERE name = 'Au
 if ($auditorRole > 0) {
     Database::execute('INSERT INTO role_permissions (role_id, permission_id) VALUES (?, ?)', [$auditorRole, (int) Database::fetchValue("SELECT id FROM permissions WHERE name = 'audit.view'")]);
     $auditor = (new \App\Repositories\UserRepository())->findById((new \App\Repositories\UserRepository())->create([
-        'name' => 'Auditor', 'email' => 'p7-aud@example.com', 'password_hash' => \App\Helpers\PasswordPolicy::hash('correct horse battery'), 'role_id' => $auditorRole,
+        'name' => 'Auditor', 'username' => 'auditor', 'email' => 'p7-aud@example.com', 'password_hash' => \App\Helpers\PasswordPolicy::hash('correct horse battery'), 'role_id' => $auditorRole,
     ]));
     sign_in($auditor);
     check(call('GET', '/audit')->status() === 200, 'a role with only audit.view can read the log');
@@ -311,7 +311,7 @@ check(last_audit('account_locked') !== null && str_contains((string) last_audit(
 check(call('GET', '/dashboard')->status() === 302, 'the hijacked session no longer works');
 fresh_session();
 $svc = new \App\Services\AuthService();
-$login = $svc->attempt('p7-victim@example.com', 'correct horse battery', Request::make('GET', '/login', [], [], ['REMOTE_ADDR' => '198.51.100.7']));
+$login = $svc->attempt('p7-victim', 'correct horse battery', Request::make('GET', '/login', [], [], ['REMOTE_ADDR' => '198.51.100.7']));
 check($login['ok'] === false, 'even the right password cannot sign in while the account is locked');
 Database::execute('UPDATE users SET locked_until = NULL, failed_attempts = 0 WHERE id = ?', [$victim['id']]);
 
@@ -368,7 +368,7 @@ $now = new DateTimeImmutable('2026-10-23 12:00:00', new DateTimeZone('UTC'));
 $admin = make_user('Admin', 'p7-m@example.com');
 $uid = (int) $admin['id'];
 
-$attempt = static fn (string $when) => Database::execute("INSERT INTO login_attempts (email, ip, successful, created_at) VALUES ('a@example.com', '1.1.1.1', 0, ?)", [$when]);
+$attempt = static fn (string $when) => Database::execute("INSERT INTO login_attempts (username, ip, successful, created_at) VALUES ('a@example.com', '1.1.1.1', 0, ?)", [$when]);
 $attempt('2026-09-30 00:00:00'); // 23 days old: kept
 $attempt('2026-09-20 00:00:00'); // 33 days: removed
 $attempt('2026-01-01 00:00:00'); // removed

@@ -14,7 +14,7 @@ Sign in as **Admin** unless a scenario says otherwise. Replace `TEST-1` etc. wit
 
 | # | Do this | You should see | Pass | Notes |
 |---|---|---|---|---|
-| A1 | Open the site. Type your email and a wrong password. | A message "Invalid email or password." It does not say which one is wrong. | ☐ | |
+| A1 | Open the site. Type your username and a wrong password. | A message "Invalid username or password." It does not say which one is wrong. | ☐ | |
 | A2 | Sign in with the right details. | The Dashboard, with your name at the top right. | ☐ | |
 | A3 | Click your name, then **Sign out**. Press the browser's Back button. | You are on the sign-in page. Back does not show private pages. | ☐ | |
 | A4 | Sign in, leave the page open 30 minutes without clicking, then click anything. | You are asked to sign in again. | ☐ | |
@@ -74,7 +74,7 @@ Sign in as **Admin** unless a scenario says otherwise. Replace `TEST-1` etc. wit
 
 | # | Do this | You should see | Pass | Notes |
 |---|---|---|---|---|
-| F1 | **Users → New user** with the Staff role. | A temporary password is shown **once**. The person must choose their own at first sign-in. | ☐ | |
+| F1 | **Users → New user** with the Staff role, a username and no e-mail. | A temporary password is shown **once**. The person must choose their own at first sign-in. | ☐ | |
 | F2 | Sign in as that Staff user. | No Users, Roles, Settings or Audit Log in the menu. No balances or storage fees visible. | ☐ | |
 | F3 | As Staff, type `/users` or `/settings` into the address bar. | "Access denied". | ☐ | |
 | F4 | **Roles & Permissions → Permission matrix.** Tick or untick something for Staff and save. | It takes effect for that role on its next click, without signing out. | ☐ | |

@@ -1,6 +1,6 @@
 // Browser walkthrough of the client's workflow, as a person would do it. Needs Playwright (a development tool, not an app dependency):
 //   npm i --no-save playwright && npx playwright install chromium
-//   BASE=http://127.0.0.1:8099 ADMIN=admin@example.com ADMIN_PASS=... STAFF=staff@example.com STAFF_PASS=... node tests/e2e/uat.js [screenshots-dir]
+//   BASE=http://127.0.0.1:8099 ADMIN=admin ADMIN_PASS=... STAFF=staff STAFF_PASS=... node tests/e2e/uat.js [screenshots-dir]
 // Creates jobs named UAT<timestamp>-* and soft-deletes them at the end. Use a development database.
 const fs = require('fs');
 const os = require('os');
@@ -22,9 +22,9 @@ const step = async (name, fn) => {
 };
 const must = (cond, msg) => { if (!cond) throw new Error(msg || 'assertion failed'); };
 
-async function signIn(page, email, password) {
+async function signIn(page, username, password) {
     await page.goto(BASE + '/login');
-    await page.fill('#email', email);
+    await page.fill('#username', username);
     await page.fill('#password', password);
     await Promise.all([page.waitForNavigation(), page.click('button[type=submit]')]);
 }
@@ -54,9 +54,9 @@ async function createJob(page, number, availableOffset, extra = {}) {
     console.log('== Sign in');
     await step('a wrong password is refused with a generic message', async () => {
         await page.goto(BASE + '/login');
-        await page.fill('#email', ADMIN); await page.fill('#password', 'not the password');
+        await page.fill('#username', ADMIN); await page.fill('#password', 'not the password');
         await Promise.all([page.waitForNavigation(), page.click('button[type=submit]')]);
-        must(/Invalid email or password/.test(await page.textContent('body')), 'no error message');
+        must(/Invalid username or password/.test(await page.textContent('body')), 'no error message');
         must(page.url().includes('/login'), 'left the sign-in page');
     });
     await step('the right password opens the dashboard', async () => {

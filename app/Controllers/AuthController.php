@@ -22,19 +22,19 @@ final class AuthController extends Controller
     public function login(Request $request): Response
     {
         $data = $this->validate($request, [
-            'email' => 'required|email|max:190',
+            'username' => 'required|lower|max:60',
             'password' => 'required|max:1000',
-        ], '/login', ['email' => 'Email', 'password' => 'Password']);
+        ], '/login', ['username' => 'Username', 'password' => 'Password']);
 
         if ($data instanceof Response) {
             return $data;
         }
 
-        $result = (new AuthService())->attempt((string) $data['email'], (string) $data['password'], $request);
+        $result = (new AuthService())->attempt((string) $data['username'], (string) $data['password'], $request);
 
         if (!$result['ok']) {
             $this->flash('danger', (string) $result['error']);
-            Session::flash('old', ['email' => $data['email']]);
+            Session::flash('old', ['username' => $data['username']]);
             return $this->redirect('/login');
         }
 

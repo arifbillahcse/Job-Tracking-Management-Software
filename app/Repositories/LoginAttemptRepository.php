@@ -8,19 +8,19 @@ use App\Core\Database;
 
 final class LoginAttemptRepository
 {
-    public function record(string $email, string $ip, bool $successful): void
+    public function record(string $username, string $ip, bool $successful): void
     {
         Database::execute(
-            'INSERT INTO login_attempts (email, ip, successful, created_at) VALUES (?, ?, ?, ?)',
-            [substr(strtolower($email), 0, 190), substr($ip, 0, 45), $successful ? 1 : 0, gmdate('Y-m-d H:i:s')]
+            'INSERT INTO login_attempts (username, ip, successful, created_at) VALUES (?, ?, ?, ?)',
+            [substr(strtolower($username), 0, 190), substr($ip, 0, 45), $successful ? 1 : 0, gmdate('Y-m-d H:i:s')]
         );
     }
 
-    public function failuresByEmail(string $email, string $since): int
+    public function failuresByUsername(string $username, string $since): int
     {
         return (int) Database::fetchValue(
-            'SELECT COUNT(*) FROM login_attempts WHERE email = ? AND successful = 0 AND created_at >= ?',
-            [substr(strtolower($email), 0, 190), $since]
+            'SELECT COUNT(*) FROM login_attempts WHERE username = ? AND successful = 0 AND created_at >= ?',
+            [substr(strtolower($username), 0, 190), $since]
         );
     }
 

@@ -5,11 +5,11 @@
 # sign-ins from your IP on purpose (to prove lockout), so do not run it many times within 15 minutes.
 set -u
 
-BASE="${1:?base url}"; A_EMAIL="${2:?admin email}"; A_PASS="${3:?admin password}"
-S_EMAIL="${4:?staff email}"; S_PASS="${5:?staff password}"; M_EMAIL="${6:?manager email}"; M_PASS="${7:?manager password}"
+BASE="${1:?base url}"; A_USER="${2:?admin username}"; A_PASS="${3:?admin password}"
+S_USER="${4:?staff username}"; S_PASS="${5:?staff password}"; M_USER="${6:?manager username}"; M_PASS="${7:?manager password}"
 AJ="$(mktemp)"; SJ="$(mktemp)"; MJ="$(mktemp)"; NJ="$(mktemp)"; PASSED=0; FAILED=0
 trap 'rm -f "$AJ" "$SJ" "$MJ" "$NJ"' EXIT
-RUN="smoke$(date +%s)"; NEW_EMAIL="$RUN@example.com"; NEW_PASS="chosen by the new user $RUN"
+RUN="smoke$(date +%s)"; NEW_USER="$RUN"; NEW_PASS="chosen by the new user $RUN"
 
 ok()   { PASSED=$((PASSED+1)); echo "  ok   $1"; }
 bad()  { FAILED=$((FAILED+1)); echo "  FAIL $1"; }
@@ -20,7 +20,7 @@ code()  { curl -s -o /dev/null -w '%{http_code}' "$@"; }
 flat()  { tr '\n' ' ' | sed 's/  */ /g'; }
 text()  { sed 's/<[^>]*>/ /g' | tr -s ' \n' ' '; }
 get()   { curl -s -b "$1" -c "$1" "$BASE$2"; }
-signin() { local t; t=$(curl -s -c "$1" "$BASE/login" | token); curl -s -i -b "$1" -c "$1" --data-urlencode "_csrf=$t" --data-urlencode "email=$2" --data-urlencode "password=$3" "$BASE/login"; }
+signin() { local t; t=$(curl -s -c "$1" "$BASE/login" | token); curl -s -i -b "$1" -c "$1" --data-urlencode "_csrf=$t" --data-urlencode "username=$2" --data-urlencode "password=$3" "$BASE/login"; }
 tok()  { curl -s -b "$1" -c "$1" "$BASE/account" | token; }           # CSRF token from any signed-in page
 post() { local jar="$1" path="$2"; shift 2; local a=(); for kv in "$@"; do a+=(--data-urlencode "$kv"); done; curl -s -i -b "$jar" -c "$jar" --data-urlencode "_csrf=$(tok "$jar")" "${a[@]}" "$BASE$path"; }
 loc()  { grep -i '^location:' <<<"$1" | head -1 | tr -d '\r'; }
@@ -29,7 +29,7 @@ user_id() { get "$AJ" "/users?q=$1" | grep -oP 'href="/users/\K[0-9]+(?=/edit")'
 rid() { get "$AJ" /roles | grep -oP "href=\"/roles/\K[0-9]+(?=/edit\"[^>]*aria-label=\"Edit role $1\")" | head -1; }
 
 echo "== Sign in everyone"
-signin "$AJ" "$A_EMAIL" "$A_PASS" >/dev/null; signin "$SJ" "$S_EMAIL" "$S_PASS" >/dev/null; signin "$MJ" "$M_EMAIL" "$M_PASS" >/dev/null
+signin "$AJ" "$A_USER" "$A_PASS" >/dev/null; signin "$SJ" "$S_USER" "$S_PASS" >/dev/null; signin "$MJ" "$M_USER" "$M_PASS" >/dev/null
 check "Admin, Manager and Staff are signed in" '[[ $(code -b "$AJ" "$BASE/dashboard") == 200 && $(code -b "$MJ" "$BASE/dashboard") == 200 && $(code -b "$SJ" "$BASE/dashboard") == 200 ]]'
 
 echo "== Who may see administration"
@@ -47,29 +47,29 @@ check "signed-out visitors are redirected" '[[ $(code "$BASE/users") == 302 && $
 echo "== Users: list"
 L=$(get "$AJ" /users)
 check "list shows users, roles and status badges; every cell has a data-label" 'grep -q "Demo Admin" <<<"$L" && grep -q "jt-badge-transit" <<<"$L" && ! grep -qP "<td(?![^>]*data-label)" <<<"$L"'
-check "search by email and by name" 'get "$AJ" "/users?q=$A_EMAIL" | grep -q "$A_EMAIL" && ! get "$AJ" "/users?q=$A_EMAIL" | grep -q "$S_EMAIL"'
+check "search by username and by name" 'get "$AJ" "/users?q=$A_USER" | grep -q "$A_USER" && ! get "$AJ" "/users?q=$A_USER" | grep -q "$S_USER"'
 check "hostile search text is inert and escaped" '[[ $(code -b "$AJ" "$BASE/users?q=%27%3B+DROP+TABLE+users%3B--") == 200 ]] && ! get "$AJ" "/users?q=%3Cscript%3Ealert(1)%3C/script%3E" | grep -q "<script>alert(1)" && [[ $(code -b "$AJ" "$BASE/users?sort=x%3Bdrop&status=zzz&page=-4") == 200 ]]'
 
 echo "== Users: create (one-time temporary password)"
-R=$(post "$AJ" /users "name=<script>alert(1)</script> $RUN" "email=$NEW_EMAIL" "role_id=$(get "$AJ" /users/create | grep -oP '<option value="\K[0-9]+(?=">Staff<)' | head -1)")
+R=$(post "$AJ" /users "name=<script>alert(1)</script> $RUN" "username=$NEW_USER" "role_id=$(get "$AJ" /users/create | grep -oP '<option value="\K[0-9]+(?=">Staff<)' | head -1)")
 NID=$(grep -oP '/users/\K[0-9]+(?=/edit)' <<<"$(loc "$R")")
 check "a valid user is created and you land on their page" '[[ -n "$NID" ]]'
 P=$(get "$AJ" "/users/$NID/edit"); TEMP=$(secret <<<"$P")
 check "the temporary password is shown once with a Copy button" '[[ ${#TEMP} -eq 16 ]] && grep -q "data-copy=\"#secretValue\"" <<<"$P" && grep -q "Shown once" <<<"$P"'
 check "reloading the page does not show it again" '! get "$AJ" "/users/$NID/edit" | grep -q "$TEMP"'
 check "the name is escaped on the edit page and the list" '! grep -q "<script>alert(1)" <<<"$P" && ! get "$AJ" "/users?q=$RUN" | grep -q "<script>alert(1)" && get "$AJ" "/users?q=$RUN" | grep -q "&lt;script&gt;"'
-check "creating the same email again is a field error" 'post "$AJ" /users "name=Dup" "email=${NEW_EMAIL^^}" "role_id=1" >/dev/null; get "$AJ" /users/create | grep -q "already in use"'
+check "creating the same username again is a field error" 'post "$AJ" /users "name=Dup" "username=${NEW_USER^^}" "role_id=1" >/dev/null; get "$AJ" /users/create | grep -q "already in use"'
 check "an empty form shows the field errors" 'post "$AJ" /users "name=" "email=nope" "role_id=" >/dev/null; F=$(get "$AJ" /users/create); grep -q "Name is required" <<<"$F" && grep -q "valid email" <<<"$F"'
 
 echo "== First sign-in forces a new password"
-R=$(signin "$NJ" "$NEW_EMAIL" "$TEMP")
+R=$(signin "$NJ" "$NEW_USER" "$TEMP")
 check "the new user signs in with the temporary password" 'grep -qi "^location: .*/dashboard" <<<"$R"'
 check "every page redirects to My Account until they choose a password" '[[ $(code -b "$NJ" "$BASE/jobs") == 302 ]] && loc "$(curl -s -i -b "$NJ" "$BASE/jobs")" | grep -q "/account" && get "$NJ" /account | grep -q "You must choose a new password"'
 check "a weak new password is rejected" 'post "$NJ" /account/password "current_password=$TEMP" "password=password123" "password_confirmation=password123" >/dev/null; get "$NJ" /account | grep -q "too common"'
 check "a mismatched confirmation is rejected" 'post "$NJ" /account/password "current_password=$TEMP" "password=$NEW_PASS" "password_confirmation=different" >/dev/null; get "$NJ" /account | grep -q "does not match"'
 post "$NJ" /account/password "current_password=$TEMP" "password=$NEW_PASS" "password_confirmation=$NEW_PASS" >/dev/null
 check "choosing a new password opens the app" '[[ $(code -b "$NJ" "$BASE/jobs") == 200 ]]'
-check "the temporary password no longer works" '! signin "$(mktemp)" "$NEW_EMAIL" "$TEMP" | grep -qi "^location: .*/dashboard"'
+check "the temporary password no longer works" '! signin "$(mktemp)" "$NEW_USER" "$TEMP" | grep -qi "^location: .*/dashboard"'
 
 echo "== Permission changes apply without signing out"
 check "baseline: Staff cannot open the trash" '[[ $(code -b "$SJ" "$BASE/jobs/trash") == 403 ]]'
@@ -98,28 +98,28 @@ check "a matrix post without a CSRF token is refused" '[[ $(code -b "$AJ" -d "ve
 
 echo "== Deactivate, lock, unlock, reset"
 check "deactivating the user signs them out at once" 'post "$AJ" "/users/$NID/deactivate" >/dev/null; [[ $(code -b "$NJ" "$BASE/dashboard") == 302 ]]'
-check "a deactivated user cannot sign in" '! signin "$(mktemp)" "$NEW_EMAIL" "$NEW_PASS" | grep -qi "^location: .*/dashboard"'
-check "they appear under Inactive" 'get "$AJ" "/users?status=inactive" | grep -q "$NEW_EMAIL"'
+check "a deactivated user cannot sign in" '! signin "$(mktemp)" "$NEW_USER" "$NEW_PASS" | grep -qi "^location: .*/dashboard"'
+check "they appear under Inactive" 'get "$AJ" "/users?status=inactive" | grep -q "$NEW_USER"'
 post "$AJ" "/users/$NID/activate" >/dev/null
-check "activating lets them sign in again" 'signin "$NJ" "$NEW_EMAIL" "$NEW_PASS" | grep -qi "^location: .*/dashboard"'
-for i in 1 2 3 4 5; do signin "$(mktemp)" "$NEW_EMAIL" "wrong-password-$i" >/dev/null; done
-check "five wrong passwords lock the account (even the right one is refused)" '! signin "$(mktemp)" "$NEW_EMAIL" "$NEW_PASS" | grep -qi "^location: .*/dashboard"'
-check "the admin sees it as Locked and gets an Unlock button" 'get "$AJ" "/users?status=locked" | grep -q "$NEW_EMAIL" && get "$AJ" "/users/$NID/edit" | text | grep -q "Unlock account"'
+check "activating lets them sign in again" 'signin "$NJ" "$NEW_USER" "$NEW_PASS" | grep -qi "^location: .*/dashboard"'
+for i in 1 2 3 4 5; do signin "$(mktemp)" "$NEW_USER" "wrong-password-$i" >/dev/null; done
+check "five wrong passwords lock the account (even the right one is refused)" '! signin "$(mktemp)" "$NEW_USER" "$NEW_PASS" | grep -qi "^location: .*/dashboard"'
+check "the admin sees it as Locked and gets an Unlock button" 'get "$AJ" "/users?status=locked" | grep -q "$NEW_USER" && get "$AJ" "/users/$NID/edit" | text | grep -q "Unlock account"'
 post "$AJ" "/users/$NID/unlock" >/dev/null
-check "unlocking lets them in" 'signin "$NJ" "$NEW_EMAIL" "$NEW_PASS" | grep -qi "^location: .*/dashboard"'
+check "unlocking lets them in" 'signin "$NJ" "$NEW_USER" "$NEW_PASS" | grep -qi "^location: .*/dashboard"'
 R=$(post "$AJ" "/users/$NID/reset-password"); P=$(get "$AJ" "/users/$NID/edit"); TEMP2=$(secret <<<"$P")
 check "resetting the password shows a new one-time password" '[[ ${#TEMP2} -eq 16 && "$TEMP2" != "$TEMP" ]]'
 check "the reset signs out the user's open session" '[[ $(code -b "$NJ" "$BASE/dashboard") == 302 ]]'
-check "the old password stops working; the temporary one works and forces a change" '! signin "$(mktemp)" "$NEW_EMAIL" "$NEW_PASS" | grep -qi "^location: .*/dashboard"; signin "$NJ" "$NEW_EMAIL" "$TEMP2" >/dev/null; loc "$(curl -s -i -b "$NJ" "$BASE/jobs")" | grep -q "/account"'
+check "the old password stops working; the temporary one works and forces a change" '! signin "$(mktemp)" "$NEW_USER" "$NEW_PASS" | grep -qi "^location: .*/dashboard"; signin "$NJ" "$NEW_USER" "$TEMP2" >/dev/null; loc "$(curl -s -i -b "$NJ" "$BASE/jobs")" | grep -q "/account"'
 
 echo "== Safeguards"
-AID=$(user_id "$A_EMAIL")
+AID=$(user_id "$A_USER")
 for action in deactivate delete reset-password; do
   post "$AJ" "/users/$AID/$action" >/dev/null
   check "you cannot $action yourself (clear message)" 'get "$AJ" "/users/$AID/edit" | text | grep -q "cannot do that to your own account"'
   check "...still active after $action" '[[ $(code -b "$AJ" "$BASE/dashboard") == 200 ]]'
 done
-post "$AJ" "/users/$AID" "name=Demo Admin" "email=$A_EMAIL" "role_id=$(get "$AJ" /users/create | grep -oP '<option value="\K[0-9]+(?=">Staff<)' | head -1)" >/dev/null
+post "$AJ" "/users/$AID" "name=Demo Admin" "username=$A_USER" "role_id=$(get "$AJ" /users/create | grep -oP '<option value="\K[0-9]+(?=">Staff<)' | head -1)" >/dev/null
 check "you cannot change your own role (clear message)" 'get "$AJ" "/users/$AID/edit" | text | grep -q "cannot do that to your own account"'
 check "your own edit page has no delete / deactivate buttons and the role is locked" 'E=$(get "$AJ" "/users/$AID/edit"); ! grep -q "deleteUserModal" <<<"$E" && grep -q "You cannot change your own role" <<<"$E"'
 check "an action without a CSRF token is refused" '[[ $(code -b "$AJ" -X POST "$BASE/users/$NID/delete") == 403 ]] && [[ -n "$(user_id "$RUN")" ]]'
@@ -144,14 +144,14 @@ post "$AJ" "/roles/$SMOKE_RID/delete" >/dev/null
 check "an unused role can be deleted (no longer listed)" '[[ -z "$(rid "Smoke Role $RUN")" ]]'
 
 echo "== My Account"
-check "a user can change their own name, nothing else" 'post "$SJ" /account/profile "name=Demo Staff" "email=evil@example.com" "role_id=1" >/dev/null; get "$SJ" /account | grep -q "$S_EMAIL" && ! get "$SJ" /account | grep -q "evil@example.com" && [[ $(code -b "$SJ" "$BASE/roles") == 403 ]]'
+check "a user can change their own name, nothing else" 'post "$SJ" /account/profile "name=Demo Staff" "email=evil@example.com" "role_id=1" >/dev/null; get "$SJ" /account | grep -q "$S_USER" && ! get "$SJ" /account | grep -q "evil@example.com" && [[ $(code -b "$SJ" "$BASE/roles") == 403 ]]'
 check "an empty name is rejected" 'post "$SJ" /account/profile "name=" >/dev/null; get "$SJ" /account | grep -q "Name is required"'
 
 echo "== Delete the test user"
 post "$AJ" "/users/$NID/delete" >/dev/null
-check "the deleted user is gone from the list" '! get "$AJ" "/users?q=$RUN" | grep -q "$NEW_EMAIL"'
-check "...cannot sign in" '! signin "$(mktemp)" "$NEW_EMAIL" "$TEMP2" | grep -qi "^location: .*/dashboard"'
-check "...and the email stays reserved" 'post "$AJ" /users "name=Again" "email=$NEW_EMAIL" "role_id=$STAFF_ID" >/dev/null; get "$AJ" /users/create | grep -q "already in use"'
+check "the deleted user is gone from the list" '! get "$AJ" "/users?q=$RUN" | grep -q "/users/$NID/edit"'
+check "...cannot sign in" '! signin "$(mktemp)" "$NEW_USER" "$TEMP2" | grep -qi "^location: .*/dashboard"'
+check "...and the username stays reserved" 'post "$AJ" /users "name=Again" "username=$NEW_USER" "role_id=$STAFF_ID" >/dev/null; get "$AJ" /users/create | grep -q "already in use"'
 check "a deleted user's edit page is gone (404)" '[[ $(code -b "$AJ" "$BASE/users/$NID/edit") == 404 ]]'
 
 echo

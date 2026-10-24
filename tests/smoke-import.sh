@@ -4,8 +4,8 @@
 # Use a dev database: it imports IMP* jobs and soft-deletes them again at the end. Needs python3 (to inspect .xlsx files).
 set -u
 
-BASE="${1:?base url}"; A_EMAIL="${2:?admin email}"; A_PASS="${3:?admin password}"
-S_EMAIL="${4:?staff email}"; S_PASS="${5:?staff password}"; M_EMAIL="${6:?manager email}"; M_PASS="${7:?manager password}"
+BASE="${1:?base url}"; A_USER="${2:?admin username}"; A_PASS="${3:?admin password}"
+S_USER="${4:?staff username}"; S_PASS="${5:?staff password}"; M_USER="${6:?manager username}"; M_PASS="${7:?manager password}"
 AJ="$(mktemp)"; SJ="$(mktemp)"; MJ="$(mktemp)"; WORK="$(mktemp -d)"; PASSED=0; FAILED=0
 trap 'rm -rf "$AJ" "$SJ" "$MJ" "$WORK"' EXIT
 RUN="IMP$(date +%s)"
@@ -21,7 +21,7 @@ code()  { curl -s -o /dev/null -w '%{http_code}' "$@"; }
 get()   { curl -s -b "$1" -c "$1" "$BASE$2"; }
 text()  { sed 's/<[^>]*>/ /g' | tr -s ' \n' ' '; }
 flat()  { tr '\n' ' ' | sed 's/  */ /g'; }
-signin() { local t; t=$(curl -s -c "$1" "$BASE/login" | token); curl -s -o /dev/null -b "$1" -c "$1" --data-urlencode "_csrf=$t" --data-urlencode "email=$2" --data-urlencode "password=$3" "$BASE/login"; }
+signin() { local t; t=$(curl -s -c "$1" "$BASE/login" | token); curl -s -o /dev/null -b "$1" -c "$1" --data-urlencode "_csrf=$t" --data-urlencode "username=$2" --data-urlencode "password=$3" "$BASE/login"; }
 tok()  { curl -s -b "$1" -c "$1" "$BASE/account" | token; }
 # multipart upload: jar file [name] -> response headers + body
 upload() { curl -s -i -b "$1" -c "$1" -F "_csrf=$(tok "$1")" -F "file=@$2${3:+;filename=$3}" "$BASE/jobs/import"; }
@@ -29,7 +29,7 @@ loc()  { grep -i '^location:' <<<"$1" | head -1 | tr -d '\r'; }
 batch_id() { grep -oP '/jobs/import/\K[0-9]+' <<<"$(loc "$1")" | head -1; }
 total() { get "$1" "$2" | flat | grep -oP 'of \K[0-9]+(?= job)' | head -1; }
 
-signin "$AJ" "$A_EMAIL" "$A_PASS"; signin "$SJ" "$S_EMAIL" "$S_PASS"; signin "$MJ" "$M_EMAIL" "$M_PASS"
+signin "$AJ" "$A_USER" "$A_PASS"; signin "$SJ" "$S_USER" "$S_PASS"; signin "$MJ" "$M_USER" "$M_PASS"
 
 echo "== Who may import / export"
 for p in /jobs/import /jobs/import/template/csv; do check "Staff: GET $p -> 403" '[[ $(code -b "$SJ" "$BASE$p") == 403 ]]'; done

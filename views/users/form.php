@@ -19,9 +19,15 @@ $locked = $editing && !empty($user['locked_until']) && (string) $user['locked_un
                     <?= error_text('name') ?>
                 </div>
                 <div class="mb-3">
-                    <label for="email" class="form-label">Email <span class="text-danger" aria-hidden="true">*</span></label>
-                    <input type="email" class="form-control<?= has_error('email') ? ' is-invalid' : '' ?>" id="email" name="email" value="<?= e($val('email')) ?>" maxlength="190" required autocomplete="off">
-                    <div class="form-text">Used to sign in.</div>
+                    <label for="username" class="form-label">Username <span class="text-danger" aria-hidden="true">*</span></label>
+                    <input type="text" class="form-control<?= has_error('username') ? ' is-invalid' : '' ?>" id="username" name="username" value="<?= e($val('username')) ?>" maxlength="40" required autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="username-help">
+                    <div class="form-text" id="username-help">What this person types to sign in. 3 to 40 lower-case letters, numbers, dots, dashes or underscores, e.g. <code>maria.lopez</code>.</div>
+                    <?= error_text('username') ?>
+                </div>
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email <span class="text-body-secondary fw-normal">(optional)</span></label>
+                    <input type="email" class="form-control<?= has_error('email') ? ' is-invalid' : '' ?>" id="email" name="email" value="<?= e($val('email')) ?>" maxlength="190" autocomplete="off">
+                    <div class="form-text">Contact information only. It is not used to sign in.</div>
                     <?= error_text('email') ?>
                 </div>
                 <div class="mb-3">

@@ -49,7 +49,7 @@ final class AuditLogRepository
     {
         [$where, $params] = $this->where($c);
         return Database::fetchAll(
-            'SELECT a.*, u.name AS user_name, u.email AS user_email FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id '
+            'SELECT a.*, u.name AS user_name, u.username AS user_username FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id '
             . "WHERE {$where} ORDER BY a.id DESC LIMIT ? OFFSET ?",
             [...$params, $limit, $offset]
         );
@@ -61,7 +61,7 @@ final class AuditLogRepository
     public function find(int $id): ?array
     {
         return Database::fetchOne(
-            'SELECT a.*, u.name AS user_name, u.email AS user_email FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id WHERE a.id = ?',
+            'SELECT a.*, u.name AS user_name, u.username AS user_username FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id WHERE a.id = ?',
             [$id]
         );
     }

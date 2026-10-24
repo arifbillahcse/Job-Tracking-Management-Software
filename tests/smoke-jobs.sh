@@ -4,7 +4,7 @@
 # Use a dev database: it creates (and soft-deletes again) a few jobs named SMOKE-*.
 set -u
 
-BASE="${1:?base url}"; A_EMAIL="${2:?admin email}"; A_PASS="${3:?admin password}"; S_EMAIL="${4:?staff email}"; S_PASS="${5:?staff password}"
+BASE="${1:?base url}"; A_USER="${2:?admin username}"; A_PASS="${3:?admin password}"; S_USER="${4:?staff username}"; S_PASS="${5:?staff password}"
 AJ="$(mktemp)"; SJ="$(mktemp)"; PASSED=0; FAILED=0; MADE=()
 trap 'rm -f "$AJ" "$SJ"' EXIT
 RUN="SMOKE-$(date +%s)"
@@ -18,7 +18,7 @@ code()  { curl -s -o /dev/null -w '%{http_code}' "$@"; }
 
 signin() { # jar email pass
   local t; t=$(curl -s -c "$1" "$BASE/login" | token)
-  curl -s -o /dev/null -b "$1" -c "$1" --data-urlencode "_csrf=$t" --data-urlencode "email=$2" --data-urlencode "password=$3" "$BASE/login"
+  curl -s -o /dev/null -b "$1" -c "$1" --data-urlencode "_csrf=$t" --data-urlencode "username=$2" --data-urlencode "password=$3" "$BASE/login"
 }
 tok() { curl -s -b "$1" -c "$1" "$BASE/dashboard" | token; } # CSRF token for a signed-in jar
 
@@ -42,7 +42,7 @@ check "/jobs redirects to /login" '[[ $(code "$BASE/jobs") == 302 ]]'
 check "/jobs/create redirects to /login" '[[ $(code "$BASE/jobs/create") == 302 ]]'
 check "POST /jobs without a session is refused (403/302)" '[[ $(code -d "job_number=x" "$BASE/jobs") =~ ^(403|302)$ ]]'
 
-signin "$AJ" "$A_EMAIL" "$A_PASS"; signin "$SJ" "$S_EMAIL" "$S_PASS"
+signin "$AJ" "$A_USER" "$A_PASS"; signin "$SJ" "$S_USER" "$S_PASS"
 
 echo "== Admin: list"
 L=$(curl -s -b "$AJ" -c "$AJ" "$BASE/jobs")

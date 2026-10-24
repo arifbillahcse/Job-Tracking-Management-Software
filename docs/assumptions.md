@@ -19,7 +19,7 @@ actually works.** The "Where to change" column shows how cheap each change is.
 | A11 | Moving a job **In Transit** requires carrier name, driver name and phone number. | Validation rule (Phase 3) |
 | A12 | One company, one time zone, one currency symbol, English only. Times are stored in UTC. | `settings` table |
 | A13 | Three seeded roles: **Admin** (every permission, cannot be deleted), **Manager** (everything except administration), **Staff** (no financial figures, no deletion, no import). | `app/Config/permissions.php` |
-| A14 | No self-service password reset by email and no "remember me". An Admin resets passwords. Accounts can be flagged to force a password change at next sign-in. | Deferred |
+| A14 | No self-service password reset by e-mail and no "remember me". An Admin resets passwords. Accounts can be flagged to force a password change at next sign-in. | Deferred |
 | A15 | Excel (.xlsx) import/export is optional; CSV is the baseline. | Phase 5 |
 
 ## Job management decisions (Phase 2)
@@ -59,11 +59,11 @@ actually works.** The "Where to change" column shows how cheap each change is.
 | D3 | **Least privilege.** You can only assign a role, edit a user, reset a password, deactivate, unlock or delete a user whose permissions you hold **all** of yourself. A user with `users.manage` but not the Manager permissions cannot make anyone a Manager; a Manager-level user cannot touch an Admin. In the permission matrix you can only tick or untick permissions you hold yourself. | `AdminGuard` |
 | D4 | **Never zero administrators.** At least one active person must hold both `users.manage` and `roles.manage`; any change (role change, deactivate, delete, matrix save) that would break this is rolled back. | `AdminGuard`, `UserRepository::countAdministrators` |
 | D5 | **Self-protection.** You cannot change your own role, deactivate yourself, delete yourself or reset your own password through user administration. | `UserService` |
-| D6 | **Soft-deleted users** keep their rows (jobs and history still point at them) and their **email stays reserved**. There is no "restore user" screen in the demo; an administrator can re-create access with a new account on a different email. | `UserRepository::softDelete` |
+| D6 | **Soft-deleted users** keep their rows (jobs and history still point at them) and their **username (and e-mail, if any) stay reserved**. There is no "restore user" screen in the demo; an administrator can re-create access with a new account on a different email. | `UserRepository::softDelete` |
 | D7 | **Roles.** The built-in **Admin** role cannot be renamed or deleted and always holds every permission (re-synced on every seed); other roles can be created (optionally as a copy), renamed and deleted. A role cannot be deleted while any user, including a deleted one, still references it. Names are unique regardless of case. | `RoleService`, `Seeder` |
 | D8 | **Permission matrix.** One page, roles as columns, permissions as rows grouped by area. If someone else changes permissions while you have the page open, your save is refused and you see the current state. Changes take effect on each user's next request, without signing out. Every change is audited with what was added and removed. | `RoleService::saveMatrix` |
 | D9 | **`users.manage` and `roles.manage` are powerful by nature.** Whoever holds `roles.manage` can grant themselves any permission they already hold and edit other roles within that limit, and `users.manage` can create accounts up to their own level. Give them only to people you trust with administration. | Permissions |
-| D10 | A user may change only their own **name** (My Account). Email and role are changed by an administrator. | `AccountController` |
+| D10 | A user may change only their own **name** (My Account). Username, e-mail and role are changed by an administrator. | `AccountController` |
 
 ## Phase 5 - import and export
 
@@ -110,6 +110,14 @@ actually works.** The "Where to change" column shows how cheap each change is.
 | H3 | **Forgotten administrator password** is recovered from the server with `cli/reset-password.php` (needs shell access). There is no e-mail "forgot password" flow in v1.0 because no e-mail service is assumed. | `cli/reset-password.php` |
 | H4 | **Releases** are a tarball built by `scripts/build-release.sh` (no tests, no `.env`, no databases; Bootstrap and fonts bundled). Version number in `VERSION`, history in `CHANGELOG.md`. Rollback is switching back to the previous folder; migrations only add. | `scripts/`, `tests/release-check.sh` |
 | H5 | **MySQL is unverified** in this build (no server was available). `docs/deployment.md` step 9 is the first-day check on staging. | `docs/handover.md` |
+
+## Username sign-in (version 1.0.1)
+
+| # | Decision | Where |
+|---|---|---|
+| I1 | **People sign in with a username, not an e-mail address.** A username is 3 to 40 characters: lower-case letters, numbers, dot, dash, underscore, starting with a letter or number. It is stored lower-case and typed in any case. The e-mail address is optional contact information (any number of users may have none) and cannot be used to sign in. | `users.username`, `Validator` rules `lower` and `username` |
+| I2 | **Usernames are changed by administrators only,** like e-mail and role. Failed sign-ins are recorded in the audit log by the username that was typed. The lockout and throttling work as before, per username and per IP address. | `UserService`, `AuthService` |
+| I3 | **Fresh installs only.** The users table definition changed in place (migration 002) because no installation held data yet. An existing development database must be re-created (`migrate` on an empty database, then `create-admin`). | `database/migrations/002` |
 
 The generated role x route matrix is in `docs/permission-matrix.md` (`php cli/permission-report.php`).
 

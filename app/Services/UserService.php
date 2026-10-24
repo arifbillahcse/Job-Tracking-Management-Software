@@ -14,7 +14,7 @@ use PDOException;
 /**
  * User administration. Every method returns ['ok' => bool, 'code' => ...] instead of throwing for
  * expected refusals, so controllers can turn each into a clear message:
- *   not_found | forbidden | self | last_admin | invalid_role | duplicate_email
+ *   not_found | forbidden | self | last_admin | invalid_role | duplicate_username | duplicate_email
  *
  * Passwords are never stored in plain text and never written to the audit log. Temporary passwords are
  * generated here, hashed, flagged "must change", and handed back once for the administrator to pass on.
@@ -28,7 +28,7 @@ final class UserService
     }
 
     /**
-     * @param array<string,mixed> $input validated: name, email, role_id
+     * @param array<string,mixed> $input validated: name, username, email (may be null), role_id
      * @return array{ok:bool,code?:string,id?:int,password?:string}
      */
     public function create(array $input): array
@@ -48,27 +48,28 @@ final class UserService
         try {
             $id = $this->users->create([
                 'name' => $name,
-                'email' => (string) $input['email'],
+                'username' => (string) $input['username'],
+                'email' => $input['email'] ?? null,
                 'password_hash' => PasswordPolicy::hash($password),
                 'role_id' => $roleId,
                 'must_change_password' => 1,
             ]);
         } catch (PDOException $e) {
-            if ($this->isDuplicateEmail($e)) {
-                return ['ok' => false, 'code' => 'duplicate_email'];
+            if ($code = $this->duplicateCode($e)) {
+                return ['ok' => false, 'code' => $code];
             }
             throw $e;
         }
 
         AuditService::record('user_created', 'user', $id, null, [
-            'name' => $name, 'email' => strtolower(trim((string) $input['email'])), 'role' => $role['name'],
+            'name' => $name, 'username' => strtolower(trim((string) $input['username'])), 'email' => ($input['email'] ?? '') === '' ? null : strtolower(trim((string) $input['email'])), 'role' => $role['name'],
         ]);
 
         return ['ok' => true, 'id' => $id, 'password' => $password];
     }
 
     /**
-     * @param array<string,mixed> $input validated: name, email, role_id
+     * @param array<string,mixed> $input validated: name, username, email (may be null), role_id
      * @return array{ok:bool,code?:string,changed?:array<int,string>}
      */
     public function update(int $id, array $input): array
@@ -96,10 +97,15 @@ final class UserService
             }
         }
 
-        $fields = ['name' => trim((string) $input['name']), 'email' => strtolower(trim((string) $input['email'])), 'role_id' => $newRoleId];
+        $fields = [
+            'name' => trim((string) $input['name']),
+            'username' => strtolower(trim((string) $input['username'])),
+            'email' => strtolower(trim((string) ($input['email'] ?? ''))),
+            'role_id' => $newRoleId,
+        ];
         $old = [];
         $new = [];
-        foreach (['name', 'email'] as $column) {
+        foreach (['name', 'username', 'email'] as $column) {
             if ((string) $user[$column] !== $fields[$column]) {
                 $old[$column] = $user[$column];
                 $new[$column] = $fields[$column];
@@ -121,8 +127,8 @@ final class UserService
         } catch (LastAdministratorException) {
             return ['ok' => false, 'code' => 'last_admin'];
         } catch (PDOException $e) {
-            if ($this->isDuplicateEmail($e)) {
-                return ['ok' => false, 'code' => 'duplicate_email'];
+            if ($code = $this->duplicateCode($e)) {
+                return ['ok' => false, 'code' => $code];
             }
             throw $e;
         }
@@ -156,7 +162,7 @@ final class UserService
             return ['ok' => false, 'code' => 'last_admin'];
         }
 
-        AuditService::record($active ? 'user_activated' : 'user_deactivated', 'user', $id, null, ['email' => $user['email']]);
+        AuditService::record($active ? 'user_activated' : 'user_deactivated', 'user', $id, null, ['username' => $user['username']]);
         return ['ok' => true];
     }
 
@@ -164,7 +170,7 @@ final class UserService
      * Replace the password with a generated temporary one (shown once). The user must change it at next sign-in,
      * the account is unlocked, and every other session of that user ends (the password changed).
      *
-     * @return array{ok:bool,code?:string,password?:string,email?:string}
+     * @return array{ok:bool,code?:string,password?:string,username?:string}
      */
     public function resetPassword(int $id): array
     {
@@ -183,8 +189,8 @@ final class UserService
         $this->users->updatePassword($id, PasswordPolicy::hash($password), true);
         $this->users->clearLock($id);
 
-        AuditService::record('password_reset', 'user', $id, null, ['email' => $user['email']]);
-        return ['ok' => true, 'password' => $password, 'email' => (string) $user['email']];
+        AuditService::record('password_reset', 'user', $id, null, ['username' => $user['username']]);
+        return ['ok' => true, 'password' => $password, 'username' => (string) $user['username']];
     }
 
     /**
@@ -201,7 +207,7 @@ final class UserService
         }
 
         $this->users->clearLock($id);
-        AuditService::record('user_unlocked', 'user', $id, null, ['email' => $user['email']]);
+        AuditService::record('user_unlocked', 'user', $id, null, ['username' => $user['username']]);
         return ['ok' => true];
     }
 
@@ -230,7 +236,7 @@ final class UserService
             return ['ok' => false, 'code' => 'last_admin'];
         }
 
-        AuditService::record('user_deleted', 'user', $id, ['email' => $user['email'], 'name' => $user['name']]);
+        AuditService::record('user_deleted', 'user', $id, ['username' => $user['username'], 'name' => $user['name']]);
         return ['ok' => true];
     }
 
@@ -249,8 +255,16 @@ final class UserService
         ));
     }
 
-    private function isDuplicateEmail(PDOException $e): bool
+    /** Which unique column a constraint violation was about (a race between two administrators), or null. */
+    private function duplicateCode(PDOException $e): ?string
     {
-        return (string) $e->getCode() === '23000' && str_contains($e->getMessage(), 'email');
+        if ((string) $e->getCode() !== '23000') {
+            return null;
+        }
+        $message = $e->getMessage();
+        if (preg_match('/users\.username|key \'(?:users\.)?username\'/i', $message)) {
+            return 'duplicate_username';
+        }
+        return preg_match('/users\.email|key \'(?:users\.)?email\'/i', $message) ? 'duplicate_email' : null;
     }
 }

@@ -99,6 +99,10 @@ final class Validator
                 if ($rule === 'required' || $rule === 'nullable') {
                     continue;
                 }
+                if ($rule === 'lower') { // transform, not a test: later rules and the validated value see lower-case text
+                    $value = is_string($value) ? mb_strtolower($value) : $value;
+                    continue;
+                }
                 [$name, $arg] = array_pad(explode(':', $rule, 2), 2, '');
                 if (!$this->check($name, $arg, $field, $value)) {
                     $this->fail($field, $name, $arg);
@@ -125,6 +129,7 @@ final class Validator
             'max_value' => is_numeric($value) && (float) $value <= (float) $arg,
             'email' => $isScalar && filter_var($string, FILTER_VALIDATE_EMAIL) !== false,
             'date' => $isScalar && self::isDate($string),
+            'username' => $isScalar && preg_match('/^[a-z0-9][a-z0-9._-]{2,39}$/', $string) === 1,
             'numeric' => is_numeric($value),
             // A plain amount with at most two decimals: no exponent, sign, thousands separator or silent rounding.
             'money' => $isScalar && preg_match('/^(\d{1,10}(\.\d{0,2})?|\.\d{1,2})$/', $string) === 1,
@@ -189,6 +194,7 @@ final class Validator
             'max_value' => "{$label} may not be greater than {$arg}.",
             'email' => "{$label} must be a valid email address.",
             'date' => "{$label} must be a valid date (YYYY-MM-DD).",
+            'username' => "{$label} must be 3 to 40 lower-case letters, numbers, dots, dashes or underscores, starting with a letter or number.",
             'numeric' => "{$label} must be a number.",
             'money' => "{$label} must be an amount such as 1200 or 1200.50 (at most two decimals, no symbols).",
             'integer' => "{$label} must be a whole number.",

@@ -91,9 +91,9 @@ Certificates renew automatically (`systemctl list-timers | grep certbot`). In `.
 cd /var/www/job-tracker
 sudo -u www-data php cli/migrate.php
 sudo -u www-data php cli/seed.php
-sudo -u www-data php cli/create-admin.php --email=owner@yourcompany.com --name="Your Name"
+sudo -u www-data php cli/create-admin.php --username=owner --name="Your Name"
 ```
-`create-admin` prints a one-time password. Sign in with it; you are asked to choose your own. No default or demo accounts exist, and none should be created in production.
+`create-admin` prints a one-time password. Sign in with the **username** you gave and that password; you are asked to choose your own. No default or demo accounts exist, and none should be created in production.
 
 ## 8. Self-check
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /**
  * Shortcut for: php cli/create-user.php --role=Admin ...
- *   php cli/create-admin.php --email=you@example.com --name="Your Name" [--password=...] [--force-change]
+ *   php cli/create-admin.php --username=owner --name="Your Name" [--email=you@example.com] [--password=...] [--force-change]
  */
 
 if (PHP_SAPI !== 'cli') {

@@ -122,7 +122,7 @@ $w = admin_world();
 sign_in($w['admin']);
 $svc = new UserService();
 $staffRole = role_id('Staff');
-$r = $svc->create(['name' => 'Nora Newhire', 'email' => 'Nora@Example.com', 'role_id' => $staffRole]);
+$r = $svc->create(['name' => 'Nora Newhire', 'username' => username_of('Nora@Example.com'), 'email' => 'Nora@Example.com', 'role_id' => $staffRole]);
 $nora = user_row((int) $r['id']);
 check($r['ok'] && strlen($r['password']) === 16 && PasswordPolicy::check($r['password']) === null, 'creates the user with a generated password that meets the policy');
 check($nora['email'] === 'nora@example.com' && $nora['role_name'] === 'Staff' && (int) $nora['must_change_password'] === 1 && (int) $nora['is_active'] === 1, 'email lower-cased, role set, active, must change password');
@@ -130,30 +130,30 @@ check($nora['password_hash'] !== $r['password'] && password_verify($r['password'
 check(!secrets_leaked($r['password']), 'the temporary password is not in the audit log or any log file');
 $a = Database::fetchOne("SELECT * FROM audit_logs WHERE action = 'user_created' ORDER BY id DESC LIMIT 1");
 check($a !== null && str_contains((string) $a['new_values'], 'nora@example.com') && str_contains((string) $a['new_values'], 'Staff'), 'creation is audited (who, which role)');
-check($svc->create(['name' => 'Dup', 'email' => 'NORA@example.com', 'role_id' => $staffRole])['code'] === 'duplicate_email', 'a duplicate email (any case) is refused');
-check($svc->create(['name' => 'Bad', 'email' => 'bad@example.com', 'role_id' => 99999])['code'] === 'invalid_role', 'an unknown role is refused');
-check($svc->create(['name' => 'Adm', 'email' => 'newadmin@example.com', 'role_id' => role_id('Admin')])['ok'], 'an Admin can create another Admin');
+check($svc->create(['name' => 'Dup', 'username' => 'dup-user', 'email' => 'NORA@example.com', 'role_id' => $staffRole])['code'] === 'duplicate_email', 'a duplicate email (any case) is refused');
+check($svc->create(['name' => 'Bad', 'username' => username_of('bad@example.com'), 'email' => 'bad@example.com', 'role_id' => 99999])['code'] === 'invalid_role', 'an unknown role is refused');
+check($svc->create(['name' => 'Adm', 'username' => username_of('newadmin@example.com'), 'email' => 'newadmin@example.com', 'role_id' => role_id('Admin')])['ok'], 'an Admin can create another Admin');
 
 section('Safeguards: least privilege (you can only grant what you hold)');
 sign_in($w['uadmin']);
 $assignable = array_column($svc->assignableRoles(), 'name');
 sort($assignable);
 check($assignable === ['Staff', 'UserAdmin'], 'a user with users.manage can assign only roles whose permissions they all hold');
-check($svc->create(['name' => 'X', 'email' => 'x1@example.com', 'role_id' => role_id('Admin')])['code'] === 'forbidden', 'cannot create an Admin');
-check($svc->create(['name' => 'X', 'email' => 'x2@example.com', 'role_id' => role_id('Manager')])['code'] === 'forbidden', 'cannot create a Manager (needs permissions they lack)');
-check($svc->create(['name' => 'Okay', 'email' => 'x3@example.com', 'role_id' => role_id('Staff')])['ok'], 'can create a Staff user');
-check($svc->update((int) $w['admin']['id'], ['name' => 'Hacked', 'email' => 'admin@example.com', 'role_id' => role_id('Admin')])['code'] === 'forbidden', 'cannot edit an Admin');
-check($svc->update((int) $w['manager']['id'], ['name' => 'Hacked', 'email' => 'manager@example.com', 'role_id' => role_id('Manager')])['code'] === 'forbidden', 'cannot edit a Manager');
+check($svc->create(['name' => 'X', 'username' => username_of('x1@example.com'), 'email' => 'x1@example.com', 'role_id' => role_id('Admin')])['code'] === 'forbidden', 'cannot create an Admin');
+check($svc->create(['name' => 'X', 'username' => username_of('x2@example.com'), 'email' => 'x2@example.com', 'role_id' => role_id('Manager')])['code'] === 'forbidden', 'cannot create a Manager (needs permissions they lack)');
+check($svc->create(['name' => 'Okay', 'username' => username_of('x3@example.com'), 'email' => 'x3@example.com', 'role_id' => role_id('Staff')])['ok'], 'can create a Staff user');
+check($svc->update((int) $w['admin']['id'], ['name' => 'Hacked', 'username' => username_of('admin@example.com'), 'email' => 'admin@example.com', 'role_id' => role_id('Admin')])['code'] === 'forbidden', 'cannot edit an Admin');
+check($svc->update((int) $w['manager']['id'], ['name' => 'Hacked', 'username' => username_of('manager@example.com'), 'email' => 'manager@example.com', 'role_id' => role_id('Manager')])['code'] === 'forbidden', 'cannot edit a Manager');
 check($svc->resetPassword((int) $w['admin']['id'])['code'] === 'forbidden', 'cannot reset an Admin\'s password');
 check($svc->setActive((int) $w['admin']['id'], false)['code'] === 'forbidden' && $svc->delete((int) $w['manager']['id'])['code'] === 'forbidden' && $svc->unlock((int) $w['admin']['id'])['code'] === 'forbidden', 'cannot deactivate, delete or unlock users above their level');
 check(user_row((int) $w['admin']['id'])['name'] === (string) $w['admin']['name'] && (int) user_row((int) $w['admin']['id'])['is_active'] === 1, 'nothing about those users changed');
-check($svc->update((int) $w['staff']['id'], ['name' => 'Staff Renamed', 'email' => 'staff@example.com', 'role_id' => role_id('Staff')])['ok'], 'can edit a Staff user');
-check($svc->update((int) $w['staff']['id'], ['name' => 'Staff Renamed', 'email' => 'staff@example.com', 'role_id' => role_id('Manager')])['code'] === 'forbidden' && user_row((int) $w['staff']['id'])['role_name'] === 'Staff', 'cannot promote a Staff user to a role above their own level');
+check($svc->update((int) $w['staff']['id'], ['name' => 'Staff Renamed', 'username' => username_of('staff@example.com'), 'email' => 'staff@example.com', 'role_id' => role_id('Staff')])['ok'], 'can edit a Staff user');
+check($svc->update((int) $w['staff']['id'], ['name' => 'Staff Renamed', 'username' => username_of('staff@example.com'), 'email' => 'staff@example.com', 'role_id' => role_id('Manager')])['code'] === 'forbidden' && user_row((int) $w['staff']['id'])['role_name'] === 'Staff', 'cannot promote a Staff user to a role above their own level');
 
 section('Users: update');
 sign_in($w['admin']);
 $id = (int) $w['staff']['id'];
-$r = $svc->update($id, ['name' => '  Stacy Staff ', 'email' => 'Stacy@Example.com', 'role_id' => role_id('Manager')]);
+$r = $svc->update($id, ['name' => '  Stacy Staff ', 'username' => 'staff', 'email' => 'Stacy@Example.com', 'role_id' => role_id('Manager')]);
 $u = user_row($id);
 check($r['ok'] && $u['name'] === 'Stacy Staff' && $u['email'] === 'stacy@example.com' && $u['role_name'] === 'Manager' && $r['changed'] === ['name', 'email', 'role'], 'name, email and role updated; trimmed and lower-cased');
 $a = Database::fetchOne("SELECT * FROM audit_logs WHERE action = 'user_updated' ORDER BY id DESC LIMIT 1");
@@ -161,44 +161,44 @@ $old = json_decode((string) $a['old_values'], true);
 $new = json_decode((string) $a['new_values'], true);
 check($old['role'] === 'Staff' && $new['role'] === 'Manager' && $new['email'] === 'stacy@example.com', 'the audit entry records old and new values (role by name)');
 $count = audit_count('user_updated');
-check($svc->update($id, ['name' => 'Stacy Staff', 'email' => 'stacy@example.com', 'role_id' => role_id('Manager')])['changed'] === [] && audit_count('user_updated') === $count, 'saving without changes is a no-op and writes no audit entry');
-check($svc->update($id, ['name' => 'S', 'email' => 'nora@example.com', 'role_id' => role_id('Manager')])['code'] === 'duplicate_email', 'changing to an email that is taken is refused');
+check($svc->update($id, ['name' => 'Stacy Staff', 'username' => 'staff', 'email' => 'stacy@example.com', 'role_id' => role_id('Manager')])['changed'] === [] && audit_count('user_updated') === $count, 'saving without changes is a no-op and writes no audit entry');
+check($svc->update($id, ['name' => 'S', 'username' => 'staff', 'email' => 'nora@example.com', 'role_id' => role_id('Manager')])['code'] === 'duplicate_email', 'changing to an email that is taken is refused');
 check(user_row($id)['email'] === 'stacy@example.com', '...and nothing was saved');
-check($svc->update(999999, ['name' => 'x', 'email' => 'x@example.com', 'role_id' => $staffRole])['code'] === 'not_found', 'unknown user -> not_found');
-check($svc->update($id, ['name' => 'S', 'email' => 'stacy@example.com', 'role_id' => 99999])['code'] === 'invalid_role', 'unknown role -> invalid_role');
+check($svc->update(999999, ['name' => 'x', 'username' => username_of('x@example.com'), 'email' => 'x@example.com', 'role_id' => $staffRole])['code'] === 'not_found', 'unknown user -> not_found');
+check($svc->update($id, ['name' => 'S', 'username' => 'staff', 'email' => 'stacy@example.com', 'role_id' => 99999])['code'] === 'invalid_role', 'unknown role -> invalid_role');
 $self = (int) $w['admin']['id'];
-check($svc->update($self, ['name' => 'Admin Renamed', 'email' => 'admin@example.com', 'role_id' => role_id('Staff')])['code'] === 'self' && user_row($self)['role_name'] === 'Admin', 'you cannot change your own role');
-check($svc->update($self, ['name' => 'Admin Renamed', 'email' => 'admin@example.com', 'role_id' => role_id('Admin')])['ok'] && user_row($self)['name'] === 'Admin Renamed', 'you can edit your own name and email');
+check($svc->update($self, ['name' => 'Admin Renamed', 'username' => username_of('admin@example.com'), 'email' => 'admin@example.com', 'role_id' => role_id('Staff')])['code'] === 'self' && user_row($self)['role_name'] === 'Admin', 'you cannot change your own role');
+check($svc->update($self, ['name' => 'Admin Renamed', 'username' => username_of('admin@example.com'), 'email' => 'admin@example.com', 'role_id' => role_id('Admin')])['ok'] && user_row($self)['name'] === 'Admin Renamed', 'you can edit your own name and email');
 
 section('Users: activate, deactivate, reset password, unlock, delete');
 $victim = make_user('Staff', 'victim@example.com', 'a long enough passphrase');
 $vid = (int) $victim['id'];
 check($svc->setActive($vid, false)['ok'] && (int) user_row($vid)['is_active'] === 0, 'deactivate');
 $req = Request::make('POST', '/login', [], [], ['REMOTE_ADDR' => '203.0.113.77']);
-check(!(new AuthService())->attempt('victim@example.com', 'a long enough passphrase', $req)['ok'], 'a deactivated user cannot sign in, even with the right password');
-check($svc->setActive($vid, true)['ok'] && (new AuthService())->attempt('victim@example.com', 'a long enough passphrase', $req)['ok'], 'reactivating restores access');
+check(!(new AuthService())->attempt('victim', 'a long enough passphrase', $req)['ok'], 'a deactivated user cannot sign in, even with the right password');
+check($svc->setActive($vid, true)['ok'] && (new AuthService())->attempt('victim', 'a long enough passphrase', $req)['ok'], 'reactivating restores access');
 check(audit_count('user_deactivated') === 1 && audit_count('user_activated') === 1, 'both are audited');
 check($svc->setActive($self, false)['code'] === 'self' && (int) user_row($self)['is_active'] === 1, 'you cannot deactivate yourself');
 
 $oldHash = user_row($vid)['password_hash'];
 for ($i = 0; $i < 5; $i++) {
-    (new AuthService())->attempt('victim@example.com', 'wrong-guess-' . $i, $req);
+    (new AuthService())->attempt('victim', 'wrong-guess-' . $i, $req);
 }
 check(user_row($vid)['locked_until'] !== null, 'the account is locked after repeated failures');
 check($svc->unlock($vid)['ok'] && user_row($vid)['locked_until'] === null && (int) user_row($vid)['failed_attempts'] === 0, 'unlock clears the lock and the failure counter');
-check((new AuthService())->attempt('victim@example.com', 'a long enough passphrase', Request::make('POST', '/login', [], [], ['REMOTE_ADDR' => '203.0.113.78']))['ok'], '...so the user can sign in again');
+check((new AuthService())->attempt('victim', 'a long enough passphrase', Request::make('POST', '/login', [], [], ['REMOTE_ADDR' => '203.0.113.78']))['ok'], '...so the user can sign in again');
 check(audit_count('user_unlocked') === 1, 'unlocking is audited');
 
 for ($i = 0; $i < 5; $i++) {
-    (new AuthService())->attempt('victim@example.com', 'wrong-guess-' . $i, Request::make('POST', '/login', [], [], ['REMOTE_ADDR' => '203.0.113.79']));
+    (new AuthService())->attempt('victim', 'wrong-guess-' . $i, Request::make('POST', '/login', [], [], ['REMOTE_ADDR' => '203.0.113.79']));
 }
 $r = $svc->resetPassword($vid);
 $v = user_row($vid);
 check($r['ok'] && $v['password_hash'] !== $oldHash && password_verify($r['password'], $v['password_hash']) && (int) $v['must_change_password'] === 1, 'reset: new hash, forced change at next sign-in');
 check($v['locked_until'] === null && (int) $v['failed_attempts'] === 0, '...and a locked account is unlocked');
-check(PasswordPolicy::check($r['password']) === null && $r['email'] === 'victim@example.com', '...with a policy-compliant temporary password');
+check(PasswordPolicy::check($r['password']) === null && $r['username'] === 'victim', '...with a policy-compliant temporary password');
 check(!secrets_leaked($r['password']) && audit_count('password_reset') === 1, 'the reset is audited without the password');
-check(!(new AuthService())->attempt('victim@example.com', 'a long enough passphrase', Request::make('POST', '/login', [], [], ['REMOTE_ADDR' => '203.0.113.80']))['ok'], 'the old password stops working');
+check(!(new AuthService())->attempt('victim', 'a long enough passphrase', Request::make('POST', '/login', [], [], ['REMOTE_ADDR' => '203.0.113.80']))['ok'], 'the old password stops working');
 check($svc->resetPassword($self)['code'] === 'self', 'an admin cannot reset their own password here (My Account asks for the current one)');
 
 check($svc->delete($self)['code'] === 'self' && user_row($self)['deleted_at'] === null, 'you cannot delete yourself');
@@ -206,9 +206,9 @@ $del = make_user('Staff', 'doomed@example.com');
 $jobId = mk_job(['job_number' => 'DEL-1']);
 Database::execute('UPDATE jobs SET created_by = ? WHERE id = ?', [$del['id'], $jobId]);
 check($svc->delete((int) $del['id'])['ok'] && user_row((int) $del['id'])['deleted_at'] !== null, 'delete is a soft delete (the row stays)');
-check((new UserRepository())->findById((int) $del['id']) === null && (new UserRepository())->findByEmail('doomed@example.com') === null, 'a deleted user is invisible to the app');
-check(!(new AuthService())->attempt('doomed@example.com', 'correct horse battery', Request::make('POST', '/login', [], [], ['REMOTE_ADDR' => '203.0.113.81']))['ok'], 'a deleted user cannot sign in');
-check($svc->create(['name' => 'Again', 'email' => 'doomed@example.com', 'role_id' => $staffRole])['code'] === 'duplicate_email', 'the deleted user\'s email stays reserved');
+check((new UserRepository())->findById((int) $del['id']) === null && (new UserRepository())->findByUsername('doomed') === null, 'a deleted user is invisible to the app');
+check(!(new AuthService())->attempt('doomed', 'correct horse battery', Request::make('POST', '/login', [], [], ['REMOTE_ADDR' => '203.0.113.81']))['ok'], 'a deleted user cannot sign in');
+check($svc->create(['name' => 'Again', 'username' => 'again-user', 'email' => 'doomed@example.com', 'role_id' => $staffRole])['code'] === 'duplicate_email', 'the deleted user\'s email stays reserved');
 check((int) Database::fetchValue('SELECT created_by FROM jobs WHERE id = ?', [$jobId]) === (int) $del['id'], 'their jobs keep pointing at them (history preserved)');
 check($svc->delete((int) $del['id'])['code'] === 'not_found', 'deleting twice -> not_found');
 check(audit_count('user_deleted') === 1, 'deletion is audited');
@@ -220,7 +220,7 @@ foreach (['id;DROP TABLE users', 'password_hash', 'u.id', ''] as $evil) {
     check($crit(['sort' => $evil])->sort === 'name', 'unknown sort "' . $evil . '" falls back to name');
 }
 check($crit(['status' => 'bogus'])->status === '' && $crit(['status' => 'locked'])->status === 'locked', 'status is one of a fixed set');
-check($crit(['dir' => 'x', 'sort' => 'email'])->dir === 'asc' && $crit(['dir' => 'DESC', 'sort' => 'email'])->dir === 'desc', 'direction is asc/desc only');
+check($crit(['dir' => 'x', 'sort' => 'username'])->dir === 'asc' && $crit(['dir' => 'DESC', 'sort' => 'username'])->dir === 'desc', 'direction is asc/desc only');
 check($crit(['q' => str_repeat('a', 300)])->q === str_repeat('a', 100) && $crit(['q' => ['x']])->q === '' && $crit(['page' => '-5'])->page === 1 && $crit(['role' => 'abc'])->roleId === 0, 'search text, page and role are sanitised');
 foreach ([['sort' => 'name'], ['sort' => 'email', 'dir' => 'desc'], ['sort' => 'role'], ['sort' => 'last_login'], ['sort' => 'created']] as $q) {
     $rows = (new UserRepository())->search($crit($q), 100, 0);
@@ -441,12 +441,12 @@ section('Pages: user list');
 $w = admin_world();
 $repo = new UserRepository();
 for ($i = 1; $i <= 30; $i++) {
-    $repo->create(['name' => sprintf('Bulk User %02d', $i), 'email' => sprintf('bulk%02d@example.com', $i), 'password_hash' => 'x', 'role_id' => role_id('Staff')]);
+    $repo->create(['name' => sprintf('Bulk User %02d', $i), 'username' => sprintf('bulk%02d', $i), 'email' => sprintf('bulk%02d@example.com', $i), 'password_hash' => 'x', 'role_id' => role_id('Staff')]);
 }
-$repo->create(['name' => '<script>alert(1)</script>', 'email' => 'xss@example.com', 'password_hash' => 'x', 'role_id' => role_id('Staff')]);
-$lockedId = $repo->create(['name' => 'Locked Larry', 'email' => 'larry@example.com', 'password_hash' => 'x', 'role_id' => role_id('Staff')]);
+$repo->create(['name' => '<script>alert(1)</script>', 'username' => username_of('xss@example.com'), 'email' => 'xss@example.com', 'password_hash' => 'x', 'role_id' => role_id('Staff')]);
+$lockedId = $repo->create(['name' => 'Locked Larry', 'username' => username_of('larry@example.com'), 'email' => 'larry@example.com', 'password_hash' => 'x', 'role_id' => role_id('Staff')]);
 Database::execute('UPDATE users SET locked_until = ? WHERE id = ?', ['2099-01-01 00:00:00', $lockedId]);
-$inactiveId = $repo->create(['name' => 'Inactive Ivy', 'email' => 'ivy@example.com', 'password_hash' => 'x', 'role_id' => role_id('Manager'), 'is_active' => 0]);
+$inactiveId = $repo->create(['name' => 'Inactive Ivy', 'username' => username_of('ivy@example.com'), 'email' => 'ivy@example.com', 'password_hash' => 'x', 'role_id' => role_id('Manager'), 'is_active' => 0]);
 fresh_session();
 sign_in($w['admin']);
 $r = call('GET', '/users');
@@ -465,7 +465,7 @@ $b = call('GET', '/users', [], ['status' => 'inactive'])->body();
 check(str_contains($b, 'Inactive Ivy') && !str_contains($b, 'Locked Larry'), 'status filter: inactive');
 $b = call('GET', '/users', [], ['role' => (string) role_id('Manager')])->body();
 check(str_contains($b, 'Inactive Ivy') && str_contains($b, 'manager@example.com') && !str_contains($b, 'Bulk User'), 'role filter');
-check(str_contains(call('GET', '/users', [], ['sort' => 'email', 'dir' => 'desc'])->body(), 'sort=email&amp;dir=asc'), 'sorted header toggles direction');
+check(str_contains(call('GET', '/users', [], ['sort' => 'username', 'dir' => 'desc'])->body(), 'sort=username&amp;dir=asc'), 'sorted header toggles direction');
 check(str_contains(call('GET', '/users', [], ['q' => 'bulk', 'page' => '2'])->body(), 'q=bulk'), 'page links keep the search');
 check(str_contains(call('GET', '/users', [], ['q' => 'nobody-xyz'])->body(), 'No users match your search'), 'friendly empty state');
 check(call('GET', '/users', [], ['sort' => 'x;DROP', 'status' => 'zzz', 'role' => 'abc', 'page' => '-1'])->status() === 200, 'garbage parameters are harmless');
@@ -486,11 +486,11 @@ $form = call('GET', '/users/create')->body();
 check(str_contains($form, 'name="name"') && str_contains($form, 'name="email"') && str_contains($form, 'name="role_id"') && str_contains($form, 'temporary password is generated'), 'create form');
 $r = call('POST', '/users', ['name' => '', 'email' => 'nope', 'role_id' => '']);
 check($r->status() === 302 && str_ends_with((string) $r->getHeader('Location'), '/users/create') && isset($_SESSION['_flash_next']['errors']['name'], $_SESSION['_flash_next']['errors']['email'], $_SESSION['_flash_next']['errors']['role_id']), 'invalid input goes back with field errors');
-$r = call('POST', '/users', ['name' => 'Dup', 'email' => 'STAFF@example.com', 'role_id' => (string) role_id('Staff')]);
+$r = call('POST', '/users', ['name' => 'Dup', 'username' => username_of('STAFF@example.com'), 'email' => 'STAFF@example.com', 'role_id' => (string) role_id('Staff')]);
 check(isset($_SESSION['_flash_next']['errors']['email']), 'duplicate email is a field error');
-$r = call('POST', '/users', ['name' => 'Bad Role', 'email' => 'br@example.com', 'role_id' => '99999']);
+$r = call('POST', '/users', ['name' => 'Bad Role', 'username' => username_of('br@example.com'), 'email' => 'br@example.com', 'role_id' => '99999']);
 check(isset($_SESSION['_flash_next']['errors']['role_id']), 'unknown role is a field error');
-$r = call('POST', '/users', ['name' => '<b>Tricky</b> Tina', 'email' => 'tina@example.com', 'role_id' => (string) role_id('Staff')]);
+$r = call('POST', '/users', ['name' => '<b>Tricky</b> Tina', 'username' => username_of('tina@example.com'), 'email' => 'tina@example.com', 'role_id' => (string) role_id('Staff')]);
 check($r->status() === 302 && preg_match('#/users/(\d+)/edit$#', (string) $r->getHeader('Location'), $m) === 1, 'a valid user is created and you land on their page');
 $tinaId = (int) $m[1];
 $secret = $_SESSION['_flash_next']['secret']['value'] ?? '';
@@ -508,7 +508,7 @@ check(str_contains($page, 'Must be changed at next sign-in'), '...and shows the 
 // the new user's first sign-in: forced password change
 $tina = user_row($tinaId);
 fresh_session();
-$res = (new AuthService())->attempt('tina@example.com', $secret, Request::make('POST', '/login', [], [], ['REMOTE_ADDR' => '203.0.113.90']));
+$res = (new AuthService())->attempt('tina', $secret, Request::make('POST', '/login', [], [], ['REMOTE_ADDR' => '203.0.113.90']));
 check($res['ok'], 'the new user can sign in with the temporary password');
 Auth::login($res['user']);
 $r = call('GET', '/jobs');
@@ -518,14 +518,14 @@ check(call('GET', '/users')->status() === 302, 'administration is out of reach a
 call('POST', '/account/password', ['current_password' => $secret, 'password' => 'tina chose this passphrase', 'password_confirmation' => 'tina chose this passphrase']);
 check((int) user_row($tinaId)['must_change_password'] === 0, 'choosing a new password clears the flag');
 check(call('GET', '/jobs')->status() === 200, '...and the app opens up');
-check(!(new AuthService())->attempt('tina@example.com', $secret, Request::make('POST', '/login', [], [], ['REMOTE_ADDR' => '203.0.113.91']))['ok'], 'the temporary password no longer works');
+check(!(new AuthService())->attempt('tina', $secret, Request::make('POST', '/login', [], [], ['REMOTE_ADDR' => '203.0.113.91']))['ok'], 'the temporary password no longer works');
 
 // editing through the route
 fresh_session();
 sign_in($w['admin']);
 $edit = call('GET', "/users/{$tinaId}/edit")->body();
 check(str_contains($edit, 'value="tina@example.com"') && preg_match('/<option value="\d+" selected>Staff/', $edit) === 1, 'edit form is prefilled');
-$r = call('POST', "/users/{$tinaId}", ['name' => 'Tina T', 'email' => 'tina@example.com', 'role_id' => (string) role_id('Manager')]);
+$r = call('POST', "/users/{$tinaId}", ['name' => 'Tina T', 'username' => username_of('tina@example.com'), 'email' => 'tina@example.com', 'role_id' => (string) role_id('Manager')]);
 check($r->status() === 302 && user_row($tinaId)['role_name'] === 'Manager' && user_row($tinaId)['name'] === 'Tina T', 'saving changes the user');
 check(($_SESSION['_flash_next']['alert']['type'] ?? '') === 'success', '...with a success message');
 $r = call('POST', "/users/{$tinaId}", ['name' => '', 'email' => 'not-an-email', 'role_id' => (string) role_id('Manager')]);
@@ -542,7 +542,7 @@ foreach (['deactivate', 'delete', 'reset-password'] as $action) {
     $r = call('POST', "/users/{$aid}/{$action}");
     check($r->status() === 302 && ($_SESSION['_flash_next']['alert']['type'] ?? '') === 'danger' && (int) user_row($aid)['is_active'] === 1 && user_row($aid)['deleted_at'] === null, "forged POST: you cannot {$action} yourself");
 }
-$r = call('POST', "/users/{$aid}", ['name' => 'Admin', 'email' => 'admin@example.com', 'role_id' => (string) role_id('Staff')]);
+$r = call('POST', "/users/{$aid}", ['name' => 'Admin', 'username' => username_of('admin@example.com'), 'email' => 'admin@example.com', 'role_id' => (string) role_id('Staff')]);
 check(user_row($aid)['role_name'] === 'Admin' && ($_SESSION['_flash_next']['alert']['type'] ?? '') === 'danger', 'forged POST: you cannot change your own role');
 
 // reset, deactivate, unlock, delete through the routes

@@ -15,12 +15,16 @@
                     <button type="submit" class="btn btn-outline-primary btn-sm mb-3">Save name</button>
                 </form>
                 <dl class="row mb-0">
-                    <dt class="col-4 text-body-secondary fw-normal">Email</dt>
-                    <dd class="col-8 text-break"><?= e($user['email']) ?></dd>
+                    <dt class="col-4 text-body-secondary fw-normal">Username</dt>
+                    <dd class="col-8 text-break"><?= e($user['username']) ?></dd>
+                    <?php if (!empty($user['email'])): ?>
+                        <dt class="col-4 text-body-secondary fw-normal">Email</dt>
+                        <dd class="col-8 text-break"><?= e($user['email']) ?></dd>
+                    <?php endif; ?>
                     <dt class="col-4 text-body-secondary fw-normal">Role</dt>
                     <dd class="col-8"><span class="badge text-bg-light border"><?= e($user['role_name']) ?></span></dd>
                 </dl>
-                <div class="form-text mt-2">Your email and role are changed by an administrator.</div>
+                <div class="form-text mt-2">Your username, email and role are changed by an administrator.</div>
             </div>
         </div>
     </div>

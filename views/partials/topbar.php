@@ -11,7 +11,7 @@
         </button>
         <ul class="dropdown-menu dropdown-menu-end shadow-sm">
             <li class="px-3 py-2 small text-body-secondary">
-                <?= e($user['email'] ?? '') ?><br>
+                <?= e($user['username'] ?? '') ?><br>
                 <span class="badge text-bg-light border"><?= e($user['role_name'] ?? '') ?></span>
             </li>
             <li><hr class="dropdown-divider"></li>

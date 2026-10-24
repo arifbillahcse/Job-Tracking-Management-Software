@@ -10,7 +10,7 @@ and tables become stacked cards.
  | Welcome back                   |
  | Sign in to manage your jobs.   |
  |                                |
- | Email     [____________________]|
+ | Username  [____________________]|
  | Password  [______________][Show]|
  |                                |
  | [          Sign in            ]|
