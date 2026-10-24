@@ -132,17 +132,30 @@ This runs the daily backup and cleanup and a weekly self-check.
 
 ## Shared hosting / cPanel
 
-Possible if the host offers PHP 8.1+ with the extensions in step 0 and MySQL.
-- Upload the archive **above** the public web folder (e.g. `/home/you/job-tracker`) and make the domain's document root `/home/you/job-tracker/public` (cPanel: *Domains -> Document Root*). If the host cannot change the document root, point a sub-domain at `public/` instead; do **not** copy the application into `public_html`.
-- Create the database and user in cPanel, put the values in `.env`, run the `php cli/...` commands in the cPanel Terminal (or run `php cli/migrate.php` through SSH).
-- Set the PHP version and `upload_max_filesize`/`post_max_size` (>= 6M) in *MultiPHP INI Editor*.
-- Add the two cron lines in *Cron Jobs*.
+Possible if the host offers PHP 8.1+ with the extensions in step 0 and MySQL. There are two ways; use the first if you can.
+
+**A. Document root = `public/` (best).** In cPanel *Domains* (or *Subdomains*) set the domain's **Document Root** to `<app folder>/public`, for example `/home/you/job-tracker/public`. Put the application **above** `public_html` if you can. In `.env`: `APP_URL=https://jobs.example.com`.
+
+**B. The host cannot change the document root** (e.g. the app is uploaded into `public_html/admin`, so it is reached as `https://example.com/admin/`). The root `.htaccess` that ships with the application then serves everything from `public/` and keeps `app/`, `storage/`, `database/`, `.env` and the other private parts blocked. Requirements: `mod_rewrite` (standard on cPanel) and **`APP_URL` must include the folder**:
+```
+APP_URL=https://tracking-management.demo.softorio.com/admin
+```
+(no trailing slash, no `/public`). Then open `https://tracking-management.demo.softorio.com/admin/`. If you see the server's own **403 "Access to this resource on the server is denied"** page, the root `.htaccess` is an old version: upload the current one. If you see **404**, `mod_rewrite` rules in `.htaccess` are not being applied (ask the host to enable `AllowOverride All`).
+
+For both:
+- Create the database and user in cPanel (*MySQL Databases*), add the user to the database with all privileges, and put the values in `.env` (`DB_HOST` is usually `localhost`; cPanel prefixes names, e.g. `cpuser_jobtracker`).
+- Run the commands from step 7 in the cPanel **Terminal** (or SSH): `php cli/migrate.php`, `php cli/seed.php`, `php cli/create-admin.php ...`, `php cli/doctor.php`. If `php` is an old version there, use the full path your host documents, e.g. `/opt/cpanel/ea-php83/root/usr/bin/php`.
+- Set the PHP version to 8.1+ and `upload_max_filesize`/`post_max_size` (>= 6M) in *MultiPHP Manager* / *MultiPHP INI Editor*.
+- Make `storage/` writable by the account (normally already true on cPanel; `chmod -R u+rwX storage`).
+- Add the cron lines from `deploy/cron.example` in *Cron Jobs* (use the full PHP path).
+- Do not copy the files into `public_html` loose: keep them in a folder and use A or B.
 
 ## Troubleshooting
 
 | Symptom | Likely cause and fix |
 |---|---|
 | White page or "Something went wrong" | Read `storage/logs/app-YYYY-MM-DD.log` and the web server error log. Usually a wrong `.env` value, a missing PHP extension (`doctor` shows it) or `storage/` not writable |
+| Server's own **403 Forbidden** page on the site root or `/admin/` | Old root `.htaccess` (it refused everything outside `public/`), or the document root points at the wrong folder: see *Shared hosting / cPanel* |
 | 404 on every page except `/` | URL rewriting is off: Apache `AllowOverride All` + `mod_rewrite`, or Nginx `try_files` as in the template |
 | Pages work but styles are missing | Document root is not `public/`, or `public/assets/vendor/` was not shipped (the release builder refuses to build without it) |
 | "File too large" on import | `upload_max_filesize` / `post_max_size` in PHP and `client_max_body_size` / `LimitRequestBody` in the web server (templates set 6M/8M) |

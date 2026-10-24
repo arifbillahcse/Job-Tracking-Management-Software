@@ -251,3 +251,15 @@ preg_match_all("/Env::(?:get|bool|int)\('([A-Z_]+)'/", $appConfig, $used);
 check(array_diff($used[1], array_keys($prod)) === [], 'every environment variable the application reads is in the production template' . (array_diff($used[1], array_keys($prod)) === [] ? '' : ': ' . implode(', ', array_diff($used[1], array_keys($prod)))));
 check(trim((string) file_get_contents(BASE_PATH . '/VERSION')) !== '' && preg_match('/^\d+\.\d+\.\d+$/', trim((string) file_get_contents(BASE_PATH . '/VERSION'))) === 1, 'VERSION holds a semantic version');
 check(str_contains((string) file_get_contents(BASE_PATH . '/CHANGELOG.md'), trim((string) file_get_contents(BASE_PATH . '/VERSION'))), 'CHANGELOG mentions the current version');
+
+section('Root .htaccess (hosts that cannot change the document root)');
+$ht = (string) file_get_contents(BASE_PATH . '/.htaccess');
+preg_match('/RewriteRule \^\(([a-z|]+)\)\(\/\|\$\) - \[F,L\]/', $ht, $blocked);
+$blockedDirs = explode('|', $blocked[1] ?? '');
+$topDirs = array_values(array_filter(array_map('basename', glob(BASE_PATH . '/*', GLOB_ONLYDIR) ?: []), static fn (string $d): bool => $d !== 'public'));
+check(array_diff($topDirs, $blockedDirs) === [], 'every top-level folder except public/ is blocked' . (array_diff($topDirs, $blockedDirs) === [] ? '' : ' - missing: ' . implode(', ', array_diff($topDirs, $blockedDirs))));
+check(str_contains($ht, 'RewriteRule ^(.*)$ public/$1 [L]') && strpos($ht, 'RewriteRule ^public/ - [L]') < strpos($ht, 'RewriteRule ^(.*)$ public/$1 [L]'), 'everything else is served from public/, and public/ itself is exempt first (no rewrite loop)');
+check(strpos($ht, '[F,L]') < strpos($ht, 'public/$1 [L]'), 'the blocking rules come before the catch-all');
+check(str_contains($ht, '.env') && str_contains($ht, 'composer') && str_contains($ht, 'FilesMatch'), 'root files (.env, composer.json, VERSION) and dotfiles are refused');
+$inlineHt = array_filter(explode("\n", $ht), static fn (string $l): bool => (bool) preg_match('/^\s*(Rewrite|Options|Require)\S*\s.*\S\s+#/', $l));
+check($inlineHt === [], 'no trailing # comments on directive lines (Apache refuses them)');

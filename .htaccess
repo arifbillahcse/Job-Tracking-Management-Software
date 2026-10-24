@@ -1,6 +1,23 @@
-# Safety net: if the web server's document root is ever pointed at this folder by mistake,
-# nothing but /public is reachable. The correct setup is document root = job-tracker/public.
+# Fallback for hosts where the document root CANNOT be pointed at public/ (typical cPanel sub-folder or add-on domain).
+# The correct setup is still: document root = <app>/public  (docs/deployment.md). With this file, requests to this folder
+# are served from public/, and every private part of the application stays unreachable.
+Options -Indexes
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteRule ^(?!public/) - [F,L]
+
+    # 1. Already inside public/: stop here, public/.htaccess takes over.
+    RewriteRule ^public/ - [L]
+
+    # 2. Private parts are never served (code, configuration, data, backups, logs, tests, documentation).
+    RewriteRule ^(app|cli|database|deploy|dist|docs|scripts|storage|tests|vendor|views)(/|$) - [F,L]
+    RewriteRule ^(VERSION|CHANGELOG\.md|README\.md|composer\.(json|lock)|\.env.*)$ - [F,L]
+
+    # 3. Everything else is served from public/ (the application, its CSS/JS/fonts).
+    RewriteRule ^(.*)$ public/$1 [L]
 </IfModule>
+
+# Never serve dotfiles (.env, .git, .htaccess ...) even if the rewrite module is missing.
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
