@@ -263,3 +263,18 @@ check(strpos($ht, '[F,L]') < strpos($ht, 'public/$1 [L]'), 'the blocking rules c
 check(str_contains($ht, '.env') && str_contains($ht, 'composer') && str_contains($ht, 'FilesMatch'), 'root files (.env, composer.json, VERSION) and dotfiles are refused');
 $inlineHt = array_filter(explode("\n", $ht), static fn (string $l): bool => (bool) preg_match('/^\s*(Rewrite|Options|Require)\S*\s.*\S\s+#/', $l));
 check($inlineHt === [], 'no trailing # comments on directive lines (Apache refuses them)');
+
+section('Command-line tools fail with a sentence, not an HTML page');
+$run = static function (string $script, array $env): array {
+    $proc = proc_open([PHP_BINARY, BASE_PATH . '/cli/' . $script], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, BASE_PATH, $env + ['PATH' => (string) getenv('PATH')]);
+    $out = stream_get_contents($pipes[1]);
+    $err = stream_get_contents($pipes[2]);
+    fclose($pipes[1]);
+    fclose($pipes[2]);
+    return [proc_close($proc), $out, $err];
+};
+[$code, $out, $err] = $run('migrate.php', ['DB_DRIVER' => 'mysql', 'DB_HOST' => '127.0.0.1', 'DB_PORT' => '1', 'DB_DATABASE' => 'x', 'DB_USERNAME' => 'x', 'APP_ENV' => 'local']);
+check($code === 1, 'an unreachable database makes the tool exit with status 1');
+check(!str_contains($out . $err, '<html') && !str_contains($out . $err, '<!doctype'), 'no HTML is printed');
+check(str_starts_with($err, 'ERROR: ') && str_contains($err, 'Details: storage/logs/'), 'the message says what failed and where the details are');
+check(is_file(BASE_PATH . '/.env') || str_contains($err, 'no .env file'), 'without a .env file it says so and where the template is');

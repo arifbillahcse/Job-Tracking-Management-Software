@@ -60,7 +60,7 @@ final class EnvironmentCheck
             $perms = (int) (fileperms($env) & 0777);
             ($perms & 0007) === 0 ? $add('ok', '.env is not world-readable') : $add('warn', '.env is world-readable', sprintf('mode %04o, use chmod 640', $perms));
         } else {
-            $add('warn', 'No .env file', 'settings come from real environment variables');
+            $add('warn', 'No .env file', 'the built-in defaults are in use (database user root, no password); create .env from deploy/env.production.example');
         }
         is_file(BASE_PATH . '/public/.env') ? $add('fail', 'public/.env exists') : $add('ok', 'No .env inside public/');
 

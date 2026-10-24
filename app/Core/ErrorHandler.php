@@ -27,6 +27,9 @@ final class ErrorHandler
         });
 
         set_exception_handler(static function (Throwable $e): void {
+            if (PHP_SAPI === 'cli') {
+                self::reportCli($e); // an operator at a terminal needs a sentence, not an HTML error page
+            }
             self::handle($e)->send();
         });
 
@@ -36,6 +39,20 @@ final class ErrorHandler
                 Logger::error('Fatal error: ' . $error['message'], ['file' => $error['file'], 'line' => $error['line']]);
             }
         });
+    }
+
+    /** Plain-text failure for command-line tools: what happened, the likely fix, and where the details are. Exits 1. */
+    private static function reportCli(Throwable $e): never
+    {
+        Logger::error(get_class($e) . ': ' . $e->getMessage(), ['file' => $e->getFile(), 'line' => $e->getLine()]);
+        fwrite(STDERR, 'ERROR: ' . $e->getMessage() . PHP_EOL);
+        if (!is_file(BASE_PATH . '/.env')) {
+            fwrite(STDERR, 'There is no .env file in ' . BASE_PATH . '. Copy deploy/env.production.example to .env and fill in APP_URL and the DB_* values (docs/deployment.md, step 4).' . PHP_EOL);
+        } elseif ($e instanceof \PDOException) {
+            fwrite(STDERR, 'Check DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME and DB_PASSWORD in .env (on cPanel the names carry your account prefix, e.g. cpuser_jobtracker).' . PHP_EOL);
+        }
+        fwrite(STDERR, 'Details: storage/logs/app-' . gmdate('Y-m-d') . '.log' . PHP_EOL);
+        exit(1);
     }
 
     public static function handle(Throwable $e): Response

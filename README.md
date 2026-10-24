@@ -31,7 +31,7 @@ Point the document root at **`public/`** only. `public/.htaccess` handles Apache
 ## Tests
 ```bash
 tests/all.sh [--perf] [--e2e]               # EVERYTHING below on a throw-away database (recommended)
-php tests/run.php                                   # 1368 unit/integration checks (SQLite in memory)
+php tests/run.php                                   # 1372 unit/integration checks (SQLite in memory)
 tests/smoke.sh http://localhost:8000 EMAIL PASSWORD # Phase 1 end-to-end over HTTP (changes then restores that account's password)
 tests/smoke-jobs.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS       # job CRUD as Admin and Staff (leaves soft-deleted SMOKE-* jobs)
 tests/smoke-workflow.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS   # sections, dashboard and workflow (leaves soft-deleted WF-* jobs; needs GNU date)
