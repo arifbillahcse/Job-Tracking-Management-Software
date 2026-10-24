@@ -104,6 +104,20 @@ final class Request
         return $this->query[$key] ?? $default;
     }
 
+    /** A query-string value as text; an array (?x[]=1) or a missing key gives $default. */
+    public function queryStr(string $key, string $default = ''): string
+    {
+        $value = $this->query[$key] ?? null;
+        return is_scalar($value) ? (string) $value : $default;
+    }
+
+    /** A query-string value as a whole number; arrays and non-numeric text give $default. */
+    public function queryInt(string $key, int $default = 0): int
+    {
+        $value = $this->query[$key] ?? null;
+        return is_scalar($value) && filter_var((string) $value, FILTER_VALIDATE_INT) !== false ? (int) $value : $default;
+    }
+
     /**
      * @return array<string,mixed>
      */

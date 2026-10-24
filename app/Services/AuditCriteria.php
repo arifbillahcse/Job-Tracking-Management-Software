@@ -50,11 +50,11 @@ final class AuditCriteria
         return new self(
             $identifier($request->query('action', '')),
             $identifier($request->query('entity', '')),
-            max(0, (int) $request->query('user', 0)),
+            max(0, $request->queryInt('user', 0)),
             $from,
             $to,
-            max(0, (int) $request->query('entity_id', 0)),
-            max(1, (int) $request->query('page', 1))
+            max(0, $request->queryInt('entity_id', 0)),
+            max(1, $request->queryInt('page', 1))
         );
     }
 

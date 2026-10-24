@@ -26,13 +26,13 @@ final class JobRules
             'from_location' => 'required|max:190',
             'to_location' => 'required|max:190',
             'job_location' => 'nullable|max:190',
-            'cf' => 'nullable|numeric|min_value:0|max_value:99999999.99',
+            'cf' => 'nullable|money|min_value:0|max_value:99999999.99',
             'notes' => 'nullable|max:5000',
         ];
 
         if ($withFinancials) {
-            $rules['balance'] = 'nullable|numeric|min_value:0|max_value:9999999999.99';
-            $rules['storage_fee'] = 'nullable|numeric|min_value:0|max_value:9999999999.99';
+            $rules['balance'] = 'nullable|money|min_value:0|max_value:9999999999.99';
+            $rules['storage_fee'] = 'nullable|money|min_value:0|max_value:9999999999.99';
         }
 
         if ($withCarrier) {

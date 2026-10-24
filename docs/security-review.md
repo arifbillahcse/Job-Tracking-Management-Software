@@ -23,7 +23,10 @@ Scope: the code in this repository as of Phase 7, run on PHP 8.3 with SQLite in 
 ## Findings
 
 1. **Fixed - unlimited guessing of the current password.** The "Change password" form on My Account compared the typed current password without counting failures. Someone holding a hijacked session could guess the password without limit. Wrong answers now count towards the same lockout as sign-in; on lock the session is ended and `account_locked` is audited. Tests: `tests/phase7.php` (verified to fail when the counting is removed).
-2. **Found by the new checks, none critical:** no other defects in the areas above.
+2. **Fixed (Phase 8) - array parameters:** sending `?sort[]=x` or `job_number[]=x` raised PHP warnings (no data exposure, but noisy logs and sloppy input handling). All query values now go through `Request::queryStr()` / `queryInt()`.
+3. **Hardened (Phase 8):** `ImportRepository::update` now whitelists column names (they were only ever set by internal code). A scan of every `{$...}` interpolated into SQL found all others come from fixed lists or regex-validated identifiers.
+4. **Test gap closed (Phase 8):** session idle/absolute limits and the browser-fingerprint check are now covered by tests that fail when the safeguard is removed.
+5. No other defects found in the areas above.
 
 ## Accepted risks and things this review could not check
 

@@ -431,7 +431,9 @@ $svc->run(true, 365, $now);
 check((int) Database::fetchValue("SELECT COUNT(*) FROM audit_logs WHERE action = 'ancient'") === 0, 'an explicit 365-day retention removes entries older than that');
 check((int) Database::fetchValue('SELECT COUNT(*) FROM audit_logs') === $audit0, '...and keeps everything newer');
 
-array_map('unlink', glob($dir . '/imports/{,.}*', GLOB_BRACE) ?: []);
+foreach (array_diff(scandir($dir . '/imports') ?: [], ['.', '..']) as $leftover) {
+    unlink($dir . '/imports/' . $leftover);
+}
 array_map('unlink', glob($dir . '/logs/*') ?: []);
 @rmdir($dir . '/imports');
 @rmdir($dir . '/logs');

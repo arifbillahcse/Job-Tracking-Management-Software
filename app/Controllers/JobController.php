@@ -38,7 +38,7 @@ final class JobController extends Controller
         $transitions = $workflow->availableTransitions($job);
 
         // Reopen the dialog the user was filling in (validation error) or the one a list shortcut asked for (?do=in_transit).
-        $wanted = (string) (Session::flashed('open_modal') ?? $request->query('do', ''));
+        $wanted = (string) (Session::flashed('open_modal') ?? $request->queryStr('do'));
         $autoOpen = in_array($wanted, array_column($transitions, 'to'), true) ? $wanted : null;
 
         return $this->view('jobs/show', [

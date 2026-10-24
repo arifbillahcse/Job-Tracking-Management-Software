@@ -126,6 +126,8 @@ final class Validator
             'email' => $isScalar && filter_var($string, FILTER_VALIDATE_EMAIL) !== false,
             'date' => $isScalar && self::isDate($string),
             'numeric' => is_numeric($value),
+            // A plain amount with at most two decimals: no exponent, sign, thousands separator or silent rounding.
+            'money' => $isScalar && preg_match('/^(\d{1,10}(\.\d{0,2})?|\.\d{1,2})$/', $string) === 1,
             'integer' => $isScalar && filter_var($string, FILTER_VALIDATE_INT) !== false,
             'in' => $isScalar && in_array($string, explode(',', $arg), true),
             'unique' => $isScalar && $this->isUnique($arg, $string),
@@ -188,6 +190,7 @@ final class Validator
             'email' => "{$label} must be a valid email address.",
             'date' => "{$label} must be a valid date (YYYY-MM-DD).",
             'numeric' => "{$label} must be a number.",
+            'money' => "{$label} must be an amount such as 1200 or 1200.50 (at most two decimals, no symbols).",
             'integer' => "{$label} must be a whole number.",
             'in' => "{$label} has an invalid value.",
             'unique' => "{$label} is already in use.",
@@ -198,7 +201,7 @@ final class Validator
             'code' => "{$label} may only contain letters, numbers and - _ / .",
             'label' => "{$label} may only contain letters, numbers, spaces and - _ . &",
             'exists' => "{$label} is not valid.",
-            'password' => PasswordPolicy::check((string) ($this->data[$field] ?? '')) ?? "{$label} is not acceptable.",
+            'password' => PasswordPolicy::check(is_string($this->data[$field] ?? null) ? $this->data[$field] : '') ?? "{$label} is not acceptable.",
             default => "{$label} is invalid.",
         };
     }

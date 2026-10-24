@@ -8,6 +8,12 @@ use App\Core\Database;
 
 final class ImportRepository
 {
+    /** Columns update() may set. Column names are interpolated into SQL, so they must never come from outside this list. */
+    private const UPDATABLE = [
+        'status', 'total_rows', 'valid_rows', 'invalid_rows', 'imported_rows', 'skipped_rows',
+        'headers', 'mapping', 'ignored', 'warnings', 'sample', 'stored_name', 'committed_at',
+    ];
+
     private const JSON = ['headers', 'mapping', 'ignored', 'warnings', 'sample'];
 
     /**
@@ -62,6 +68,10 @@ final class ImportRepository
      */
     public function update(int $id, array $fields): void
     {
+        $unknown = array_diff(array_keys($fields), self::UPDATABLE);
+        if ($unknown !== []) {
+            throw new \InvalidArgumentException('Cannot update import column(s): ' . implode(', ', $unknown));
+        }
         $assignments = implode(', ', array_map(static fn (string $c): string => $c . ' = ?', array_keys($fields)));
         Database::execute("UPDATE import_batches SET {$assignments} WHERE id = ?", [...array_map(
             static fn (mixed $v): mixed => is_array($v) ? json_encode($v) : $v,

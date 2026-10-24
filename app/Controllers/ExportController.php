@@ -28,7 +28,7 @@ final class ExportController extends Controller
             return ErrorPages::response(403);
         }
 
-        $format = strtolower((string) $request->query('format', 'csv'));
+        $format = strtolower($request->queryStr('format', 'csv'));
         if (!in_array($format, ['csv', 'xlsx'], true) || ($format === 'xlsx' && !XlsxReader::available())) {
             return ErrorPages::response(404);
         }

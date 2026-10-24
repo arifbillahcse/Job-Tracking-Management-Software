@@ -100,18 +100,18 @@ final class JobCriteria
         }
 
         // Filtering or sorting by money would reveal figures a user may not see.
-        $balance = $canSeeFinancials && in_array($request->query('balance'), ['due', 'paid'], true) ? (string) $request->query('balance') : '';
+        $balance = $canSeeFinancials && in_array($request->query('balance'), ['due', 'paid'], true) ? $request->queryStr('balance') : '';
 
         [$defaultSort, $defaultDir] = self::DEFAULT_SORT[$bucket] ?? ['created', 'desc'];
-        $sort = (string) $request->query('sort', '');
+        $sort = $request->queryStr('sort', '');
         if (!isset(self::SORTS[$sort]) || (self::SORTS[$sort][1] && !$canSeeFinancials)) {
             $sort = $defaultSort;
             $dir = $defaultDir;
         } else {
-            $dir = strtolower((string) $request->query('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
+            $dir = strtolower($request->queryStr('dir', 'asc')) === 'desc' ? 'desc' : 'asc';
         }
 
-        $perPage = (int) $request->query('per_page', 0);
+        $perPage = $request->queryInt('per_page', 0);
         if (!in_array($perPage, self::PER_PAGE_OPTIONS, true)) {
             $perPage = self::defaultPerPage();
         }
@@ -128,7 +128,7 @@ final class JobCriteria
             $balance,
             $sort,
             $dir,
-            max(1, (int) $request->query('page', 1)),
+            max(1, $request->queryInt('page', 1)),
             $perPage
         );
     }

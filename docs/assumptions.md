@@ -92,6 +92,15 @@ actually works.** The "Where to change" column shows how cheap each change is.
 | F6 | **Housekeeping** (`cli/cleanup.php`, dry run unless `--apply`): sign-in attempts older than 30 days, import previews older than 24 hours (file deleted), finished import records older than 90 days, unreferenced files in `storage/imports` older than an hour, log files older than 60 days. | `MaintenanceService` |
 | F7 | **Self checks:** `cli/route-audit.php` (access rules on every route, no state change over GET) and `cli/doctor.php` (PHP, extensions, production settings, permissions, migrations, demo accounts). Both exit 1 on a failure so they can run in a deployment script. | `RouteAudit`, `EnvironmentCheck` |
 
+## Phase 8 - testing
+
+| # | Decision | Where |
+|---|---|---|
+| G1 | **Money is a plain amount:** digits with at most two decimals (`1200`, `1200.5`, `.5`). Three decimals, exponents (`1e3`), signs and symbols are refused rather than rounded silently. Import still understands `$1,200.50` (it strips the symbol and thousands commas first) but also refuses a third decimal. | `Validator` rule `money`, `JobRules` |
+| G2 | **Export caps and import limits are limits of the demo,** not of the design: 50,000 rows CSV, 20,000 Excel, 5,000 rows and 5 MB per import. Bigger files are refused with a message. | `ExportService`, `ImportService` |
+| G3 | **Job numbers compare case-insensitively in production** (MySQL's default collation, and explicitly in the importer). The SQLite used by the tests compares case-sensitively, so a test cannot prove this part. | `JobRules`, migrations |
+| G4 | **UAT is done on a test copy** with demo data. `tests/all.sh` creates its own throw-away database and never touches yours. | `tests/all.sh` |
+
 The generated role x route matrix is in `docs/permission-matrix.md` (`php cli/permission-report.php`).
 
 ## Security defaults (can be tuned in `app/Config/app.php` / `.env`)

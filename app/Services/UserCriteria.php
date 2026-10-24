@@ -39,17 +39,17 @@ final class UserCriteria
         $q = $request->query('q', '');
         $q = is_string($q) ? mb_substr(trim((string) preg_replace('/\s+/', ' ', $q)), 0, 100) : '';
 
-        $status = (string) $request->query('status', '');
-        $sort = (string) $request->query('sort', '');
+        $status = $request->queryStr('status', '');
+        $sort = $request->queryStr('sort', '');
         $sorted = isset(self::SORTS[$sort]);
 
         return new self(
             $q,
-            max(0, (int) $request->query('role', 0)),
+            max(0, $request->queryInt('role', 0)),
             in_array($status, self::STATUSES, true) ? $status : '',
             $sorted ? $sort : 'name',
-            $sorted && strtolower((string) $request->query('dir', 'asc')) === 'desc' ? 'desc' : 'asc',
-            max(1, (int) $request->query('page', 1))
+            $sorted && strtolower($request->queryStr('dir', 'asc')) === 'desc' ? 'desc' : 'asc',
+            max(1, $request->queryInt('page', 1))
         );
     }
 
