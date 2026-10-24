@@ -80,6 +80,18 @@ actually works.** The "Where to change" column shows how cheap each change is.
 | E9 | **Spreadsheet-formula safety:** exported cells starting with `= + - @`, tab or CR get a leading apostrophe; the same prefix is stripped on import so round trips are stable. Job numbers starting with such characters are refused on import. | `ExportService::safeCell` |
 | E10 | **Export** follows the current section, search, filters and sort; requires `jobs.export` and `jobs.view`; money columns are left out for users without financial access. Streamed in chunks; caps: CSV 50,000 rows, Excel 20,000. Every export is audited. | `ExportService` |
 
+## Phase 7 - audit, settings and hardening
+
+| # | Decision | Where |
+|---|---|---|
+| F1 | **Settings page** (`settings.manage`, Admin only by default) edits five values: company name (up to 60 characters), ready-for-delivery limit (whole days, 1-365, default 30), currency symbol (1-3 characters), rows per page (10, 25, 50 or 100) and the business time zone. Session length, lockout and password rules stay in `.env` so a wrong setting cannot lock everyone out. Storage fees remain manually editable per job. | `SettingsService`, `SettingsController` |
+| F2 | **Changing the day limit re-sorts jobs immediately and without touching job data**, because sections are computed from the status and the 1st available date (assumption A2). | `JobBucket` |
+| F3 | **Audit log viewer** (`audit.view`, Admin only by default; a role can hold it without any other administration right). Read-only: the application has no way to edit or delete entries. Filters: action, record type, user, date range (typed in the business time zone), single record. 50 entries per page, newest first. | `AuditController`, `AuditCriteria` |
+| F4 | **What is recorded:** sign-ins and failures, lockouts, denied access, job create/edit/status/delete/restore, import/export, user, role and permission changes, settings changes, password changes, maintenance. Page views are not recorded. Passwords, tokens and secrets are redacted before storage. Entries hold names, e-mail addresses and IP addresses and are **kept indefinitely** unless an administrator runs `cli/cleanup.php --audit-days=N` (minimum 365). | `AuditService`, `MaintenanceService` |
+| F5 | **Wrong "current password" guesses on My Account count towards the sign-in lockout** (5 failures, 15 minutes). On lock the session ends. | `AuthService::confirmPassword` |
+| F6 | **Housekeeping** (`cli/cleanup.php`, dry run unless `--apply`): sign-in attempts older than 30 days, import previews older than 24 hours (file deleted), finished import records older than 90 days, unreferenced files in `storage/imports` older than an hour, log files older than 60 days. | `MaintenanceService` |
+| F7 | **Self checks:** `cli/route-audit.php` (access rules on every route, no state change over GET) and `cli/doctor.php` (PHP, extensions, production settings, permissions, migrations, demo accounts). Both exit 1 on a failure so they can run in a deployment script. | `RouteAudit`, `EnvironmentCheck` |
+
 The generated role x route matrix is in `docs/permission-matrix.md` (`php cli/permission-report.php`).
 
 ## Security defaults (can be tuned in `app/Config/app.php` / `.env`)

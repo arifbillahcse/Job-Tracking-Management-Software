@@ -16,6 +16,27 @@ use Throwable;
  */
 final class AuditService
 {
+    /** Plain-English names for the actions the application records. Unknown actions fall back to a readable form. */
+    public const LABELS = [
+        'login_success' => 'Signed in', 'login_failed' => 'Failed sign-in', 'logout' => 'Signed out',
+        'account_locked' => 'Account locked', 'access_denied' => 'Access denied',
+        'password_changed' => 'Password changed', 'password_reset' => 'Password reset by an administrator',
+        'profile_updated' => 'Profile updated',
+        'job_created' => 'Job created', 'job_updated' => 'Job updated', 'job_status_changed' => 'Job status changed',
+        'job_deleted' => 'Job deleted', 'job_restored' => 'Job restored',
+        'jobs_imported' => 'Jobs imported', 'jobs_exported' => 'Jobs exported',
+        'user_created' => 'User created', 'user_updated' => 'User updated', 'user_deleted' => 'User deleted',
+        'user_activated' => 'User activated', 'user_deactivated' => 'User deactivated', 'user_unlocked' => 'User unlocked',
+        'role_created' => 'Role created', 'role_updated' => 'Role updated', 'role_deleted' => 'Role deleted',
+        'role_permissions_changed' => 'Role permissions changed', 'settings_updated' => 'Settings changed',
+        'maintenance_cleanup' => 'Maintenance cleanup',
+    ];
+
+    public static function label(string $action): string
+    {
+        return self::LABELS[$action] ?? ucfirst(str_replace('_', ' ', $action));
+    }
+
     private const SECRET_KEYS = '/password|passwd|token|secret|csrf/i';
 
     /**

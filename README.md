@@ -2,7 +2,7 @@
 
 Custom job tracking software built with **Core PHP 8.1+, MySQL/MariaDB, Bootstrap 5.3, HTML, CSS and JavaScript** - no PHP framework.
 
-Status: **Phase 6 complete** - UI polish and accessibility (`docs/ui-guide.md`) on top of CSV / Excel import and export, user and role management, user management, role management and a permission matrix on top of the dashboard, the five job sections and status workflow (Phase 3), job CRUD (Phase 2) and the security core (Phase 1). Next: audit viewer, settings and security hardening (Phase 7). See `docs/assumptions.md` for the demo business rules and `docs/permission-matrix.md` for what each role can do.
+Status: **Phase 7 complete** - audit log viewer, settings page and security hardening (`docs/security-review.md`) on top of UI polish (`docs/ui-guide.md`), CSV / Excel import and export, user and role management, user management, role management and a permission matrix on top of the dashboard, the five job sections and status workflow (Phase 3), job CRUD (Phase 2) and the security core (Phase 1). Next: testing and UAT (Phase 8). See `docs/assumptions.md` for the demo business rules and `docs/permission-matrix.md` for what each role can do.
 
 ## Quick start (local)
 
@@ -14,6 +14,9 @@ php cli/create-admin.php --email=you@example.com --name="Your Name"
 php cli/create-user.php --email=staff@example.com --name="A Staff Member" --role=Staff   # or Manager
 php cli/seed-demo.php             # optional: 60 realistic demo jobs (with status history) spread across every section
 php cli/fetch-assets.php          # vendor Bootstrap 5.3.3 locally (needs internet once)
+php cli/doctor.php                # environment self-check (exit 1 on failure)
+php cli/route-audit.php           # every route has one access rule, nothing changes data over GET
+php cli/cleanup.php [--apply]     # housekeeping; dry run unless --apply (run --apply daily from cron)
 php -S localhost:8000 -t public public/index.php
 ```
 
@@ -25,11 +28,12 @@ Point the document root at **`public/`** only. `public/.htaccess` handles Apache
 
 ## Tests
 ```bash
-php tests/run.php                                   # 1002 unit/integration checks (SQLite in memory)
+php tests/run.php                                   # 1152 unit/integration checks (SQLite in memory)
 tests/smoke.sh http://localhost:8000 EMAIL PASSWORD # Phase 1 end-to-end over HTTP (changes then restores that account's password)
 tests/smoke-jobs.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS       # job CRUD as Admin and Staff (leaves soft-deleted SMOKE-* jobs)
 tests/smoke-workflow.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS   # sections, dashboard and workflow (leaves soft-deleted WF-* jobs; needs GNU date)
 tests/smoke-import.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS MANAGER_EMAIL MANAGER_PASS   # import/export over real multipart HTTP (needs python3; cleans up after itself)
+tests/smoke-audit.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS MANAGER_EMAIL MANAGER_PASS   # settings, audit log, private-file probes (changes settings and restores them)
 tests/smoke-admin.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS MANAGER_EMAIL MANAGER_PASS   # users, roles, matrix, lockout, forced password change (makes ~6 failed sign-ins on purpose)
 ```
 Tests use SQLite as a stand-in because they need no server; **MySQL/MariaDB is the production database**.
@@ -43,7 +47,7 @@ app/Controllers, Services, Repositories, Middleware, Database (migrator, seeder)
 views/         layouts, partials and page templates
 database/      numbered SQL migrations
 storage/       logs, sessions, uploads (never web-accessible)
-cli/           migrate, seed, seed-demo, create-user, create-admin, permission-report, fetch-assets
+cli/           migrate, seed, seed-demo, create-user, create-admin, permission-report, fetch-assets, doctor, route-audit, cleanup
 docs/          assumptions, coding standards, wireframes, permission-matrix
 ```
 

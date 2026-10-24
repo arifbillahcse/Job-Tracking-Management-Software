@@ -11,6 +11,7 @@ use App\Core\Response;
 use App\Helpers\PasswordPolicy;
 use App\Repositories\UserRepository;
 use App\Services\AuditService;
+use App\Services\AuthService;
 
 /**
  * The signed-in user's own account: profile summary and password change.
@@ -57,7 +58,13 @@ final class AccountController extends Controller
             return $data;
         }
 
-        if (!password_verify((string) $data['current_password'], (string) $user['password_hash'])) {
+        $check = (new AuthService())->confirmPassword($user, (string) $data['current_password']);
+        if ($check === 'locked') {
+            Auth::logout();
+            $this->flash('danger', AuthService::MSG_LOCKED);
+            return $this->redirect('/login');
+        }
+        if ($check !== 'ok') {
             \App\Core\Session::flash('errors', ['current_password' => ['Your current password is incorrect.']]);
             return $this->redirect('/account');
         }
@@ -69,6 +76,7 @@ final class AccountController extends Controller
 
         $hash = PasswordPolicy::hash((string) $data['password']);
         (new UserRepository())->updatePassword((int) $user['id'], $hash, false);
+        (new UserRepository())->clearLock((int) $user['id']);
         Auth::refreshPasswordMarker($hash);
         AuditService::record('password_changed', 'user', (int) $user['id']);
 

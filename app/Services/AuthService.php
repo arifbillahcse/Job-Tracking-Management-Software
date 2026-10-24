@@ -88,6 +88,34 @@ final class AuthService
     }
 
     /**
+     * Check the "current password" typed on My Account. Wrong answers count towards the same lockout as
+     * sign-in, so a hijacked session cannot be used to guess the password without limit.
+     *
+     * @param array<string,mixed> $user
+     * @return string 'ok' | 'wrong' | 'locked'
+     */
+    public function confirmPassword(array $user, string $password): string
+    {
+        $id = (int) $user['id'];
+        $fresh = $this->users->findById($id) ?? $user;
+        if ($fresh['locked_until'] !== null && (string) $fresh['locked_until'] > gmdate('Y-m-d H:i:s')) {
+            return 'locked';
+        }
+
+        if (password_verify($password, (string) $fresh['password_hash'])) {
+            return 'ok';
+        }
+
+        $count = $this->users->incrementFailedAttempts($id);
+        if ($count >= (int) Config::get('app.auth.max_failed_attempts', 5)) {
+            $this->users->lockUntil($id, gmdate('Y-m-d H:i:s', time() + (int) Config::get('app.auth.lockout_minutes', 15) * 60));
+            AuditService::record('account_locked', 'user', $id, null, ['failed_attempts' => $count, 'via' => 'password change'], $id);
+            return 'locked';
+        }
+        return 'wrong';
+    }
+
+    /**
      * @return array{ok:bool,user:?array<string,mixed>,error:?string}
      */
     private function fail(string $email, string $ip, string $message): array

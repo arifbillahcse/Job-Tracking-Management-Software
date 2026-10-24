@@ -21,5 +21,8 @@ return [
     ['group' => 'Administration', 'label' => 'Users',             'path' => '/users', 'icon' => 'users',  'permission' => 'users.manage'],
     ['group' => 'Administration', 'label' => 'Roles & Permissions', 'path' => '/roles', 'icon' => 'shield', 'permission' => 'roles.manage'],
 
+    ['group' => 'Administration', 'label' => 'Audit Log',          'path' => '/audit',    'icon' => 'file-text', 'permission' => 'audit.view', 'match' => '#^/audit(/\d+)?$#'],
+    ['group' => 'Administration', 'label' => 'Settings',           'path' => '/settings', 'icon' => 'sliders',   'permission' => 'settings.manage'],
+
     ['group' => 'Account', 'label' => 'My Account', 'path' => '/account', 'icon' => 'user', 'permission' => null],
 ];

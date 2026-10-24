@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Controllers\AccountController;
+use App\Controllers\AuditController;
 use App\Controllers\AuthController;
 use App\Controllers\DashboardController;
 use App\Controllers\ExportController;
@@ -10,6 +11,7 @@ use App\Controllers\ImportController;
 use App\Controllers\JobController;
 use App\Controllers\JobListController;
 use App\Controllers\RoleController;
+use App\Controllers\SettingsController;
 use App\Controllers\UserController;
 use App\Core\Router;
 use App\Middleware\GuestMiddleware;
@@ -82,4 +84,10 @@ return static function (Router $router): void {
     $router->get('/account', [AccountController::class, 'show'])->authOnly()->name('account');
     $router->post('/account/profile', [AccountController::class, 'updateProfile'])->authOnly()->name('account.profile');
     $router->post('/account/password', [AccountController::class, 'updatePassword'])->authOnly()->name('account.password');
+
+    // Phase 7: read-only audit trail and application settings.
+    $router->get('/audit', [AuditController::class, 'index'])->can('audit.view')->name('audit');
+    $router->get('/audit/{id:int}', [AuditController::class, 'show'])->can('audit.view')->name('audit.show');
+    $router->get('/settings', [SettingsController::class, 'edit'])->can('settings.manage')->name('settings');
+    $router->post('/settings', [SettingsController::class, 'update'])->can('settings.manage')->name('settings.update');
 };

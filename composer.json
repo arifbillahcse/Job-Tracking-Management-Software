@@ -6,7 +6,9 @@
     "require": {
         "php": ">=8.1",
         "ext-pdo": "*",
-        "ext-mbstring": "*"
+        "ext-mbstring": "*",
+        "ext-fileinfo": "*",
+        "ext-zip": "*"
     },
     "autoload": {
         "psr-4": {
