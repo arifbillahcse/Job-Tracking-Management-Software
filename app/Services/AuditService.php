@@ -29,7 +29,7 @@ final class AuditService
         'user_activated' => 'User activated', 'user_deactivated' => 'User deactivated', 'user_unlocked' => 'User unlocked',
         'role_created' => 'Role created', 'role_updated' => 'Role updated', 'role_deleted' => 'Role deleted',
         'role_permissions_changed' => 'Role permissions changed', 'settings_updated' => 'Settings changed',
-        'maintenance_cleanup' => 'Maintenance cleanup',
+        'maintenance_cleanup' => 'Maintenance cleanup', 'backup_created' => 'Backup created',
     ];
 
     public static function label(string $action): string

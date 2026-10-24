@@ -19,6 +19,7 @@ use App\Services\EnvironmentCheck;
 
 App::boot();
 
+echo 'Job Tracker ' . app_version() . ' (PHP ' . PHP_VERSION . ")\n\n";
 $fail = 0;
 $warn = 0;
 foreach (EnvironmentCheck::run() as $row) {

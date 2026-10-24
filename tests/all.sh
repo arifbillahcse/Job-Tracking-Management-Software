@@ -36,6 +36,10 @@ echo "Route audit..."
 php cli/route-audit.php >"$LOG/routes.txt" 2>&1; rc=$?
 record "route audit" $([[ $rc -eq 0 ]] && echo PASS || echo FAIL) "$(head -1 "$LOG/routes.txt")"
 
+echo "Release archive..."
+bash tests/release-check.sh $((PORT + 2)) >"$LOG/release.txt" 2>&1; rc=$?
+record "release archive runs on its own" $([[ $rc -eq 0 ]] && echo PASS || echo FAIL) "$(summary_of "$LOG/release.txt")"
+
 (php -S "127.0.0.1:$PORT" -t public public/index.php >"$LOG/server.txt" 2>&1) & PID=$!
 for _ in $(seq 1 30); do curl -s -o /dev/null "$BASE/login" && break; sleep 0.3; done
 

@@ -41,17 +41,17 @@ final class Database
                 Config::get('app.db.port'),
                 Config::get('app.db.database')
             );
-            $options = self::options() + [
-                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci, "
-                    . "time_zone = '+00:00', "
-                    . "sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'",
-            ];
             $pdo = new PDO(
                 $dsn,
                 (string) Config::get('app.db.username'),
                 (string) Config::get('app.db.password'),
-                $options
+                self::options()
             );
+            // One plain statement each, so every one is valid on MySQL and on MariaDB (PDO's init-command
+            // attribute can only carry a single statement).
+            $pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci");
+            $pdo->exec("SET time_zone = '+00:00'");
+            $pdo->exec("SET sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'");
         }
 
         return self::$pdo = $pdo;

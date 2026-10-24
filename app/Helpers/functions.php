@@ -113,6 +113,13 @@ function setting(string $key, ?string $default = null): ?string
     return SettingsService::get($key, $default);
 }
 
+/** Release number from the VERSION file ("dev" when it is missing). */
+function app_version(): string
+{
+    static $version = null;
+    return $version ??= (is_file(BASE_PATH . '/VERSION') ? trim((string) file_get_contents(BASE_PATH . '/VERSION')) : 'dev');
+}
+
 function app_name(): string
 {
     return setting('company_name', (string) Config::get('app.name', 'Job Tracker')) ?? 'Job Tracker';

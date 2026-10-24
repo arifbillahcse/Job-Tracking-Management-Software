@@ -101,6 +101,16 @@ actually works.** The "Where to change" column shows how cheap each change is.
 | G3 | **Job numbers compare case-insensitively in production** (MySQL's default collation, and explicitly in the importer). The SQLite used by the tests compares case-sensitively, so a test cannot prove this part. | `JobRules`, migrations |
 | G4 | **UAT is done on a test copy** with demo data. `tests/all.sh` creates its own throw-away database and never touches yours. | `tests/all.sh` |
 
+## Phase 9 - deployment
+
+| # | Decision | Where |
+|---|---|---|
+| H1 | **Target:** a Linux server with Apache 2.4 or Nginx, PHP-FPM 8.1+, MySQL 8 / MariaDB 10.5+, HTTPS. Shared hosting works if the document root can point at `public/`. | `docs/deployment.md`, `deploy/` |
+| H2 | **Backups** are database dumps (`cli/backup.php`, newest 14 kept, mode 0600) that the client must copy **off the server**; imported files are not kept after import, so the database is the only data to back up. | `BackupService` |
+| H3 | **Forgotten administrator password** is recovered from the server with `cli/reset-password.php` (needs shell access). There is no e-mail "forgot password" flow in v1.0 because no e-mail service is assumed. | `cli/reset-password.php` |
+| H4 | **Releases** are a tarball built by `scripts/build-release.sh` (no tests, no `.env`, no databases; Bootstrap and fonts bundled). Version number in `VERSION`, history in `CHANGELOG.md`. Rollback is switching back to the previous folder; migrations only add. | `scripts/`, `tests/release-check.sh` |
+| H5 | **MySQL is unverified** in this build (no server was available). `docs/deployment.md` step 9 is the first-day check on staging. | `docs/handover.md` |
+
 The generated role x route matrix is in `docs/permission-matrix.md` (`php cli/permission-report.php`).
 
 ## Security defaults (can be tuned in `app/Config/app.php` / `.env`)

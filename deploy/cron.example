@@ -1,0 +1,12 @@
+# crontab for the user that owns the application files (NOT root):   crontab -e
+# Adjust the path. Output goes to the log; cron mails anything printed to stderr if mail is set up.
+APP=/var/www/job-tracker
+
+# 02:15 daily: database backup, keep the newest 14. Then copy storage/backups OFF the server (docs/operations.md).
+15 2 * * *  cd $APP && php cli/backup.php --keep=14  >> storage/logs/cron.log 2>&1
+
+# 03:10 daily: housekeeping (old sign-in attempts, abandoned import previews, old logs).
+10 3 * * *  cd $APP && php cli/cleanup.php --apply   >> storage/logs/cron.log 2>&1
+
+# Mondays 07:00: self-check. A non-zero exit shows up as cron mail; the report is in the log.
+0 7 * * 1   cd $APP && php cli/doctor.php           >> storage/logs/cron.log 2>&1

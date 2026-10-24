@@ -2,7 +2,7 @@
 
 Custom job tracking software built with **Core PHP 8.1+, MySQL/MariaDB, Bootstrap 5.3, HTML, CSS and JavaScript** - no PHP framework.
 
-Status: **Phase 8 complete** - tests, scale check and user acceptance pack (`docs/test-plan.md`, `docs/uat-checklist.md`, `docs/requirements-traceability.md`) on top of audit log, settings and hardening (`docs/security-review.md`), UI polish (`docs/ui-guide.md`), CSV / Excel import and export, user and role management, user management, role management and a permission matrix on top of the dashboard, the five job sections and status workflow (Phase 3), job CRUD (Phase 2) and the security core (Phase 1). Next: deployment and handover (Phase 9). See `docs/assumptions.md` for the demo business rules and `docs/permission-matrix.md` for what each role can do.
+Status: **Phase 9 complete - version 1.0.0, ready for staging and UAT.** Deployment and handover pack (`docs/deployment.md`, `docs/operations.md`, `docs/admin-guide.md`, `docs/user-guide.md`, `docs/handover.md`) on top of the Phase 8 - tests, scale check and user acceptance pack (`docs/test-plan.md`, `docs/uat-checklist.md`, `docs/requirements-traceability.md`) on top of audit log, settings and hardening (`docs/security-review.md`), UI polish (`docs/ui-guide.md`), CSV / Excel import and export, user and role management, user management, role management and a permission matrix on top of the dashboard, the five job sections and status workflow (Phase 3), job CRUD (Phase 2) and the security core (Phase 1). All nine phases are done; what is untested and not built is listed in `docs/handover.md`. See `docs/assumptions.md` for the demo business rules and `docs/permission-matrix.md` for what each role can do.
 
 ## Quick start (local)
 
@@ -16,6 +16,8 @@ php cli/seed-demo.php             # optional: 60 realistic demo jobs (with statu
 php cli/fetch-assets.php          # vendor Bootstrap 5.3.3 locally (needs internet once)
 php cli/doctor.php                # environment self-check (exit 1 on failure)
 php cli/route-audit.php           # every route has one access rule, nothing changes data over GET
+php cli/backup.php [--keep=14]    # database backup into storage/backups
+php cli/reset-password.php --email=...   # break-glass: new temporary password for a user
 php cli/cleanup.php [--apply]     # housekeeping; dry run unless --apply (run --apply daily from cron)
 php -S localhost:8000 -t public public/index.php
 ```
@@ -29,12 +31,13 @@ Point the document root at **`public/`** only. `public/.htaccess` handles Apache
 ## Tests
 ```bash
 tests/all.sh [--perf] [--e2e]               # EVERYTHING below on a throw-away database (recommended)
-php tests/run.php                                   # 1312 unit/integration checks (SQLite in memory)
+php tests/run.php                                   # 1363 unit/integration checks (SQLite in memory)
 tests/smoke.sh http://localhost:8000 EMAIL PASSWORD # Phase 1 end-to-end over HTTP (changes then restores that account's password)
 tests/smoke-jobs.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS       # job CRUD as Admin and Staff (leaves soft-deleted SMOKE-* jobs)
 tests/smoke-workflow.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS   # sections, dashboard and workflow (leaves soft-deleted WF-* jobs; needs GNU date)
 tests/smoke-import.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS MANAGER_EMAIL MANAGER_PASS   # import/export over real multipart HTTP (needs python3; cleans up after itself)
 tests/smoke-audit.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS MANAGER_EMAIL MANAGER_PASS   # settings, audit log, private-file probes (changes settings and restores them)
+tests/release-check.sh                              # build the release archive and prove it runs on its own
 tests/perf.sh [jobs]                                # response times with 20,000 (or more) jobs
 node tests/e2e/uat.js                               # browser walkthrough of the client's workflow (needs Playwright; see the file header)
 tests/smoke-admin.sh http://localhost:8000 ADMIN_EMAIL ADMIN_PASS STAFF_EMAIL STAFF_PASS MANAGER_EMAIL MANAGER_PASS   # users, roles, matrix, lockout, forced password change (makes ~6 failed sign-ins on purpose)
@@ -50,7 +53,9 @@ app/Controllers, Services, Repositories, Middleware, Database (migrator, seeder)
 views/         layouts, partials and page templates
 database/      numbered SQL migrations
 storage/       logs, sessions, uploads (never web-accessible)
-cli/           migrate, seed, seed-demo, create-user, create-admin, permission-report, fetch-assets, doctor, route-audit, cleanup
+cli/           migrate, seed, seed-demo, create-user, create-admin, reset-password, backup, cleanup, doctor, route-audit, permission-report, fetch-assets
+deploy/        Apache and Nginx configurations, PHP settings, cron, production .env template
+scripts/       build-release.sh
 docs/          assumptions, coding standards, wireframes, permission-matrix
 ```
 

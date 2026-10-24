@@ -5,5 +5,7 @@
 /storage/imports/*
 /storage/exports/*
 /storage/*.sqlite
-!/storage/**/.gitkeep
 .phpunit.result.cache
+/storage/backups/*
+/dist/
+!/storage/**/.gitkeep

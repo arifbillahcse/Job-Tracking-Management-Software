@@ -1,0 +1,49 @@
+# Apache 2.4 virtual host for Job Tracker. Copy to /etc/apache2/sites-available/job-tracker.conf, edit the
+# marked lines, then:  a2enmod rewrite headers ssl proxy_fcgi setenvif expires  &&  a2ensite job-tracker  &&  systemctl reload apache2
+# PHP runs through PHP-FPM (recommended). With mod_php remove the <FilesMatch> block.
+
+<VirtualHost *:80>
+    # EDIT: your domain
+    ServerName jobs.example.com
+    RewriteEngine On
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+</VirtualHost>
+
+<VirtualHost *:443>
+    # EDIT: your domain
+    ServerName jobs.example.com
+
+    # The document root is the public/ folder and nothing else. app/, storage/, database/, .env stay out of reach.
+    # EDIT: where you unpacked the release
+    DocumentRoot /var/www/job-tracker/public
+
+    SSLEngine on
+    SSLCertificateFile    /etc/letsencrypt/live/jobs.example.com/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/jobs.example.com/privkey.pem
+    SSLProtocol all -SSLv3 -TLSv1 -TLSv1.1
+
+    <Directory /var/www/job-tracker/public>
+        Options -Indexes -MultiViews +FollowSymLinks
+        # public/.htaccess does the URL rewriting
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    # Defence in depth: refuse everything outside public/ even if a symlink or alias ever points at it.
+    # Apache applies the shorter path first and the more specific one after it, so public/ stays reachable.
+    <Directory /var/www/job-tracker>
+        Require all denied
+    </Directory>
+
+    # PHP-FPM (adjust the socket to your PHP version)
+    <FilesMatch "\.php$">
+        SetHandler "proxy:unix:/run/php/php8.3-fpm.sock|fcgi://localhost"
+    </FilesMatch>
+
+    # Imports are limited to 5 MB in the application; refuse anything much bigger before PHP sees it.
+    LimitRequestBody 8388608
+
+    ServerSignature Off
+    ErrorLog  ${APACHE_LOG_DIR}/job-tracker-error.log
+    CustomLog ${APACHE_LOG_DIR}/job-tracker-access.log combined
+</VirtualHost>
