@@ -47,6 +47,7 @@ final class JobListController extends Controller
 
     private function list(Request $request, string $bucket): Response
     {
+        \App\Services\StorageFeeService::refreshIfDue();
         $service = new JobService();
         $workflow = new JobWorkflowService();
         $financials = $service->canSeeFinancials();
@@ -56,12 +57,12 @@ final class JobListController extends Controller
         $paginator = new Paginator($total, $criteria->perPage, $criteria->page);
         $jobs = $total === 0 ? [] : $service->search($criteria, $criteria->perPage, $paginator->offset());
 
-        // One-click shortcut per row: Dispatch for booked jobs, Mark delivered for jobs in transit.
+        // One-click button per row: Move to In Transit for booked jobs, Mark as Delivered for jobs in transit.
         $shortcuts = [];
         foreach ($jobs as $job) {
             $to = ['booked' => 'in_transit', 'in_transit' => 'delivered'][$job['status']] ?? null;
             if ($to !== null && $workflow->canMove($job, $to)) {
-                $shortcuts[(int) $job['id']] = ['to' => $to, 'label' => $to === 'in_transit' ? 'Dispatch' : 'Mark delivered'];
+                $shortcuts[(int) $job['id']] = ['to' => $to] + (array) \App\Core\Config::get("statuses.transitions.{$job['status']}.{$to}");
             }
         }
 

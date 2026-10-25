@@ -8,7 +8,7 @@ For people who manage the team and the settings. Day-to-day job work is in `docs
 |---|:--:|:--:|:--:|
 | Dashboard, view jobs and all sections | yes | yes | yes |
 | Create and edit jobs | yes | yes | yes |
-| Change status (dispatch, deliver, hold, cancel) | yes | yes | yes |
+| Change status (Move to In Transit, Mark as Delivered, hold, cancel) | yes | yes | yes |
 | See balance and storage fee | yes | yes | no |
 | Edit balance and storage fee | yes | yes | no |
 | Delete and restore jobs, Trash | yes | yes | no |
@@ -51,8 +51,13 @@ To remove access: **Deactivate** (keeps their name on old jobs and history) or *
 | Company name | Shown in the menu, page titles and sign-in page |
 | Ready-for-delivery limit | A booked job whose 1st available date is within this many days is **Ready for Delivery**; later ones are **More Than 30 Days**. Default 30. Changing it re-sorts every job immediately |
 | Currency symbol | Shown before amounts |
+| Storage fee rate | The automatic storage fee is **CF × rate** (default 0.6). `0` turns it off |
+| Storage fee after (days) | A job is charged once it has waited **more than** this many days (default 30) |
+| Storage fee counted from | The job's **1st available date** (default) or its **loaded date** |
 | Rows per page | 10, 25, 50 or 100 |
 | Business time zone | Decides what "today" means for sections, overdue flags and shown times |
+
+Changing a storage fee setting re-calculates every open job immediately; delivered jobs keep the fee they had on delivery. A fee typed on a job (override) always wins.
 
 Session length, lockout rules and password rules are server settings (`.env`) and are changed by whoever looks after the server.
 

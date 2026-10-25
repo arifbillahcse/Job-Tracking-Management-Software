@@ -325,22 +325,23 @@ $file = tmp_file(csv_text([
 $a = $svc->analyse($file, 'csv');
 $valid = array_column($a['valid'], 'row');
 $problems = array_column($a['invalid'], null, 'row');
-check($valid === [2, 3, 4, 19], 'exactly the four good rows are valid (rows 2, 3, 4 and 19)');
+check($valid === [2, 3, 4, 12, 19], 'exactly the five good rows are valid (rows 2, 3, 4, 12 and 19: carrier details are optional now)');
 check($a['total'] === 17, 'the blank row is not counted (17 data rows)');
-check(array_keys($problems) === [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17], 'every bad row is reported, with its real row number (heading = row 1)');
+check(array_keys($problems) === [5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 17], 'every bad row is reported, with its real row number (heading = row 1)');
 check(str_contains($problems[5]['messages'][0], 'not a valid date') && str_contains($problems[5]['messages'][0], '2026-02-30'), 'row 5: impossible date, quoting what was typed');
 check(count($problems[6]['messages']) === 2 && str_contains(implode(' ', $problems[6]['messages']), 'Balance') && str_contains(implode(' ', $problems[6]['messages']), 'CF'), 'row 6: both problems on the row are listed');
 check(str_contains(implode(' ', $problems[7]['messages']), 'Customer First Name is required') && str_contains(implode(' ', $problems[7]['messages']), 'Customer Last Name is required'), 'row 7: missing required values');
 check(str_contains($problems[8]['messages'][0], 'appears again (first on row 2)'), 'row 8: duplicate inside the file points at the first occurrence');
 check(str_contains($problems[9]['messages'][0], 'already exists') && str_contains($problems[10]['messages'][0], 'already exists'), 'rows 9-10: job # already in the system, in any letter case, even if that job was deleted');
 check(str_contains($problems[11]['messages'][0], 'is not a status'), 'row 11: unknown status');
-check(str_contains(implode(' ', $problems[12]['messages']), 'Carrier Name is required') && str_contains(implode(' ', $problems[12]['messages']), 'Driver Name is required') && str_contains(implode(' ', $problems[12]['messages']), 'Phone is required'), 'row 12: In Transit needs carrier, driver and phone');
+check(!isset($problems[12]) && $jobs12 = true, 'row 12: an In Transit job without carrier details is fine (they are optional)');
 check(str_contains(implode(' ', $problems[13]['messages']), 'Delivered Date is required'), 'row 13: Delivered needs a date');
 check(str_contains(implode(' ', $problems[14]['messages']), 'future'), 'row 14: a future delivery date');
 check(isset($problems[15]) && isset($problems[16]) && str_contains(implode(' ', $problems[17]['messages']), 'Job #'), 'rows 15-17: bad phone, over-long name, job # with a space and "!"');
 check($problems[7]['job_number'] === 'NO-NAME' && $problems[7]['raw'][0] === 'NO-NAME', 'each problem keeps the original cells for the report');
 check(array_keys($a['mapping_labels']) === array_slice($head, 0, 14) && $a['ignored'] === ['Junk Column'] && count($a['warnings']) === 1 && str_contains($a['warnings'][0], 'Junk Column'), 'unrecognised columns are ignored and mentioned');
 $jobs = array_column($a['valid'], 'job', 'row');
+check($jobs[12]['status'] === 'in_transit' && $jobs[12]['carrier_name'] === null && $jobs[12]['loaded_date'] === null, 'row 12: stored as in transit with no carrier and no loaded date');
 check($jobs[2]['pickup_date'] === '2026-11-01' && $jobs[2]['balance'] === '1200.50' && $jobs[2]['cf'] === '900.00' && $jobs[2]['status'] === 'booked' && $jobs[2]['in_transit_at'] === null, 'row 2: US date, $1,200.50 and a default status of Booked are normalised');
 check($jobs[3]['status'] === 'in_transit' && $jobs[3]['carrier_name'] === 'C' && $jobs[3]['in_transit_at'] !== null && $jobs[3]['delivered_at'] === null, 'row 3: in transit with carrier details');
 check($jobs[4]['status'] === 'delivered' && $jobs[4]['delivered_at'] === '2026-10-20 00:00:00' && $jobs[4]['driver_phone'] === '5550102231', 'row 4: delivered with its date');
@@ -487,8 +488,8 @@ fresh_db();
 fresh_session();
 $mgr = make_user('Manager', 'imp-mgr2@example.com');
 sign_in($mgr);
-$st = $svc->stage(upload_of(tmp_file(csv_text([[...CSV_HEAD, 'Status'], [...csv_row('PM-1'), 'In Transit']])), 'perm.csv'), (int) $mgr['id']);
-check((int) (new ImportRepository())->findForUser((int) $st['batch'], (int) $mgr['id'])['invalid_rows'] === 1, 'precondition: an In Transit row without carrier details is a problem');
+$st = $svc->stage(upload_of(tmp_file(csv_text([[...CSV_HEAD, 'Status'], [...csv_row('PM-1'), 'Delivered']])), 'perm.csv'), (int) $mgr['id']);
+check((int) (new ImportRepository())->findForUser((int) $st['batch'], (int) $mgr['id'])['invalid_rows'] === 1, 'precondition: a Delivered row without a delivery date is a problem');
 $st = $svc->stage(upload_of(tmp_file(csv_text([CSV_HEAD, csv_row('PM-2', ['Balance' => '555'])])), 'perm2.csv'), (int) $mgr['id']);
 Database::execute('DELETE FROM role_permissions WHERE role_id = ? AND permission_id = ?', [role_id('Manager'), perm_id('jobs.edit_financials')]);
 Database::execute('DELETE FROM role_permissions WHERE role_id = ? AND permission_id = ?', [role_id('Manager'), perm_id('jobs.view_financials')]);
@@ -553,7 +554,7 @@ fresh_session();
 sign_in($mgr);
 $tmpl = call('GET', '/jobs/import/template/csv');
 $tt = str_getcsv(explode("\n", substr($tmpl->content(), 3))[0]);
-check(in_array('Balance', $tt, true) && in_array('Storage Fee', $tt, true) && count($tt) === 17, 'template for a Manager has all 17 columns incl. money');
+check(in_array('Balance', $tt, true) && in_array('Storage Fee', $tt, true) && count($tt) === 19, 'template for a Manager has all 19 columns incl. money');
 check(call('GET', '/jobs/import/template/pdf')->status() === 404, 'unknown template format -> 404');
 $x = tmp_file(call('GET', '/jobs/import/template/xlsx')->content(), 'xlsx');
 $xr = XlsxReader::read($x, 10, 30);
@@ -640,17 +641,17 @@ $csvOf = static function (string $bucket, array $query = [], bool $financials = 
     }
     return [$text, $rows];
 };
-foreach ([['ready', ['Job #', 'Customer First Name', 'Customer Last Name', 'Pickup Date', '1st Available Date', 'From', 'To', 'CF', 'Balance']],
-    ['later', ['Job #', 'Customer First Name', 'Customer Last Name', 'Pickup Date', '1st Available Date', 'From', 'To', 'CF', 'Balance', 'Storage Fee']],
-    ['transit', ['Job #', 'Customer First Name', 'Customer Last Name', 'Pickup Date', '1st Available Date', 'From', 'To', 'CF', 'Balance', 'Carrier Name', 'Driver Name', 'Phone']],
-    ['delivered', ['Job #', 'Customer First Name', 'Customer Last Name', 'Pickup Date', '1st Available Date', 'From', 'To', 'CF', 'Balance', 'Delivered Date']]] as [$bucket, $expected]) {
+foreach ([['ready', ['Job #', 'Customer First Name', 'Customer Last Name', 'Customer Phone', 'Pickup Date', '1st Available Date', 'From', 'To', 'CF', 'Balance']],
+    ['later', ['Job #', 'Customer First Name', 'Customer Last Name', 'Customer Phone', 'Pickup Date', '1st Available Date', 'From', 'To', 'CF', 'Balance', 'Storage Fee']],
+    ['transit', ['Job #', 'Customer First Name', 'Customer Last Name', 'Customer Phone', 'Pickup Date', '1st Available Date', 'From', 'To', 'CF', 'Balance', 'Loaded Date', 'Carrier Name', 'Driver Name', 'Phone']],
+    ['delivered', ['Job #', 'Customer First Name', 'Customer Last Name', 'Customer Phone', 'Pickup Date', '1st Available Date', 'From', 'To', 'CF', 'Balance', 'Loaded Date', 'Delivered Date']]] as [$bucket, $expected]) {
     [$text, $rows] = $csvOf($bucket);
     check($rows[0] === $expected, "{$bucket}: headings follow the client's sheet for that section");
 }
 [$text, $rows] = $csvOf('all');
 check(str_starts_with($text, "\xEF\xBB\xBF") && $rows[0] === array_map([JobFields::class, 'label'], array_keys(JobFields::all())), 'All Jobs: BOM first (Excel reads UTF-8), then every importable column in template order');
 [, $rows] = $csvOf('all', [], false);
-check(!in_array('Balance', $rows[0], true) && !in_array('Storage Fee', $rows[0], true) && count($rows[0]) === 15, 'without access to money the Balance and Storage Fee columns are not even in the file');
+check(!in_array('Balance', $rows[0], true) && !in_array('Storage Fee', $rows[0], true) && count($rows[0]) === 17, 'without access to money the Balance and Storage Fee columns are not even in the file');
 check(!str_contains(implode(',', array_merge(...$csvOf('all', [], false)[1])), '120.50') && !str_contains($csvOf('later', [], false)[0], '45.00'), '...and none of the amounts appear anywhere in it');
 
 [, $rows] = $csvOf('ready');
@@ -672,13 +673,13 @@ check(count($csvOf('all', ['q' => 'ex'])[1]) - 1 === (new JobRepository())->coun
 
 [, $rows] = $csvOf('ready');
 $r1 = $rows[2];
-check($r1[0] === 'EX-R1' && $r1[1] === 'Zoë' && $r1[2] === "O'Brien, Jr." && $r1[3] === '' && $r1[4] === '2026-10-28' && $r1[7] === '' && $r1[8] === '120.50', 'accents, apostrophes, commas, empty cells, ISO dates and plain amounts');
+check($r1[0] === 'EX-R1' && $r1[1] === 'Zoë' && $r1[2] === "O'Brien, Jr." && $r1[3] === '' && $r1[4] === '' && $r1[5] === '2026-10-28' && $r1[8] === '' && $r1[9] === '120.50', 'accents, apostrophes, commas, empty cells, ISO dates and plain amounts');
 [, $rows] = $csvOf('all');
 $byNumber = array_column($rows, null, 0);
 check($byNumber['EX-R1'][array_search('Notes', $rows[0], true)] === "line1\nline2 \"quoted\"", 'line breaks and quotes in a cell survive');
-check($byNumber['EX-R2'][7] === '12.5' && $byNumber['EX-T1'][array_search('Status', $rows[0], true)] === 'In Transit' && $byNumber['EX-D1'][array_search('Delivered Date', $rows[0], true)] === '2026-09-15', 'CF without trailing zeros, status as a label, delivery date');
+check($byNumber['EX-R2'][8] === '12.5' && $byNumber['EX-T1'][array_search('Status', $rows[0], true)] === 'In Transit' && $byNumber['EX-D1'][array_search('Delivered Date', $rows[0], true)] === '2026-09-15', 'CF without trailing zeros, status as a label, delivery date');
 $evil = $byNumber['EX-EVIL'];
-check($evil[1] === "'=HYPERLINK(\"http://evil\",\"x\")" && $evil[2] === "'+cmd" && $evil[5] === "'-2+3" && $evil[6] === "'@SUM(A1)", 'cells starting with = + - @ get a leading apostrophe so Excel cannot run them (CSV injection)');
+check($evil[1] === "'=HYPERLINK(\"http://evil\",\"x\")" && $evil[2] === "'+cmd" && $evil[6] === "'-2+3" && $evil[7] === "'@SUM(A1)", 'cells starting with = + - @ get a leading apostrophe so Excel cannot run them (CSV injection)');
 check($evil[array_search('Notes', $rows[0], true)] === "'\t=1+1", '...including a cell that starts with a tab');
 check(!str_contains(implode('', array_map(static fn (array $r): string => $r[0], $rows)), '='), 'normal job numbers are untouched');
 check(ExportService::safeCell('=1+1') === "'=1+1" && ExportService::safeCell('+1') === "'+1" && ExportService::safeCell('-1') === "'-1" && ExportService::safeCell('@x') === "'@x" && ExportService::safeCell("\r=x") === "'\r=x" && ExportService::safeCell('plain') === 'plain' && ExportService::safeCell('') === '' && ExportService::safeCell('2026-10-23') === '2026-10-23', 'safeCell');
@@ -710,7 +711,7 @@ check(str_starts_with($bin, 'PK') && str_contains((string) $resp->getHeader('Con
 $xf = tmp_file($bin, 'xlsx');
 $xr = XlsxReader::read($xf, 5000, 60);
 check(count($xr['rows']) === 1250 && $xr['headers'][0] === 'Job #', 'all 1,250 rows are in the workbook');
-check($xr['rows'][0][1][0] === 'BIG-01250' && $xr['rows'][0][1][4] === '46357', 'real Excel dates (serial numbers) rather than text');
+check($xr['rows'][0][1][0] === 'BIG-01250' && $xr['rows'][0][1][5] === '46357', 'real Excel dates (serial numbers) rather than text');
 check((new ImportService())->stage(upload_of($xf, 'back.xlsx'), (int) $mgr['id'])['ok'], 'the exported workbook is accepted by the importer');
 
 // ================================================================ export routes

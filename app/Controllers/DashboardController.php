@@ -24,6 +24,7 @@ final class DashboardController extends Controller
 
     public function index(Request $request): Response
     {
+        \App\Services\StorageFeeService::refreshIfDue(); // fees follow the calendar: re-assess once a day
         $user = Auth::user();
 
         // Dashboard access alone does not reveal job data: that needs jobs.view.

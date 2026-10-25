@@ -10,7 +10,7 @@ declare(strict_types=1);
  *   label       button / history text
  *   permission  permission key the user needs for this particular change
  *   style       Bootstrap button style
- *   form        extra data collected: 'dispatch' (carrier, driver, phone), 'deliver' (delivery date) or 'note' (just a note)
+ *   form        'none' = one click, nothing to fill in (the date is today's); 'note' = a dialog asking for a note
  *   note        'required' | 'optional' - whether a reason must be given
  */
 return [
@@ -24,16 +24,16 @@ return [
 
     'transitions' => [
         'booked' => [
-            'in_transit' => ['label' => 'Dispatch', 'permission' => 'jobs.status', 'style' => 'primary', 'form' => 'dispatch', 'note' => 'optional'],
+            'in_transit' => ['label' => 'Move to In Transit', 'permission' => 'jobs.status', 'style' => 'primary', 'form' => 'none', 'note' => 'optional'],
             'on_hold'    => ['label' => 'Put on hold', 'permission' => 'jobs.status', 'style' => 'outline-secondary', 'form' => 'note', 'note' => 'required'],
             'cancelled'  => ['label' => 'Cancel job', 'permission' => 'jobs.status', 'style' => 'outline-danger', 'form' => 'note', 'note' => 'required'],
         ],
         'in_transit' => [
-            'delivered'  => ['label' => 'Mark delivered', 'permission' => 'jobs.status', 'style' => 'primary', 'form' => 'deliver', 'note' => 'optional'],
+            'delivered'  => ['label' => 'Mark as Delivered', 'permission' => 'jobs.status', 'style' => 'primary', 'form' => 'none', 'note' => 'optional'],
             'on_hold'    => ['label' => 'Put on hold', 'permission' => 'jobs.status', 'style' => 'outline-secondary', 'form' => 'note', 'note' => 'required'],
             'cancelled'  => ['label' => 'Cancel job', 'permission' => 'jobs.status', 'style' => 'outline-danger', 'form' => 'note', 'note' => 'required'],
         ],
-        // Resuming returns the job to Booked; it has to be dispatched again (carrier details are cleared, but kept in the history).
+        // Resuming returns the job to Booked; it has to be moved to In Transit again (carrier details and dates are cleared, but kept in the history).
         'on_hold' => [
             'booked'     => ['label' => 'Resume', 'permission' => 'jobs.status', 'style' => 'primary', 'form' => 'note', 'note' => 'optional'],
             'cancelled'  => ['label' => 'Cancel job', 'permission' => 'jobs.status', 'style' => 'outline-danger', 'form' => 'note', 'note' => 'required'],

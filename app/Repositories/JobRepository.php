@@ -119,7 +119,7 @@ final class JobRepository
 
         if ($c->q !== '') {
             $fields = ['j.job_number', 'j.customer_first_name', 'j.customer_last_name', 'j.from_location', 'j.to_location',
-                'j.job_location', 'j.carrier_name', 'j.driver_name', 'j.driver_phone'];
+                'j.job_location', 'j.carrier_name', 'j.driver_name', 'j.driver_phone', 'j.customer_phone'];
             // Every word must match somewhere, so "ada smith" finds first name Ada + last name Smith.
             foreach (array_slice(preg_split('/\s+/', $c->q, -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 5) as $word) {
                 $sql .= ' AND (' . implode(' OR ', array_map(static fn (string $f): string => "{$f} LIKE ? ESCAPE '!'", $fields)) . ')';

@@ -35,6 +35,7 @@ function p7_post_settings(array $override = []): \App\Core\Response
     return call('POST', '/settings', $override + [
         'company_name' => 'Acme Moving', 'ready_threshold_days' => '30', 'currency_symbol' => '$',
         'timezone' => 'UTC', 'page_size' => '25',
+        'storage_fee_rate' => '0.6', 'storage_fee_after_days' => '30', 'storage_fee_basis' => 'first_available',
     ]);
 }
 
@@ -62,7 +63,7 @@ $admin = make_user('Admin', 'p7-admin@example.com');
 $mgr = make_user('Manager', 'p7-mgr@example.com');
 $staff = make_user('Staff', 'p7-stf@example.com');
 
-$good = ['company_name' => 'Acme Moving', 'ready_threshold_days' => '45', 'currency_symbol' => '€', 'timezone' => 'America/Chicago', 'page_size' => '50'];
+$good = ['company_name' => 'Acme Moving', 'ready_threshold_days' => '45', 'currency_symbol' => '€', 'timezone' => 'America/Chicago', 'page_size' => '50', 'storage_fee_rate' => '0.75', 'storage_fee_after_days' => '45', 'storage_fee_basis' => 'loaded'];
 $r = SettingsService::validate($good);
 check($r['errors'] === [] && $r['values'] === $good, 'valid input passes and comes back normalised');
 
@@ -80,7 +81,7 @@ check(isset(SettingsService::validate(['currency_symbol' => 'USD$'] + $good)['er
 check(isset(SettingsService::validate(['timezone' => 'Mars/Olympus'] + $good)['errors']['timezone']), 'an unknown time zone is refused');
 check(isset(SettingsService::validate(['timezone' => '../../etc/passwd'] + $good)['errors']['timezone']), 'a path-looking time zone is refused');
 check(isset(SettingsService::validate(['page_size' => '1000'] + $good)['errors']['page_size']), 'a page size outside the list is refused');
-check(count(SettingsService::validate([])['errors']) === 5, 'a request with nothing in it fails on all five fields');
+check(count(SettingsService::validate([])['errors']) === 8, 'a request with nothing in it fails on all eight fields');
 
 // ================================================================ settings: saving, audit, effect
 

@@ -2,7 +2,7 @@
 
 Custom job tracking software built with **Core PHP 8.1+, MySQL/MariaDB, Bootstrap 5.3, HTML, CSS and JavaScript** - no PHP framework.
 
-Status: **Phase 9 complete - version 1.0.0, ready for staging and UAT.** Deployment and handover pack (`docs/deployment.md`, `docs/operations.md`, `docs/admin-guide.md`, `docs/user-guide.md`, `docs/handover.md`) on top of the Phase 8 - tests, scale check and user acceptance pack (`docs/test-plan.md`, `docs/uat-checklist.md`, `docs/requirements-traceability.md`) on top of audit log, settings and hardening (`docs/security-review.md`), UI polish (`docs/ui-guide.md`), CSV / Excel import and export, user and role management, user management, role management and a permission matrix on top of the dashboard, the five job sections and status workflow (Phase 3), job CRUD (Phase 2) and the security core (Phase 1). All nine phases are done; what is untested and not built is listed in `docs/handover.md`. See `docs/assumptions.md` for the demo business rules and `docs/permission-matrix.md` for what each role can do.
+Status: **Version 1.1.0** (client change request: one-click In Transit / Delivered, automatic storage fee, customer phone) on top of the nine completed phases. Deployment and handover pack (`docs/deployment.md`, `docs/operations.md`, `docs/admin-guide.md`, `docs/user-guide.md`, `docs/handover.md`) on top of the Phase 8 - tests, scale check and user acceptance pack (`docs/test-plan.md`, `docs/uat-checklist.md`, `docs/requirements-traceability.md`) on top of audit log, settings and hardening (`docs/security-review.md`), UI polish (`docs/ui-guide.md`), CSV / Excel import and export, user and role management, user management, role management and a permission matrix on top of the dashboard, the five job sections and status workflow (Phase 3), job CRUD (Phase 2) and the security core (Phase 1). All nine phases are done; what is untested and not built is listed in `docs/handover.md`. See `docs/assumptions.md` for the demo business rules and `docs/permission-matrix.md` for what each role can do.
 
 ## Quick start (local)
 
@@ -18,6 +18,7 @@ php cli/doctor.php                # environment self-check (exit 1 on failure)
 php cli/route-audit.php           # every route has one access rule, nothing changes data over GET
 php cli/backup.php [--keep=14]    # database backup into storage/backups
 php cli/reset-password.php --username=...   # break-glass: new temporary password for a user
+php cli/storage-fees.php          # re-assess automatic storage fees (also done by the app once a day)
 php cli/cleanup.php [--apply]     # housekeeping; dry run unless --apply (run --apply daily from cron)
 php -S localhost:8000 -t public public/index.php
 ```
@@ -31,7 +32,7 @@ Point the document root at **`public/`** only. `public/.htaccess` handles Apache
 ## Tests
 ```bash
 tests/all.sh [--perf] [--e2e]               # EVERYTHING below on a throw-away database (recommended)
-php tests/run.php                                   # 1420 unit/integration checks (SQLite in memory)
+php tests/run.php                                   # 1568 unit/integration checks (SQLite in memory)
 tests/smoke.sh http://localhost:8000 USERNAME PASSWORD # Phase 1 end-to-end over HTTP (changes then restores that account's password)
 tests/smoke-jobs.sh http://localhost:8000 ADMIN_USER ADMIN_PASS STAFF_USER STAFF_PASS       # job CRUD as Admin and Staff (leaves soft-deleted SMOKE-* jobs)
 tests/smoke-workflow.sh http://localhost:8000 ADMIN_USER ADMIN_PASS STAFF_USER STAFF_PASS   # sections, dashboard and workflow (leaves soft-deleted WF-* jobs; needs GNU date)
@@ -53,7 +54,7 @@ app/Controllers, Services, Repositories, Middleware, Database (migrator, seeder)
 views/         layouts, partials and page templates
 database/      numbered SQL migrations
 storage/       logs, sessions, uploads (never web-accessible)
-cli/           migrate, seed, seed-demo, create-user, create-admin, reset-password, backup, cleanup, doctor, route-audit, permission-report, fetch-assets
+cli/           migrate, seed, seed-demo, create-user, create-admin, reset-password, backup, cleanup, storage-fees, doctor, route-audit, permission-report, fetch-assets
 deploy/        Apache and Nginx configurations, PHP settings, cron, production .env template
 scripts/       build-release.sh
 docs/          assumptions, coding standards, wireframes, permission-matrix

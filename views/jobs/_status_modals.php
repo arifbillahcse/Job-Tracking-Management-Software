@@ -9,6 +9,9 @@ $error = static fn (string $to, string $field): string => $failed === $to ? erro
 $invalid = static fn (string $to, string $field): string => $failed === $to && has_error($field) ? ' is-invalid' : '';
 ?>
 <?php foreach ($transitions as $t):
+    if ($t['form'] === 'none') {
+        continue; // one-click changes have no dialog
+    }
     $to = (string) $t['to'];
     $required = $t['note'] === 'required';
     $modalId = 'statusModal-' . $to;

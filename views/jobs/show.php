@@ -32,7 +32,11 @@ $dl = static function (string $label, string $valueHtml): string {
         <div class="card-body d-flex flex-wrap align-items-center gap-2">
             <span class="fw-semibold me-2">Update status</span>
             <?php foreach ($transitions as $t): ?>
-                <button type="button" class="btn btn-<?= e($t['style']) ?>" data-bs-toggle="modal" data-bs-target="#statusModal-<?= e($t['to']) ?>"><?= e($t['label']) ?></button>
+                <?php if ($t['form'] === 'none'): ?>
+                    <?= \App\Core\View::partial('jobs/_quick_move', ['job' => $job, 't' => $t, 'size' => '']) ?>
+                <?php else: ?>
+                    <button type="button" class="btn btn-<?= e($t['style']) ?>" data-bs-toggle="modal" data-bs-target="#statusModal-<?= e($t['to']) ?>"><?= e($t['label']) ?></button>
+                <?php endif; ?>
             <?php endforeach; ?>
         </div>
     </div>
@@ -45,6 +49,7 @@ $dl = static function (string $label, string $valueHtml): string {
             <div class="card-body">
                 <dl class="row mb-0 gy-2">
                     <?= $dl('Customer', e($job['customer_first_name'] . ' ' . $job['customer_last_name'])) ?>
+                    <?= $dl('Customer phone', tel_link($job['customer_phone'] ?? null)) ?>
                     <?= $dl('From', e($job['from_location'])) ?>
                     <?= $dl('To', e($job['to_location'])) ?>
                     <?= $dl('Job location', e($job['job_location'] ?: '—')) ?>
@@ -60,13 +65,16 @@ $dl = static function (string $label, string $valueHtml): string {
                 <dl class="row mb-0 gy-2">
                     <?= $dl('Pickup date', e(fmt_date($job['pickup_date']) ?: '—')) ?>
                     <?= $dl('1st available', e(fmt_date($job['first_available_date'])) . ' ' . availability_chip($job)) ?>
-                    <?php if ((string) $job['status'] === 'delivered' && !empty($job['delivered_at'])): ?>
-                        <?= $dl('Delivered', e(fmt_date((string) $job['delivered_at']))) ?>
+                    <?php if (!empty($job['loaded_date'])): ?>
+                        <?= $dl('Loaded date', e(fmt_date((string) $job['loaded_date']))) ?>
+                    <?php endif; ?>
+                    <?php if ((string) $job['status'] === 'delivered' && !empty($job['delivery_date'])): ?>
+                        <?= $dl('Delivery date', e(fmt_date((string) $job['delivery_date']))) ?>
                     <?php endif; ?>
                     <?= $dl('CF', e(fmt_number($job['cf']) ?: '—')) ?>
                     <?php if ($showFinancials): ?>
                         <?= $dl('Balance', e(fmt_money($job['balance']))) ?>
-                        <?= $dl('Storage fee', e(fmt_money($job['storage_fee']))) ?>
+                        <?= $dl('Storage fee', e(fmt_money($job['storage_fee'])) . '<div class="jt-subtle">' . e(storage_fee_note($job)) . '</div>') ?>
                     <?php endif; ?>
                 </dl>
             </div>
@@ -82,12 +90,10 @@ $dl = static function (string $label, string $valueHtml): string {
                         <?= $dl('Carrier', e($job['carrier_name'] ?: '—')) ?>
                         <?= $dl('Driver', e($job['driver_name'] ?: '—')) ?>
                         <?= $dl('Phone', tel_link($job['driver_phone'])) ?>
-                        <?php if (!empty($job['in_transit_at'])): ?>
-                            <?= $dl('Dispatched', e(fmt_datetime((string) $job['in_transit_at']))) ?>
-                        <?php endif; ?>
+
                     </dl>
                 <?php else: ?>
-                    <p class="text-body-secondary mb-0">Not dispatched yet. Carrier details are recorded when the job goes in transit.</p>
+                    <p class="text-body-secondary mb-0">Carrier details are optional. Add them under Edit once the job is in transit.</p>
                 <?php endif; ?>
             </div>
         </div>

@@ -35,20 +35,23 @@ Sign in as **Admin** unless a scenario says otherwise. Replace `TEST-1` etc. wit
 | B9 | Type a customer name with accents or another alphabet, e.g. `Zoë Müller` or `李小龍`. Save and open it. | It shows exactly as typed. | ☐ | |
 | B10 | In **All Jobs**, search for part of a customer's name, then for a job number. | Only matching jobs. A note says the list is filtered; a button clears it. | ☐ | |
 | B11 | Open **More filters** and try status, dates, balance. Click column headings to sort. | The list follows. The filters stay when you go to page 2. | ☐ | |
+| B12 | Add a job with a **customer phone number**, then open it and look at the lists. | The number is on Job Details and under the customer's name in every list. On a phone, tapping it offers to call. A value like `abc` is refused with a message. | ☐ | |
 
 ## C. Moving a job along
 
 | # | Do this | You should see | Pass | Notes |
 |---|---|---|---|---|
-| C1 | Open a Ready job, click **Dispatch**, leave the boxes empty and confirm. | The box stays open and asks for carrier, driver and phone. | ☐ | |
-| C2 | Fill them in and confirm. | The job is **In Transit** with the driver's name and a tap-to-call phone number. | ☐ | |
-| C3 | Click **Mark delivered**, check the date, confirm. | The job is **Delivered** and appears under Delivered. | ☐ | |
+| C1 | In **Ready for Delivery**, click **Move to In Transit** on a job's row (or open the job and click it there). | A question names today's date as the loaded date. After OK there is **no form**: the job is **In Transit** and shows today as **Loaded date**. | ☐ | |
+| C2 | Open **In Transit**. Under **Edit** on that job add a carrier, driver and driver phone (optional). | The job is listed with its loaded date; once saved it also shows the driver and a tap-to-call phone number. | ☐ | |
+| C3 | On the **In Transit** list click **Mark as Delivered** next to the job. | After OK the job is **Delivered**, has today as **Delivery date**, and is under Delivered. The Dashboard counts have moved (In Transit down by 1, Delivered up by 1). | ☐ | |
 | C4 | Scroll to the job's history. | Every step with date, who did it, and any note. | ☐ | |
 | C5 | Put a job **On hold** (a reason is required). | It leaves Ready for Delivery but is still in All Jobs. **Resume** brings it back. | ☐ | |
-| C6 | Click **Dispatch** twice quickly (double-click). | Only one dispatch is recorded. | ☐ | |
+| C6 | Click **Move to In Transit** twice quickly (double-click). | Only one move is recorded in the history. | ☐ | |
 | C7 | Edit a job: change the balance and add a note. Save. | The change is shown. The history/audit log records it. | ☐ | |
 | C8 | Delete a job. Open **Trash**, restore it. | It disappears from the lists, appears in Trash, and comes back when restored. | ☐ | |
-| C9 | **Storage fee**: edit a job and type a storage fee by hand. | It is saved exactly as typed; nothing changes it by itself. | ☐ | |
+| C9 | **Storage fee**: add a job with **CF 100** and a 1st available date **45 days ago**. Open it. | **Storage fee $60.00** and a note "Automatic: CF 100 × rate 0.6". A job with the same CF whose date was 10 days ago shows $0.00 and says when the fee starts. | ☐ | |
+| C10 | As Admin open **Settings**, change the storage fee rate to 1 and save. Look at the first job again. | Its fee is now $100.00 at once. Delivered jobs keep their old fee. Change the rate back to 0.6. | ☐ | |
+| C11 | On a job you moved by mistake late, open **Edit** and correct the **Loaded date**. | It saves; a date in the future is refused; the change is in the Audit Log. | ☐ | |
 
 ## D. Dashboard
 
@@ -88,7 +91,7 @@ Sign in as **Admin** unless a scenario says otherwise. Replace `TEST-1` etc. wit
 |---|---|---|---|---|
 | G1 | Open the site on a phone. | Lists show as cards, nothing scrolls sideways, buttons are easy to tap. | ☐ | |
 | G2 | Open the menu (top-left button) and move around. | The menu slides in and out. | ☐ | |
-| G3 | Create a job and dispatch it from the phone. | It works as on a computer. | ☐ | |
+| G3 | Create a job and move it to In Transit from the phone. | It works as on a computer. | ☐ | |
 
 ## Questions we still need your answer on
 
@@ -98,8 +101,8 @@ These are assumptions we made so the demo could be built. Please confirm or corr
 2. Which statuses do you really use? We have Booked, In Transit, Delivered, On Hold, Cancelled.
 3. Should a **delivered job** ever go back? (We allow it only for people with the "reopen" permission.)
 4. Who may see **balances and storage fees**? (Managers and Admins; not Staff.)
-5. Is the **storage fee** always typed by hand, or should it be calculated later? (Now: typed by hand.)
-6. Do you need **customer phone/email**, **invoices**, **documents/photos**, **e-mail or SMS notifications**? (Not built.)
+5. **Storage fee:** is it counted from the job's **1st available date** (our assumption) or from the **loaded date**? Is it charged **once** (our assumption) or per day/month? Is the rate **0.6 per CF**, and does "30 days" mean the fee starts on day 31?
+6. Do you need customer **e-mail or address**, **invoices**, **documents/photos**, **e-mail or SMS notifications**? (Not built.)
 7. How long must we **keep records**, especially the audit log? (Now: forever.)
 8. Is **US date order (month/day/year)** right for the sheets you import?
 

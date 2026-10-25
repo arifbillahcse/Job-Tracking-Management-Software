@@ -268,6 +268,31 @@ function availability_chip(array $job): string
 }
 
 /** Tap-to-call link for a phone number; plain text when it has too few digits to dial. HTML, escaped. */
+/** One line explaining where a job's storage fee comes from (plain text; escape with e()). */
+function storage_fee_note(array $job): string
+{
+    $result = \App\Services\StorageFeeService::assess($job);
+    if ($result['manual']) {
+        return 'Set manually (overrides the automatic fee)';
+    }
+    if (($job['status'] ?? '') === 'cancelled') {
+        return 'No storage fee on a cancelled job';
+    }
+    if ((float) $result['fee'] > 0) {
+        return 'Automatic: CF ' . fmt_number($job['cf']) . ' × rate ' . (string) (float) $result['rate'] . ' (after ' . \App\Services\StorageFeeService::days() . ' days)';
+    }
+    if (($job['cf'] ?? null) === null || (float) $job['cf'] <= 0) {
+        return 'Automatic: needs a CF to be calculated';
+    }
+    $start = \App\Services\StorageFeeService::startsOn($job);
+    if ($start === null) {
+        return 'Automatic: counted from the ' . \App\Services\StorageFeeService::BASIS[\App\Services\StorageFeeService::basis()] . ', which is not set yet';
+    }
+    return ($job['status'] ?? '') === 'delivered'
+        ? 'Automatic: delivered before the fee started'
+        : 'Automatic: starts on ' . fmt_date($start) . ' (CF × rate ' . (string) (float) \App\Services\StorageFeeService::rate() . ')';
+}
+
 function tel_link(?string $phone): string
 {
     $phone = trim((string) $phone);

@@ -23,16 +23,17 @@ $all = [
     'storage' => ['Storage fee', 'storage', 'text-md-end'],
     'status' => ['Status', 'status', ''],
     'carrier' => ['Carrier', 'carrier', ''],
+    'carrierblock' => ['Carrier / driver', 'carrier', ''],
     'driver' => ['Driver', 'driver', ''],
     'phone' => ['Phone', null, ''],
-    'dispatched' => ['Dispatched', 'dispatched', ''],
-    'delivered' => ['Delivered', 'delivered', ''],
+    'dispatched' => ['Loaded', 'dispatched', ''],
+    'delivered' => ['Delivered on', 'delivered', ''],
 ];
 $layouts = [
     JobBucket::ALL => ['job', 'customer', 'pickup', 'available', 'route', 'cf', 'balance', 'status'],
     JobBucket::READY => ['job', 'customer', 'pickup', 'available', 'route', 'cf', 'balance'],
     JobBucket::LATER => ['job', 'customer', 'pickup', 'available', 'route', 'cf', 'balance', 'storage'],
-    JobBucket::TRANSIT => ['job', 'customer', 'available', 'route', 'cf', 'balance', 'carrier', 'driver', 'phone', 'dispatched'],
+    JobBucket::TRANSIT => ['job', 'customer', 'route', 'cf', 'balance', 'dispatched', 'carrierblock'],
     JobBucket::DELIVERED => ['job', 'customer', 'pickup', 'available', 'route', 'cf', 'balance', 'delivered'],
 ];
 $columns = array_values(array_filter(
@@ -44,7 +45,7 @@ $descriptions = [
     JobBucket::ALL => 'Every job, including those on hold or cancelled.',
     JobBucket::READY => "Booked jobs whose 1st available date is within the next {$threshold} days, plus any that are overdue.",
     JobBucket::LATER => "Booked jobs whose 1st available date is more than {$threshold} days away. They move to Ready for Delivery automatically as the date approaches.",
-    JobBucket::TRANSIT => 'Jobs on the road, with carrier, driver and phone number.',
+    JobBucket::TRANSIT => 'Jobs on the road, with the loaded date, carrier and driver. Use Mark as Delivered when a job arrives.',
     JobBucket::DELIVERED => 'Completed deliveries.',
 ];
 
@@ -52,7 +53,7 @@ $emptyBucket = [
     JobBucket::ALL => ['briefcase', 'No jobs yet', 'Jobs you create will be listed here.'],
     JobBucket::READY => ['clock', 'Nothing is ready for delivery', "Booked jobs with a 1st available date in the next {$threshold} days will appear here."],
     JobBucket::LATER => ['calendar', 'Nothing more than ' . $threshold . ' days away', 'Booked jobs with a later available date will appear here.'],
-    JobBucket::TRANSIT => ['truck', 'No jobs in transit', 'Jobs appear here once they are dispatched with a carrier.'],
+    JobBucket::TRANSIT => ['truck', 'No jobs in transit', 'Jobs appear here when you press Move to In Transit.'],
     JobBucket::DELIVERED => ['check-circle', 'No deliveries yet', 'Completed deliveries will appear here.'],
 ];
 
@@ -147,7 +148,12 @@ $sortHeader = static function (string $label, ?string $sortKey) use ($criteria, 
                                         <a class="jt-jobno" href="<?= e(url('/jobs/' . $job['id'])) ?>"><?= e($job['job_number']) ?></a>
                                         <?php break;
                                     case 'customer': ?>
-                                        <?= e($job['customer_first_name'] . ' ' . $job['customer_last_name']) ?>
+                                        <div class="jt-stack">
+                                            <?= e($job['customer_first_name'] . ' ' . $job['customer_last_name']) ?>
+                                            <?php if (!empty($job['customer_phone'])): ?>
+                                                <div class="jt-subtle"><?= tel_link($job['customer_phone']) ?></div>
+                                            <?php endif; ?>
+                                        </div>
                                         <?php break;
                                     case 'pickup': ?>
                                         <?= e(fmt_date($job['pickup_date']) ?: '—') ?>
@@ -177,6 +183,17 @@ $sortHeader = static function (string $label, ?string $sortKey) use ($criteria, 
                                     case 'carrier': ?>
                                         <?= e($job['carrier_name'] ?: '—') ?>
                                         <?php break;
+                                    case 'carrierblock': ?>
+                                        <div class="jt-stack">
+                                            <?php if (empty($job['carrier_name']) && empty($job['driver_name']) && empty($job['driver_phone'])): ?>
+                                                <span class="text-body-secondary">—</span>
+                                            <?php else: ?>
+                                                <?= e($job['carrier_name'] ?: '—') ?>
+                                                <?php if (!empty($job['driver_name'])): ?><div class="jt-subtle"><?= e($job['driver_name']) ?></div><?php endif; ?>
+                                                <?php if (!empty($job['driver_phone'])): ?><div class="jt-subtle"><?= tel_link($job['driver_phone']) ?></div><?php endif; ?>
+                                            <?php endif; ?>
+                                        </div>
+                                        <?php break;
                                     case 'driver': ?>
                                         <?= e($job['driver_name'] ?: '—') ?>
                                         <?php break;
@@ -184,17 +201,17 @@ $sortHeader = static function (string $label, ?string $sortKey) use ($criteria, 
                                         <?= tel_link($job['driver_phone']) ?>
                                         <?php break;
                                     case 'dispatched': ?>
-                                        <?= e(fmt_date($job['in_transit_at'] ? (string) $job['in_transit_at'] : null) ?: '—') ?>
+                                        <?= e(fmt_date($job['loaded_date'] ? (string) $job['loaded_date'] : null) ?: '—') ?>
                                         <?php break;
                                     case 'delivered': ?>
-                                        <?= e(fmt_date($job['delivered_at'] ? (string) $job['delivered_at'] : null) ?: '—') ?>
+                                        <?= e(fmt_date($job['delivery_date'] ? (string) $job['delivery_date'] : null) ?: '—') ?>
                                         <?php break;
                                 endswitch; ?>
                             </td>
                         <?php endforeach; ?>
                         <td data-label="" class="jt-actions text-md-end">
                             <?php if (isset($shortcuts[(int) $job['id']])): $shortcut = $shortcuts[(int) $job['id']]; ?>
-                                <a class="btn btn-sm btn-primary" href="<?= e(url('/jobs/' . $job['id'] . '?do=' . $shortcut['to'])) ?>"><?= e($shortcut['label']) ?></a>
+                                <?= \App\Core\View::partial('jobs/_quick_move', ['job' => $job, 't' => $shortcut, 'size' => 'btn-sm']) ?>
                             <?php endif; ?>
                             <a class="btn btn-sm btn-outline-secondary" href="<?= e(url('/jobs/' . $job['id'])) ?>" aria-label="View job <?= e($job['job_number']) ?>"><?= icon('eye') ?> <span class="d-md-none">View</span></a>
                             <?php if (can('jobs.edit')): ?>

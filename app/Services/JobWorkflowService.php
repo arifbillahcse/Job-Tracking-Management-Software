@@ -12,7 +12,6 @@ use App\Core\Logger;
 use App\Core\Validator;
 use App\Repositories\JobRepository;
 use App\Repositories\StatusHistoryRepository;
-use App\Validation\JobRules;
 
 /**
  * Status changes. The rules live in app/Config/statuses.php; this class enforces them:
@@ -83,19 +82,11 @@ final class JobWorkflowService
         }
 
         $rules = ['note' => ($definition['note'] === 'required' ? 'required' : 'nullable') . '|max:1000'];
-        if ($definition['form'] === 'dispatch') {
-            $rules += JobRules::dispatchRules();
-        } elseif ($definition['form'] === 'deliver') {
-            $rules['delivered_on'] = 'required|date';
-        }
 
-        $validator = Validator::make($input, $rules, JobRules::labels() + ['note' => 'Note']);
+        $validator = Validator::make($input, $rules, ['note' => 'Note']);
         $errors = $validator->errors();
         $data = $validator->validated();
 
-        if ($definition['form'] === 'deliver' && !isset($errors['delivered_on']) && (string) $data['delivered_on'] > Clock::today()) {
-            $errors['delivered_on'][] = 'The delivery date cannot be in the future.';
-        }
         if ($errors !== []) {
             return ['ok' => false, 'code' => 'validation', 'errors' => $errors];
         }
@@ -123,7 +114,13 @@ final class JobWorkflowService
             ['status' => $to, 'note' => $note] + ($details ?? [])
         );
 
-        return ['ok' => true, 'from' => $from, 'to' => $to, 'job_number' => (string) $job['job_number']];
+        // Dates and fees follow the status: re-assess this job's storage fee now (a delivery freezes it).
+        StorageFeeService::settle($id);
+
+        return [
+            'ok' => true, 'from' => $from, 'to' => $to, 'job_number' => (string) $job['job_number'],
+            'loaded_date' => $changes['loaded_date'] ?? null, 'delivery_date' => $changes['delivery_date'] ?? null,
+        ];
     }
 
     /**
@@ -163,27 +160,32 @@ final class JobWorkflowService
         $changes = ['status' => $to];
         $details = null;
 
+        $today = Clock::today();
+
         switch ($to) {
             case 'in_transit':
-                $changes['delivered_at'] = null; // also covers re-opening a delivered job
-                if ($form === 'dispatch') {
-                    $details = [];
-                    foreach (self::CARRIER as $column) {
-                        $changes[$column] = $details[$column] = (string) $data[$column];
-                    }
+                $changes['delivered_at'] = null;
+                $changes['delivery_date'] = null;
+                if ($job['status'] === 'delivered') {
+                    // Re-opened after delivery: it was loaded before, so the loaded date stays.
+                    $details = ['reopened' => true, 'delivery_date_cleared' => $job['delivery_date'] ?? null];
+                } else {
+                    $changes['loaded_date'] = $today; // the click is the loading: today's date, in the business time zone
                     $changes['in_transit_at'] = gmdate('Y-m-d H:i:s');
+                    $details = ['loaded_date' => $today];
                 }
                 break;
 
             case 'delivered':
-                $changes['delivered_at'] = $data['delivered_on'] . ' 00:00:00';
-                $details = ['delivered_on' => $data['delivered_on']];
+                $changes['delivery_date'] = $today;
+                $changes['delivered_at'] = $today . ' 00:00:00';
+                $details = ['delivery_date' => $today];
                 break;
 
             case 'booked':
-                // Back to Booked (resume / reopen): the job has to be dispatched again. What was cleared stays in the history.
+                // Back to Booked (resume / reopen): the job has to be moved again. What was cleared stays in the history.
                 $cleared = [];
-                foreach ([...self::CARRIER, 'in_transit_at', 'delivered_at'] as $column) {
+                foreach ([...self::CARRIER, 'in_transit_at', 'delivered_at', 'loaded_date', 'delivery_date'] as $column) {
                     if ($job[$column] !== null && $job[$column] !== '') {
                         $cleared[$column] = $job[$column];
                     }

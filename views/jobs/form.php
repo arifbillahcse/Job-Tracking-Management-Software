@@ -36,6 +36,7 @@ $input = static function (string $name, string $label, array $opts = []) use ($v
                         <div class="col-12 col-md-4"><?= $input('job_number', 'Job #', ['required' => true, 'maxlength' => 40, 'help' => 'Letters, numbers and - _ / . only. Must be unique.']) ?></div>
                         <div class="col-12 col-md-4"><?= $input('customer_first_name', 'Customer first name', ['required' => true, 'maxlength' => 100]) ?></div>
                         <div class="col-12 col-md-4"><?= $input('customer_last_name', 'Customer last name', ['required' => true, 'maxlength' => 100]) ?></div>
+                        <div class="col-12 col-md-4"><?= $input('customer_phone', 'Customer phone number', ['type' => 'tel', 'maxlength' => 30, 'inputmode' => 'tel', 'placeholder' => '(555) 010-2231', 'help' => 'Shown as a tap-to-call link on phones.']) ?></div>
                     </div>
                 </div>
             </div>
@@ -71,7 +72,12 @@ $input = static function (string $name, string $label, array $opts = []) use ($v
                         <div class="col-12"><?= $input('cf', 'CF (cubic feet)', ['type' => 'number', 'step' => '0.01', 'min' => '0', 'inputmode' => 'decimal']) ?></div>
                         <?php if ($editFinancials): ?>
                             <div class="col-12 col-sm-6 col-xl-12"><?= $input('balance', 'Balance', ['type' => 'number', 'step' => '0.01', 'min' => '0', 'inputmode' => 'decimal', 'help' => 'Amount the customer still owes.']) ?></div>
-                            <div class="col-12 col-sm-6 col-xl-12"><?= $input('storage_fee', 'Storage fee', ['type' => 'number', 'step' => '0.01', 'min' => '0', 'inputmode' => 'decimal', 'help' => 'Entered manually.']) ?></div>
+                            <div class="col-12 col-sm-6 col-xl-12">
+                                <?= $input('storage_fee_override', 'Storage fee override', ['type' => 'number', 'step' => '0.01', 'min' => '0', 'inputmode' => 'decimal', 'help' => 'Leave empty for the automatic fee (CF × rate after ' . \App\Services\StorageFeeService::days() . ' days). A number here replaces it.']) ?>
+                                <?php if ($job !== null): ?>
+                                    <div class="jt-subtle mt-1" aria-live="polite">Now: <?= e(fmt_money($job['storage_fee'] ?? 0)) ?>. <?= e(storage_fee_note($job)) ?>.</div>
+                                <?php endif; ?>
+                            </div>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -81,11 +87,26 @@ $input = static function (string $name, string $label, array $opts = []) use ($v
                 <div class="card jt-card mb-4">
                     <div class="card-header bg-transparent fw-semibold">Carrier</div>
                     <div class="card-body">
-                        <p class="small text-body-secondary">Correct the carrier details of a job that is in transit.</p>
+                        <p class="small text-body-secondary">Optional. Record who is carrying the job, or correct it.</p>
                         <div class="row g-3">
-                            <div class="col-12"><?= $input('carrier_name', 'Carrier name', ['required' => true, 'maxlength' => 150]) ?></div>
-                            <div class="col-12 col-sm-6 col-xl-12"><?= $input('driver_name', 'Driver name', ['required' => true, 'maxlength' => 150]) ?></div>
-                            <div class="col-12 col-sm-6 col-xl-12"><?= $input('driver_phone', 'Phone number', ['type' => 'tel', 'required' => true, 'maxlength' => 30, 'inputmode' => 'tel']) ?></div>
+                            <div class="col-12"><?= $input('carrier_name', 'Carrier name', ['maxlength' => 150]) ?></div>
+                            <div class="col-12 col-sm-6 col-xl-12"><?= $input('driver_name', 'Driver name', ['maxlength' => 150]) ?></div>
+                            <div class="col-12 col-sm-6 col-xl-12"><?= $input('driver_phone', 'Driver phone number', ['type' => 'tel', 'maxlength' => 30, 'inputmode' => 'tel']) ?></div>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($job !== null && in_array((string) $job['status'], ['in_transit', 'delivered'], true)): ?>
+                <div class="card jt-card mb-4">
+                    <div class="card-header bg-transparent fw-semibold">Dates</div>
+                    <div class="card-body">
+                        <p class="small text-body-secondary">Set automatically to the day of the click. Correct them here if the click was late.</p>
+                        <div class="row g-3">
+                            <div class="col-12 col-sm-6 col-xl-12"><?= $input('loaded_date', 'Loaded date', ['type' => 'date', 'max' => \App\Core\Clock::today()]) ?></div>
+                            <?php if ((string) $job['status'] === 'delivered'): ?>
+                                <div class="col-12 col-sm-6 col-xl-12"><?= $input('delivery_date', 'Delivery date', ['type' => 'date', 'required' => true, 'max' => \App\Core\Clock::today()]) ?></div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>

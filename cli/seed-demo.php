@@ -70,8 +70,9 @@ for ($i = 1; $i <= $count; $i++) {
     };
 
     $available = match ($status) {
-        'booked' => mt_rand(0, 100) < 12 ? mt_rand(-9, -1) : (mt_rand(0, 100) < 45 ? mt_rand(0, 30) : mt_rand(31, 150)),
-        'in_transit' => mt_rand(-20, 5),
+        // a few jobs have waited more than 30 days, so the automatic storage fee is visible in the demo
+        'booked' => ($roll2 = mt_rand(0, 100)) < 8 ? mt_rand(-80, -32) : ($roll2 < 20 ? mt_rand(-9, -1) : (mt_rand(0, 100) < 45 ? mt_rand(0, 30) : mt_rand(31, 150))),
+        'in_transit' => mt_rand(0, 100) < 25 ? mt_rand(-60, -35) : mt_rand(-20, 5),
         'delivered' => mt_rand(-75, -8),
         default => mt_rand(-5, 60),
     };
@@ -94,16 +95,20 @@ for ($i = 1; $i <= $count; $i++) {
         'cf' => number_format(mt_rand(250, 2400) + mt_rand(0, 99) / 100, 2, '.', ''),
         'balance' => $status === 'delivered' || $status === 'cancelled' ? '0.00' : number_format(mt_rand(150, 6500) + mt_rand(0, 99) / 100, 2, '.', ''),
         'status' => $status,
-        'storage_fee' => $status === 'booked' && $available > 30 && mt_rand(0, 100) < 40 ? number_format(mt_rand(40, 450), 2, '.', '') : '0.00',
+        'storage_fee' => '0.00', // calculated below by StorageFeeService (CF x rate once a job has waited more than 30 days)
+        'customer_phone' => mt_rand(0, 100) < 85 ? sprintf('(555) %03d-%04d', mt_rand(100, 999), mt_rand(0, 9999)) : null,
         'notes' => $pick($notes),
     ];
 
     if ($status === 'in_transit' || $status === 'delivered') {
         [$carrier, $driver, $phone] = $pick($carriers);
         $row += ['carrier_name' => $carrier, 'driver_name' => $driver, 'driver_phone' => $phone];
-        $row['in_transit_at'] = $day($available - mt_rand(1, 6)) . ' 09:00:00';
+        $loadedOffset = $available - mt_rand(1, 6);
+        $row['in_transit_at'] = $day($loadedOffset) . ' 09:00:00';
+        $row['loaded_date'] = $day($loadedOffset);
         if ($status === 'delivered') {
             $row['delivered_at'] = $day($available) . ' 15:30:00';
+            $row['delivery_date'] = $day($available);
         }
     }
 
@@ -119,9 +124,9 @@ for ($i = 1; $i <= $count; $i++) {
     switch ($status) {
         case 'in_transit':
         case 'delivered':
-            $history->insert($id, 'booked', 'in_transit', null, $carrierDetails, $userId, $row['in_transit_at']);
+            $history->insert($id, 'booked', 'in_transit', null, ['loaded_date' => $row['loaded_date']], $userId, $row['in_transit_at']);
             if ($status === 'delivered') {
-                $history->insert($id, 'in_transit', 'delivered', null, ['delivered_on' => substr($row['delivered_at'], 0, 10)], $userId, $row['delivered_at']);
+                $history->insert($id, 'in_transit', 'delivered', null, ['delivery_date' => $row['delivery_date']], $userId, $row['delivered_at']);
             }
             break;
         case 'on_hold':
@@ -135,6 +140,8 @@ for ($i = 1; $i <= $count; $i++) {
     $created++;
     $byStatus[$status] = ($byStatus[$status] ?? 0) + 1;
 }
+
+\App\Services\StorageFeeService::refresh(); // fees follow the rules in Settings
 
 echo "Created {$created} demo job(s)" . ($skipped > 0 ? ", skipped {$skipped} existing" : '') . ".\n";
 ksort($byStatus);

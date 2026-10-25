@@ -38,6 +38,8 @@ async function createJob(page, number, availableOffset, extra = {}) {
     await page.fill('#to_location', 'Denver, CO');
     await page.fill('#first_available_date', day(availableOffset));
     if (extra.balance) await page.fill('#balance', extra.balance);
+    if (extra.cf) await page.fill('#cf', extra.cf);
+    if (extra.phone) await page.fill('#customer_phone', extra.phone);
     await Promise.all([page.waitForNavigation(), page.click('main form button[type=submit]')]);
 }
 
@@ -108,36 +110,66 @@ async function createJob(page, number, availableOffset, extra = {}) {
         await snap('02-validation');
     });
 
-    console.log('== Dispatch and deliver');
-    await step('dispatching asks for carrier, driver and phone, then moves the job to In Transit', async () => {
+    console.log('== One-click buttons');
+    const accept = () => page.once('dialog', (d) => d.accept());
+    await step('Move to In Transit on a job saves today as the loaded date and moves it to In Transit', async () => {
         await page.goto(BASE + '/jobs?q=' + RUN + '-A');
         await Promise.all([page.waitForNavigation(), page.click('a[href^="/jobs/"]:has-text("' + RUN + '-A")')]);
-        await page.click('button[data-bs-target="#statusModal-in_transit"]');
-        await page.waitForSelector('#statusModal-in_transit.show');
-        await page.click('#statusModal-in_transit button[type=submit]');
-        await page.waitForSelector('#statusModal-in_transit.show');
-        must((await page.textContent('#statusModal-in_transit')).match(/required|must/i), 'empty dispatch was accepted');
-        await page.fill('#statusModal-in_transit-carrier', 'Blue Ridge Haulers');
-        await page.fill('#statusModal-in_transit-driver', 'Marcus Reed');
-        await page.fill('#statusModal-in_transit-phone', '(555) 010-2231');
-        await Promise.all([page.waitForNavigation(), page.click('#statusModal-in_transit button[type=submit]')]);
-        must(/In Transit/.test(await page.textContent('main')) && (await page.textContent('main')).includes('Marcus Reed'), 'not in transit with the driver shown');
+        must(!(await page.isVisible('#statusModal-in_transit')), 'a dialog is in the way: this should be one click');
+        accept();
+        await Promise.all([page.waitForNavigation(), page.click('button:has-text("Move to In Transit")')]);
+        const main = await page.textContent('main');
+        must(/In Transit/.test(main) && /Loaded date/.test(main), 'not in transit with a loaded date');
         await snap('03-in-transit');
         await page.goto(BASE + '/jobs/in-transit?q=' + RUN + '-A');
         must((await page.textContent('main')).includes(RUN + '-A'), 'not listed under In Transit');
     });
-    await step('marking delivered moves it to Delivered, and the history shows both steps', async () => {
+    await step('the button next to a job in the Ready list does the same', async () => {
+        await page.goto(BASE + '/jobs/ready?q=' + RUN + '-C30');
+        accept();
+        await Promise.all([page.waitForNavigation(), page.click('tr:has-text("' + RUN + '-C30") button:has-text("Move to In Transit")')]);
+        await page.goto(BASE + '/jobs/in-transit?q=' + RUN + '-C30');
+        must((await page.textContent('main')).includes(RUN + '-C30'), 'not in transit');
+        await page.goto(BASE + '/jobs/ready?q=' + RUN + '-C30');
+        must(!(await page.textContent('main')).includes(RUN + '-C30<') , 'still listed under Ready');
+    });
+    await step('Mark as Delivered on the In Transit list saves today as the delivery date', async () => {
         await page.goto(BASE + '/jobs/in-transit?q=' + RUN + '-A');
-        await Promise.all([page.waitForNavigation(), page.click('a[href^="/jobs/"]:has-text("' + RUN + '-A")')]);
-        await page.click('button[data-bs-target="#statusModal-delivered"]');
-        await page.waitForSelector('#statusModal-delivered.show');
-        await Promise.all([page.waitForNavigation(), page.click('#statusModal-delivered button[type=submit]')]);
+        accept();
+        await Promise.all([page.waitForNavigation(), page.click('tr:has-text("' + RUN + '-A") button:has-text("Mark as Delivered")')]);
         await page.goto(BASE + '/jobs/delivered?q=' + RUN + '-A');
         must((await page.textContent('main')).includes(RUN + '-A'), 'not under Delivered');
         await Promise.all([page.waitForNavigation(), page.click('a[href^="/jobs/"]:has-text("' + RUN + '-A")')]);
         const body = await page.textContent('main');
-        must(/Booked/.test(body) && /In Transit/.test(body) && /Delivered/.test(body), 'history is incomplete');
+        must(/Booked/.test(body) && /In Transit/.test(body) && /Delivered/.test(body) && /Delivery date/.test(body), 'history or delivery date missing');
         await snap('04-delivered-history');
+    });
+    await step('the dashboard counts follow the clicks', async () => {
+        await page.goto(BASE + '/dashboard');
+        const total = await page.locator('.jt-stat-value').allTextContents();
+        must(total.length >= 5, 'dashboard cards missing');
+        await page.goto(BASE + '/jobs/in-transit?q=' + RUN + '-C30');
+        must(/of 1 job/.test((await page.textContent('main')).replace(/\s+/g, ' ')), 'In Transit list does not agree');
+    });
+
+    console.log('== Phone number and storage fee');
+    await step('a customer phone number is saved and shown as a tap-to-call link', async () => {
+        await createJob(page, RUN + '-P', 12, { phone: '(555) 010-4477' });
+        must((await page.textContent('main')).includes('(555) 010-4477'), 'number not shown on Job Details');
+        must((await page.getAttribute('main a[href^="tel:"]', 'href')) === 'tel:5550104477', 'not a tel: link');
+        await page.goto(BASE + '/jobs?q=' + RUN + '-P');
+        must(await page.locator('a[href="tel:5550104477"]').count() >= 1, 'not a link in the list');
+    });
+    await step('storage fee is calculated automatically: CF 100 x 0.6 = 60 after 30 days', async () => {
+        await createJob(page, RUN + '-S', -40, { cf: '100' });
+        const main = (await page.textContent('main')).replace(/\s+/g, ' ');
+        must(/Storage fee\s*\$60\.00/.test(main), 'fee is not $60.00: ' + main.slice(main.indexOf('Storage fee'), main.indexOf('Storage fee') + 80));
+        await createJob(page, RUN + '-S2', -5, { cf: '100' });
+        must(/Storage fee\s*\$0\.00/.test((await page.textContent('main')).replace(/\s+/g, ' ')), 'a recent job was charged');
+    });
+    await step('Settings has the storage fee rate', async () => {
+        await page.goto(BASE + '/settings');
+        must((await page.inputValue('#storage_fee_rate')) === '0.6' && (await page.inputValue('#storage_fee_after_days')) === '30', 'defaults are not 0.6 and 30');
     });
 
     console.log('== Search, edit, export');
@@ -176,7 +208,7 @@ async function createJob(page, number, availableOffset, extra = {}) {
         fs.unlinkSync(file);
         must(text.startsWith('﻿'), 'no BOM (Excel would garble accents)');
         const lines = text.trim().split('\n');
-        must(lines.length === 5, 'expected header + 4 jobs, got ' + lines.length);
+        must(lines.length === 8, 'expected header + 7 jobs, got ' + lines.length);
         must(text.includes(RUN + '-A') && text.includes('1250.5'), 'job or balance missing');
     });
 

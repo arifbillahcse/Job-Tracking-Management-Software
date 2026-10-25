@@ -401,6 +401,7 @@ body {
 }
 
 .jt-jobno {
+    white-space: nowrap;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
 }
@@ -411,6 +412,52 @@ body {
 
 .jt-actions form {
     display: inline;
+}
+
+/* A cell that holds several lines (name + phone, carrier + driver) is one flex item in the phone card layout. */
+.jt-stack {
+    min-width: 0;
+}
+
+.jt-stack > .jt-subtle {
+    margin-top: 0.1rem;
+}
+
+@media (min-width: 768px) {
+    /* Keep the one-click button on screen: tighter cells, and View/Edit may drop under it instead of widening the table. */
+    .jt-table th,
+    .jt-table td {
+        padding-left: 0.6rem;
+        padding-right: 0.6rem;
+    }
+
+    .jt-table td.jt-actions {
+        white-space: normal;
+        min-width: 11.5rem;
+    }
+
+    .jt-table td.jt-actions .btn + .btn,
+    .jt-table td.jt-actions form + .btn {
+        margin-top: 0.25rem;
+    }
+    /* When a list is wider than the screen it scrolls sideways, but the actions column stays pinned at the right edge,
+       so Move to In Transit / Mark as Delivered are always in reach. */
+    .jt-table.table-cards thead th:last-child,
+    .jt-table.table-cards td.jt-actions {
+        position: sticky;
+        right: 0;
+        z-index: 2;
+        background-color: #fff;
+        box-shadow: -10px 0 8px -10px rgba(15, 27, 45, 0.3);
+    }
+
+    .jt-table.table-cards thead th:last-child {
+        background-color: #f8fafc;
+    }
+
+    .jt-table.table-hover > tbody > tr:hover > td.jt-actions {
+        background-color: #f6f8fb;
+    }
 }
 
 .jt-notes {
@@ -440,6 +487,7 @@ body {
     }
 
     .jt-actions {
+        flex-wrap: wrap;
         justify-content: flex-end;
         gap: 0.5rem;
     }

@@ -27,7 +27,7 @@ final class ExportService
     public const XLSX_MAX_ROWS = 20000;
     private const CHUNK = 500;
 
-    private const BASE = ['job_number', 'customer_first_name', 'customer_last_name', 'pickup_date', 'first_available_date', 'from_location', 'to_location', 'cf', 'balance'];
+    private const BASE = ['job_number', 'customer_first_name', 'customer_last_name', 'customer_phone', 'pickup_date', 'first_available_date', 'from_location', 'to_location', 'cf', 'balance'];
 
     public function __construct(private JobRepository $jobs = new JobRepository())
     {
@@ -41,8 +41,8 @@ final class ExportService
         $columns = match ($bucket) {
             JobBucket::READY => self::BASE,
             JobBucket::LATER => [...self::BASE, 'storage_fee'],
-            JobBucket::TRANSIT => [...self::BASE, 'carrier_name', 'driver_name', 'driver_phone'],
-            JobBucket::DELIVERED => [...self::BASE, 'delivered_on'],
+            JobBucket::TRANSIT => [...self::BASE, 'loaded_date', 'carrier_name', 'driver_name', 'driver_phone'],
+            JobBucket::DELIVERED => [...self::BASE, 'loaded_date', 'delivered_on'],
             default => array_keys(JobFields::all()),
         };
 
@@ -58,7 +58,7 @@ final class ExportService
         return [
             array_map([JobFields::class, 'label'], $columns),
             // The example is a Booked job, so the dispatch / delivery columns stay empty (they apply to jobs that have moved on).
-            array_map(static fn (string $c): string => in_array($c, ['carrier_name', 'driver_name', 'driver_phone', 'delivered_on'], true) ? '' : JobFields::all()[$c]['example'], $columns),
+            array_map(static fn (string $c): string => in_array($c, ['carrier_name', 'driver_name', 'driver_phone', 'loaded_date', 'delivered_on'], true) ? '' : JobFields::all()[$c]['example'], $columns),
         ];
     }
 
@@ -153,7 +153,7 @@ final class ExportService
     private function cell(string $field, array $job): ?string
     {
         $value = match ($field) {
-            'delivered_on' => $job['delivered_at'] === null ? null : substr((string) $job['delivered_at'], 0, 10),
+            'delivered_on' => ($job['delivery_date'] ?? null) !== null ? (string) $job['delivery_date'] : ($job['delivered_at'] === null ? null : substr((string) $job['delivered_at'], 0, 10)),
             'status' => (string) \App\Core\Config::get('statuses.statuses.' . $job['status'] . '.label', $job['status']),
             'balance', 'storage_fee' => number_format((float) $job[$field], 2, '.', ''),
             'cf' => $job['cf'] === null ? null : rtrim(rtrim(number_format((float) $job['cf'], 2, '.', ''), '0'), '.'),

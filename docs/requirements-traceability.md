@@ -11,7 +11,7 @@ Each requirement from the client's brief, where it is built, and the checks that
 | R5 | In Transit and Delivered sections | `JobWorkflowService`, section lists | U phase3, phase8; H smoke-workflow; B dispatch/deliver; UAT C1-C4 |
 | R6 | Dashboard | `DashboardService` | U phase3 (counts equal list totals); H smoke-workflow; UAT D1-D3 |
 | R7 | Create and edit jobs with the client's fields (job #, customer, pickup, 1st available, from, to, CF, balance, job location, carrier, driver, phone, storage fee, notes) | `JobController`, `JobRules` | U run.php, phase8 (lengths, unicode, money, dates); H smoke-jobs; B; UAT B1, B6-B9, C7 |
-| R8 | Storage fee entered manually | `jobs.storage_fee`, form | U phase2; UAT C9 |
+| R8 | ~~Storage fee entered manually~~ superseded by R26 (a typed fee remains available as an override) | `jobs.storage_fee_override` | U phase10 |
 | R9 | Change status with a history | `job_status_history`, timeline | U phase3, phase8 (double click, illegal steps); UAT C4-C6 |
 | R10 | Search, filter, sort | `JobCriteria` whitelists | U phase2/3, phase8 (odd search strings, bad sort/page); H smoke-jobs; B; UAT B10, B11 |
 | R11 | CSV / Excel **import** with validation and preview | `ImportService` | U phase5 (1,000+ checks, 10 mutations); H smoke-import; B; UAT E1-E5, E7 |
@@ -28,6 +28,16 @@ Each requirement from the client's brief, where it is built, and the checks that
 | R22 | Responsive, modern UI (phone, tablet, desktop) | Bootstrap 5.3 + `app.css` | Phase 6 audit (0 overflow at 360/768/1280, 0 contrast failures); B phone scenario; UAT G1-G3 |
 | R23 | Maintainable | tests, docs, CLI tools | `tests/all.sh`, `docs/*` |
 | R24 | Core PHP and MySQL, no framework | whole project | `composer.json` has no runtime packages. **MySQL itself is untested here** (see test plan). |
+
+## Client change request (version 1.1.0)
+
+| # | Requirement | Where | Evidence |
+|---|---|---|---|
+| R25 | A button next to a job moves it to **In Transit** and saves **today as the Loaded date**; it appears on the In Transit page | `_quick_move.php`, `JobWorkflowService` | U phase3, phase10 (one click, date is today, forged dates ignored, double click, permissions, CSRF); H smoke-workflow; B browser walkthrough; UAT C1, C6 |
+| R26 | On the In Transit page a **Mark as Delivered** button saves **today as the Delivery date** and moves the job to Delivered | same | U phase3, phase10; H smoke-workflow; B; UAT C3 |
+| R27 | **Automatic storage fee** after 30 days: fee = CF × rate, default 0.6, rate changeable (Settings) | `StorageFeeService`, Settings page | U phase10 (day 30/31 boundary, CF 100 → 60, rounding, override, frozen at delivery, rate/day/basis changes, daily refresh; 10 deliberate-breakage checks); B; UAT C9, C10. **Assumption to confirm: 30 days counted from the 1st available date (J2)** |
+| R28 | **Customer phone number** on Add/Edit Job, shown on Job Details and the lists, tap-to-call on phones | `jobs.customer_phone`, `tel_link()` | U phase10 (validation, saving, display, search, export, import); B; UAT B12 |
+| R29 | Database: `customer_phone`, `loaded_date`, `delivery_date`, storage fee and rate stored; calculation logic; dashboard counts and sections follow | migration 008 | U phase10 (migration on a database with jobs: back-fill, nothing lost, idempotent; dashboard counts after each click; every job in exactly one section) |
 
 ## Requirements implied but not built (needs the client's decision)
 Customer contact details beyond name, invoicing and payments, documents or photos per job, e-mail/SMS notifications, a calendar view, multi-company use, API access, and automatic storage-fee calculation. Listed again as questions at the end of `docs/uat-checklist.md`.

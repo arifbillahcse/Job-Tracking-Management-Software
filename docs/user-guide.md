@@ -18,7 +18,7 @@ Always sign out on a shared computer: your name (top right) -> **Sign out**.
 | **All Jobs** | Every job. Search, filter and sort here |
 | **Ready for Delivery** | Booked jobs whose **1st available date is within 30 days**. They get here by themselves as the date approaches |
 | **More Than 30 Days** | Booked jobs whose 1st available date is **more than 30 days away** |
-| **In Transit** | Jobs on the road, with carrier and driver |
+| **In Transit** | Jobs on the road, with the loaded date. Carrier and driver are shown when they were entered |
 | **Delivered** | Finished jobs |
 
 On a phone, open the menu with the button at the top left.
@@ -29,7 +29,9 @@ Type part of a **job number, customer name, city or route** in the search box an
 
 ## Adding a job
 
-**All Jobs -> New job.** Required: job number (letters, numbers and `- _ / .`, must be unique), customer first and last name, from, to, and the **1st available date** (the first day the customer can accept delivery). Optional: pickup date, job location, CF (cubic feet), notes, and, if you may see money, balance and storage fee. The storage fee is typed by hand; nothing calculates it.
+**All Jobs -> New job.** Required: job number (letters, numbers and `- _ / .`, must be unique), customer first and last name, from, to, and the **1st available date** (the first day the customer can accept delivery). Optional: the **customer's phone number** (on a phone it becomes a tap-to-call link), pickup date, job location, CF (cubic feet), notes, and, if you may see money, balance and storage fee.
+
+**Storage fee is automatic:** CF × rate (default 0.6, so CF 100 → 60.00), charged once when a job has waited more than 30 days. You never type it; a manager can type an *override* if a job needs a different amount. The Job Details page explains how the fee was worked out.
 
 Amounts are plain numbers: `1200` or `1200.50`. No `$`, no commas, at most two decimals.
 
@@ -39,8 +41,10 @@ The job appears in **Ready for Delivery** or **More Than 30 Days** automatically
 
 Open the job. The buttons at the top show what you can do next:
 
-1. **Dispatch** (booked -> in transit): enter carrier name, driver name and phone number.
-2. **Mark delivered** (in transit -> delivered): check the delivery date (not in the future).
+1. **Move to In Transit** (booked -> in transit): **one click**, on the job's row in any list or on its page. Today's date is saved as the **Loaded date**. You are asked to confirm first.
+2. **Mark as Delivered** (in transit -> delivered): **one click**, on the In Transit list or on the job's page. Today's date is saved as the **Delivery date**.
+
+If a click happened late, an administrator or anyone who may edit can correct the dates under **Edit**. Carrier name, driver and driver phone are optional: add them under **Edit** while the job is in transit.
 3. **Put on hold** or **Cancel job**: a short reason is required. **Resume** brings an on-hold job back to Booked.
 4. Managers and administrators can **Reopen** delivered or cancelled jobs.
 

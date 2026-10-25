@@ -7,14 +7,14 @@ Show, with evidence a reader can reproduce, that the software does what the clie
 
 | Level | What it proves | How to run | Count |
 |---|---|---|---|
-| Unit and integration | Rules, services, repositories, controllers and views, called in-process on in-memory SQLite using the real migrations | `php tests/run.php` | 1420 checks |
+| Unit and integration | Rules, services, repositories, controllers and views, called in-process on in-memory SQLite using the real migrations | `php tests/run.php` | 1568 checks |
 | Release archive | The built archive contains the right files and nothing secret, and runs on its own: migrate, create administrator, sign in, create a job, back up, reset a password | `tests/release-check.sh` | 44 checks |
 | Route audit | Every route has exactly one access rule; nothing changes data over GET | `php cli/route-audit.php` | 52 routes |
-| HTTP smoke suites | The real application over real HTTP: cookies, redirects, headers, multipart uploads, downloads | `tests/smoke*.sh` (see README) | 336 checks in 6 suites |
-| Browser walkthrough | The client's workflow clicked through in Chromium, desktop and phone, as Admin and Staff | `node tests/e2e/uat.js` (needs Playwright) | 19 steps |
+| HTTP smoke suites | The real application over real HTTP: cookies, redirects, headers, multipart uploads, downloads | `tests/smoke*.sh` (see README) | 337 checks in 6 suites |
+| Browser walkthrough | The client's workflow clicked through in Chromium, desktop and phone, as Admin and Staff | `node tests/e2e/uat.js` (needs Playwright) | 24 steps |
 | Scale test | Page, export and import times with 20,000 (and 100,000) jobs | `tests/perf.sh [jobs]` | 21 measurements |
 | Accessibility and layout audit | Text contrast (WCAG AA), horizontal overflow and console errors on every screen at 360, 768 and 1280 px | scripts used in Phase 6/7 (not shipped; see `docs/ui-guide.md`) | 15 screens |
-| User acceptance (UAT) | The client's own people confirm it fits their work | `docs/uat-checklist.md` | 45 scenarios |
+| User acceptance (UAT) | The client's own people confirm it fits their work | `docs/uat-checklist.md` | 48 scenarios |
 
 **Everything automated, in one command, on a throw-away database:** `tests/all.sh --perf --e2e`.
 

@@ -24,10 +24,10 @@ total() { get "$1" "$2" | flat | grep -oP 'of \K[0-9]+(?= job)' | head -1; }
 field() { get "$AJ" /settings | grep -oP "name=\"$1\"[^>]*value=\"\K[^\"]*" | head -1; }
 selected() { get "$AJ" /settings | tr '\n' ' ' | grep -oP "<select[^>]*id=\"$1\".*?</select>" | grep -oP 'value="\K[^"]*(?=" selected)' | head -1; }
 save() { curl -s -i -b "$AJ" -c "$AJ" --data-urlencode "_csrf=$(tok "$AJ")" "$@" "$BASE/settings" | head -1 | tr -d '\r'; }
-sv() { save --data-urlencode "company_name=${1:-$NAME0}" --data-urlencode "ready_threshold_days=${2:-$DAYS0}" --data-urlencode "currency_symbol=$SYM0" --data-urlencode "timezone=$TZ0" --data-urlencode "page_size=$PS0"; }
+sv() { save --data-urlencode "company_name=${1:-$NAME0}" --data-urlencode "ready_threshold_days=${2:-$DAYS0}" --data-urlencode "currency_symbol=$SYM0" --data-urlencode "timezone=$TZ0" --data-urlencode "page_size=$PS0" --data-urlencode "storage_fee_rate=$SFR0" --data-urlencode "storage_fee_after_days=$SFD0" --data-urlencode "storage_fee_basis=$SFB0"; }
 
 signin "$AJ" "$A_USER" "$A_PASS"; signin "$SJ" "$S_USER" "$S_PASS"; signin "$MJ" "$M_USER" "$M_PASS"
-NAME0=$(field company_name); DAYS0=$(field ready_threshold_days); SYM0=$(field currency_symbol); TZ0=$(selected timezone); PS0=$(selected page_size)
+NAME0=$(field company_name); DAYS0=$(field ready_threshold_days); SFR0=$(field storage_fee_rate); SFD0=$(field storage_fee_after_days); SFB0=$(selected storage_fee_basis); SYM0=$(field currency_symbol); TZ0=$(selected timezone); PS0=$(selected page_size)
 echo "(current: $NAME0 / $DAYS0 days / $SYM0 / $TZ0 / $PS0 per page)"
 
 echo "== Who may open settings and the audit log"

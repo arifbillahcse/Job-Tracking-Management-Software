@@ -74,36 +74,41 @@ curl -s -o /dev/null -b "$AJ" -c "$AJ" --data-urlencode "_csrf=$(tok "$AJ")" --d
 check "changing the date to +10 days moves the job into Ready by itself" 'in_list /jobs/ready "$RUN-L" && ! in_list /jobs/more-than-30 "$RUN-L"'
 check "dashboard: Ready +2, More Than 30 back to start" '[[ $(card "Ready for delivery") == $((R0+2)) && $(card "More than 30 days") == "$L0" ]]'
 
-echo "== Dispatch"
-check "details page offers Dispatch / Put on hold / Cancel" 'P=$(get "$AJ" "/jobs/$RID"); grep -q "statusModal-in_transit" <<<"$P" && grep -q "statusModal-on_hold" <<<"$P" && grep -q "statusModal-cancelled" <<<"$P" && ! grep -q "statusModal-delivered" <<<"$P"'
-check "?do=in_transit opens the dispatch dialog (list shortcut)" 'get "$AJ" "/jobs/$RID?do=in_transit" | grep -q "data-auto-open-modal=\"statusModal-in_transit\""'
-R1=$(status "$AJ" "$RID" in_transit "carrier_name=" "driver_name=Jo" "driver_phone=")
-check "dispatch without carrier details bounces back to the job" 'grep -qi "^location: .*/jobs/$RID" <<<"$R1"'
+echo "== Move to In Transit (one click)"
+check "details page offers one-click Move to In Transit, plus Put on hold / Cancel dialogs" 'P=$(get "$AJ" "/jobs/$RID"); grep -q "Move to In Transit" <<<"$P" && ! grep -q "statusModal-in_transit" <<<"$P" && grep -q "statusModal-on_hold" <<<"$P" && grep -q "statusModal-cancelled" <<<"$P" && ! grep -q "statusModal-delivered" <<<"$P"'
+check "the Ready list has the button on the job's row (a form that posts to the job)" 'get "$AJ" /jobs/ready | grep -q "action=\"/jobs/$RID/status\"" && get "$AJ" /jobs/ready | grep -q "Move to In Transit"'
+check "the button asks for confirmation and names the date it will save" 'get "$AJ" /jobs/ready | grep -q "data-confirm=\"Move job $RUN-R to In Transit? Today ($TODAY_FMT) will be saved as the loaded date."'
+R1=$(status "$AJ" "$RID" in_transit "note=Picked up" "loaded_date=2001-01-01" "carrier_name=Smuggled" "status=delivered")
+check "one click moves the job into In Transit" 'in_list /jobs/in-transit "$RUN-R" && ! in_list /jobs/ready "$RUN-R"'
 P=$(get "$AJ" "/jobs/$RID")
-check "...reopening the dialog with the messages and typed values" 'grep -q "data-auto-open-modal=\"statusModal-in_transit\"" <<<"$P" && grep -q "Carrier name is required." <<<"$P" && grep -q "value=\"Jo\"" <<<"$P"'
-check "...and nothing changed" 'in_list /jobs/ready "$RUN-R" && ! in_list /jobs/in-transit "$RUN-R"'
-status "$AJ" "$RID" in_transit "carrier_name=<b>Blue</b> Ridge" "driver_name=Marcus Reed" "driver_phone=(555) 010-2231" "note=Picked up" >/dev/null
-check "valid dispatch moves the job into In Transit" 'in_list /jobs/in-transit "$RUN-R" && ! in_list /jobs/ready "$RUN-R"'
+check "the loaded date is TODAY, whatever the request said, and no carrier was smuggled in" 'F=$(sed "s/<[^>]*>/ /g" <<<"$P" | tr -s " \n" " "); grep -q "Loaded date $TODAY_FMT" <<<"$F" && ! grep -q "Smuggled" <<<"$P" && ! grep -q "Jan 1, 2001" <<<"$P"'
+check "the In Transit list shows the loaded date and a Mark as Delivered button" 'T=$(get "$AJ" /jobs/in-transit); grep -q "$TODAY_FMT" <<<"$T" && grep -q "Mark as Delivered" <<<"$T"'
+check "dashboard: Ready -1, In Transit +1" '[[ $(card "Ready for delivery") == $((R0+1)) && $(card "In transit") == $((T0+1)) ]]'
+E=$(get "$AJ" "/jobs/$RID/edit"); LOADED=$(loaded_at <<<"$E"); sleep 1
+check "an in-transit job can have carrier details (optional) and its dates corrected on Edit" 'grep -q "name=\"driver_phone\"" <<<"$E" && grep -q "name=\"loaded_date\"" <<<"$E" && ! grep -q "name=\"delivery_date\"" <<<"$E"'
+curl -s -o /dev/null -b "$AJ" -c "$AJ" --data-urlencode "_csrf=$(tok "$AJ")" --data-urlencode "loaded_at=$LOADED" \
+  --data-urlencode "job_number=$RUN-R" --data-urlencode "customer_first_name=Rita" --data-urlencode "customer_last_name=Workflow" \
+  --data-urlencode "first_available_date=$D5" --data-urlencode "from_location=Austin, TX" --data-urlencode "to_location=Denver, CO" \
+  --data-urlencode "balance=100" --data-urlencode "loaded_date=$TODAY" --data-urlencode "carrier_name=<b>Blue</b> Ridge" \
+  --data-urlencode "driver_name=Marcus Reed" --data-urlencode "driver_phone=(555) 010-2231" "$BASE/jobs/$RID"
 T=$(get "$AJ" /jobs/in-transit)
 check "In Transit shows carrier, driver and a tap-to-call link; markup is escaped" 'grep -q "Marcus Reed" <<<"$T" && grep -q "href=\"tel:5550102231\"" <<<"$T" && grep -q "&lt;b&gt;Blue&lt;/b&gt; Ridge" <<<"$T" && ! grep -q "<b>Blue</b>" <<<"$T"'
-check "dashboard: Ready -1, In Transit +1" '[[ $(card "Ready for delivery") == $((R0+1)) && $(card "In transit") == $((T0+1)) ]]'
 check "searching by driver finds it" 'get "$AJ" "/jobs/in-transit?q=marcus" | grep -q "$RUN-R<"'
-check "a dispatched job can be corrected in the edit form (carrier fields shown)" 'get "$AJ" "/jobs/$RID/edit" | grep -q "name=\"driver_phone\""'
 
-echo "== Deliver"
-status "$AJ" "$RID" delivered "delivered_on=$FUTURE" >/dev/null
-check "a future delivery date is rejected" 'get "$AJ" "/jobs/$RID" | grep -q "cannot be in the future" && in_list /jobs/in-transit "$RUN-R"'
-status "$AJ" "$RID" delivered "delivered_on=$TODAY" "note=Left at front desk" >/dev/null
-check "delivery moves it to Delivered with the date" 'in_list /jobs/delivered "$RUN-R" && ! in_list /jobs/in-transit "$RUN-R" && get "$AJ" /jobs/delivered | flat | grep -q "$TODAY_FMT"'
+echo "== Mark as Delivered (one click)"
+status "$AJ" "$RID" delivered "delivered_on=$FUTURE" "delivery_date=$FUTURE" "note=Left at front desk" >/dev/null
+check "one click moves it to Delivered; a forged future date is ignored and TODAY is saved" 'in_list /jobs/delivered "$RUN-R" && ! in_list /jobs/in-transit "$RUN-R" && get "$AJ" /jobs/delivered | flat | grep -q "$TODAY_FMT"'
 check "dashboard: In Transit back to start, Delivered +1" '[[ $(card "In transit") == "$T0" && $(card "Delivered") == $((D0+1)) ]]'
 P=$(get "$AJ" "/jobs/$RID")
-check "the history shows creation, dispatch and delivery with notes" 'F=$(flat <<<"$P"); grep -q "Job created" <<<"$F" && grep -q "Picked up" <<<"$F" && grep -q "Left at front desk" <<<"$F"'
+check "Job Details shows both dates" 'F=$(sed "s/<[^>]*>/ /g" <<<"$P" | tr -s " \n" " "); grep -q "Loaded date $TODAY_FMT" <<<"$F" && grep -q "Delivery date $TODAY_FMT" <<<"$F"'
+check "the history shows creation, the move and delivery with notes and dates" 'F=$(sed "s/<[^>]*>/ /g" <<<"$P" | tr -s " \n" " "); grep -q "Job created" <<<"$F" && grep -q "Picked up" <<<"$F" && grep -q "Left at front desk" <<<"$F" && grep -q "Loaded on $TODAY_FMT" <<<"$F" && grep -q "Delivered on $TODAY_FMT" <<<"$F"'
+check "delivering twice is refused" 'status "$AJ" "$RID" delivered >/dev/null; get "$AJ" "/jobs/$RID" | grep -q "not allowed"'
 
 echo "== Staff permissions"
 check "Staff cannot reopen a delivered job (403) and nothing changes" '[[ $(status "$SJ" "$RID" in_transit "note=try" | head -1 | grep -c 403) == 1 ]] && in_list /jobs/delivered "$RUN-R"'
 check "Staff is offered no actions on a delivered job" '! get "$SJ" "/jobs/$RID" | grep -q "Update status"'
-SD=$(status "$SJ" "$LID" in_transit "carrier_name=Summit Freight" "driver_name=Priya" "driver_phone=5550104417")
-check "Staff can dispatch a ready job" 'in_list /jobs/in-transit "$RUN-L"'
+SD=$(status "$SJ" "$LID" in_transit)
+check "Staff can move a ready job to In Transit" 'in_list /jobs/in-transit "$RUN-L"'
 check "Staff pages show no money" '! get "$SJ" /jobs/in-transit | flat | grep -qE "Balance|Storage fee|[$][0-9]" && ! get "$SJ" /dashboard | flat | grep -qE "Outstanding balance|[$][0-9]"'
 check "a status change without a CSRF token is refused" '[[ $(code -b "$SJ" -d "to=on_hold&note=x" "$BASE/jobs/$LID/status") == 403 ]]'
 check "an impossible change (in transit -> booked) is refused with a message" 'status "$SJ" "$LID" booked >/dev/null; get "$SJ" "/jobs/$LID" | grep -q "not allowed"'

@@ -12,11 +12,11 @@ actually works.** The "Where to change" column shows how cheap each change is.
 | A4 | **In Transit** and **Delivered** depend on status only, never on dates. | `app/Config/statuses.php` |
 | A5 | Statuses: `booked`, `in_transit`, `delivered`, `on_hold`, `cancelled`. On Hold and Cancelled jobs appear only in **All Jobs**. | `app/Config/statuses.php` |
 | A6 | Allowed transitions: booked → in_transit → delivered; booked / in_transit → on_hold; on_hold → booked; any active status → cancelled. Re-opening a delivered or cancelled job needs the `jobs.reopen` permission and a note. | `app/Config/statuses.php` |
-| A7 | **Storage Fee is a manually edited field.** There is no automatic calculation until the client defines the rule. | Field on the job form |
+| A7 | ~~Storage Fee is a manually edited field.~~ **Superseded in version 1.1.0:** the fee is calculated automatically (CF × rate, see J1-J3). A fee can still be typed by hand as an *override*. | `StorageFeeService` |
 | A8 | **Balance** is the amount the customer still owes; a single number, no payment ledger. | Schema comment (Phase 2) |
 | A9 | **CF** means cubic feet: an optional decimal number. | Label only |
 | A10 | **Job #** is typed in by staff and must be unique. Auto-numbering is deferred. | Validation rule (Phase 2) |
-| A11 | Moving a job **In Transit** requires carrier name, driver name and phone number. | Validation rule (Phase 3) |
+| A11 | ~~Moving a job In Transit requires carrier name, driver name and phone number.~~ **Superseded in version 1.1.0:** moving a job is one click and needs nothing; carrier details are optional (J4). | `statuses.php` |
 | A12 | One company, one time zone, one currency symbol, English only. Times are stored in UTC. | `settings` table |
 | A13 | Three seeded roles: **Admin** (every permission, cannot be deleted), **Manager** (everything except administration), **Staff** (no financial figures, no deletion, no import). | `app/Config/permissions.php` |
 | A14 | No self-service password reset by e-mail and no "remember me". An Admin resets passwords. Accounts can be flagged to force a password change at next sign-in. | Deferred |
@@ -43,12 +43,12 @@ actually works.** The "Where to change" column shows how cheap each change is.
 | C3 | A threshold that is blank or not a number falls back to **30** (not 0, which would empty Ready). It is capped between 0 and 3650. The section title ("More Than 30 Days") follows the setting. | `settings.ready_threshold_days` |
 | C4 | **Resume returns a job to Booked.** Any carrier details are cleared (kept in the history) and the job has to be dispatched again. Putting a job on hold or cancelling it needs a reason. | `app/Config/statuses.php` |
 | C5 | **Reopening** a delivered job (back to In Transit) or a cancelled job (back to Booked) needs the `jobs.reopen` permission and a reason. A reopened delivered job keeps its carrier details and loses its delivery date. | `statuses.php`, permissions |
-| C6 | **Dispatching** needs carrier name, driver name and a valid phone number. **Delivering** needs a delivery date that is not in the future (stored as a date; the time of day is not tracked). | `JobRules::dispatchRules`, `JobWorkflowService` |
+| C6 | ~~Dispatching needs carrier name, driver name and a valid phone number; delivering needs a delivery date.~~ **Superseded in version 1.1.0:** both are one click and today's date is saved (J4-J5). | `JobRules::dispatchRules`, `JobWorkflowService` |
 | C7 | Status and its history row are saved in one transaction. If another user moved the job first, the second change is refused with a message instead of overwriting. | `JobWorkflowService`, `JobRepository::changeStatus` |
 | C8 | The carrier details of a job that is **In Transit** can be corrected in the normal Edit form (e.g. a wrong phone number) without changing its status. | `JobService::update` |
 | C9 | Search looks in job #, customer name, from, to, job location, carrier, driver and phone as typed; every word must match somewhere. Sorting and filtering by money are only available to users who may see money. Filters on the Delivered section use the delivery date; elsewhere the 1st available date. | `JobCriteria`, `JobRepository` |
 | C10 | Dashboard money: **Outstanding balance** = balance of all jobs except cancelled. **Storage fees** = storage fee of jobs that are booked, in transit or on hold. Both are hidden from users without financial permission, and a user without `jobs.view` sees no job figures on the dashboard at all. | `JobRepository::moneyTotals`, `DashboardService` |
-| C11 | List rows have one shortcut: **Dispatch** (booked) or **Mark delivered** (in transit). It opens the job with the right dialog already open. There is no "undo" toast; reversing a status change is done with the reopen / resume actions. | `JobListController` |
+| C11 | List rows have one button: **Move to In Transit** (booked) or **Mark as Delivered** (in transit). It acts at once, after a confirmation that names the date that will be saved. There is no "undo" toast; reversing a status change is done with the reopen / resume actions. | `JobListController` |
 
 ## User and role administration decisions (Phase 4)
 
@@ -118,6 +118,20 @@ actually works.** The "Where to change" column shows how cheap each change is.
 | I1 | **People sign in with a username, not an e-mail address.** A username is 3 to 40 characters: lower-case letters, numbers, dot, dash, underscore, starting with a letter or number. It is stored lower-case and typed in any case. The e-mail address is optional contact information (any number of users may have none) and cannot be used to sign in. | `users.username`, `Validator` rules `lower` and `username` |
 | I2 | **Usernames are changed by administrators only,** like e-mail and role. Failed sign-ins are recorded in the audit log by the username that was typed. The lockout and throttling work as before, per username and per IP address. | `UserService`, `AuthService` |
 | I3 | **Fresh installs only.** The users table definition changed in place (migration 002) because no installation held data yet. An existing development database must be re-created (`migrate` on an empty database, then `create-admin`). | `database/migrations/002` |
+
+## Client change request (version 1.1.0)
+
+| # | Decision | Where |
+|---|---|---|
+| J1 | **Automatic storage fee = CF × rate**, default rate **0.6** (CF 100 → 60.00). It is charged **once, not per day**. Rounded to 2 decimals. Rate, days and counting basis are on the **Settings** page; changing any of them re-assesses every open job at once. | `StorageFeeService` |
+| J2 | **When does the fee start?** The brief says "after 30 days" without saying 30 days *from what*. **Assumption (please confirm):** from the job's **1st available date**, so a job still waiting more than 30 days after the date the customer could take delivery owes the fee from **day 31** (day 30 is free, like the 30-day limit of the Ready list). Settings can count from the **loaded date** instead. | `settings.storage_fee_basis`, `storage_fee_after_days` |
+| J3 | **Frozen at delivery:** a delivered job keeps the fee it had on its delivery date, at the rate used then (a later rate change never rewrites history). Cancelled jobs owe nothing. Reopening a delivered job makes it an open job again. A job with no CF owes nothing. A fee typed on the job (**Storage fee override**, needs `jobs.edit_financials`, 0 = waived) always wins and is never recalculated; an old manually entered fee became an override when the database was upgraded. | `JobService`, migration 008 |
+| J4 | **Move to In Transit is one click** (no dialog): status In Transit and **Loaded date = today** in the business time zone (Settings). Carrier, driver and driver phone are now **optional** and can be added under Edit while the job is in transit. A confirmation ("Today (date) will be saved as the loaded date") guards against stray clicks. | `JobWorkflowService`, `views/jobs/_quick_move.php` |
+| J5 | **Mark as Delivered is one click** on the In Transit list or Job Details: status Delivered and **Delivery date = today**. The loaded date is kept. | `JobWorkflowService` |
+| J6 | **Dates can be corrected** under Edit (loaded date for In Transit and Delivered jobs, delivery date for Delivered ones): not in the future, delivery not before loading, delivery date required on a delivered job. Corrections are audited. Going back to Booked clears both dates (kept in the history). | `JobRules::dateRules` |
+| J7 | **Customer phone** is an optional field on Add/Edit Job (7-25 characters of digits, `+ ( ) - . space`), shown as a tap-to-call link on Job Details and under the customer name in every list, searchable, exported and importable (column "Customer Phone"; the plain "Phone" column still means the driver). | `jobs.customer_phone` |
+| J8 | **Fees stay current without cron:** the first page view of each business day re-assesses open jobs; `php cli/storage-fees.php` does the same from cron (deploy/cron.example). The recalculation does not change a job's "last updated" time, so an open edit form is never made stale. | `StorageFeeService::refreshIfDue` |
+| J9 | **Upgrading:** `php cli/migrate.php` applies migration 008: new columns, then dates are back-filled from the old dispatch/delivery times and manually entered fees become overrides. Nothing entered before is lost. | `database/migrations/008_...` |
 
 The generated role x route matrix is in `docs/permission-matrix.md` (`php cli/permission-report.php`).
 

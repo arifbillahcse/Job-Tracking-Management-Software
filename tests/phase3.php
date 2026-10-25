@@ -251,7 +251,7 @@ Clock::fake('2026-10-23');
 sign_in(make_user('Manager', 'search@example.com'));
 $A = mk_job(['job_number' => 'JT-100', 'customer_first_name' => 'Ada', 'customer_last_name' => 'Smith', 'from_location' => 'Austin, TX', 'to_location' => 'Denver, CO', 'balance' => '100.00', 'first_available_date' => '2026-10-28']);
 $B = mk_job(['job_number' => 'JT-101', 'customer_first_name' => 'Grace', 'customer_last_name' => 'Hopper', 'from_location' => 'Boston, MA', 'to_location' => 'Austin, TX', 'status' => 'in_transit', 'carrier_name' => 'Blue Ridge Haulers', 'driver_name' => 'Marcus Reed', 'driver_phone' => '(555) 010-2231', 'balance' => '0.00', 'first_available_date' => '2026-10-10']);
-$C = mk_job(['job_number' => 'JT-102', 'customer_first_name' => 'Alan', 'customer_last_name' => 'Turing', 'from_location' => 'Seattle, WA', 'to_location' => 'Portland, OR', 'status' => 'delivered', 'delivered_at' => '2026-09-15 00:00:00', 'carrier_name' => 'Summit Freight', 'driver_name' => 'Priya Nair', 'driver_phone' => '(555) 010-4417', 'balance' => '50.00', 'first_available_date' => '2026-09-10']);
+$C = mk_job(['job_number' => 'JT-102', 'customer_first_name' => 'Alan', 'customer_last_name' => 'Turing', 'from_location' => 'Seattle, WA', 'to_location' => 'Portland, OR', 'status' => 'delivered', 'delivered_at' => '2026-09-15 00:00:00', 'delivery_date' => '2026-09-15', 'carrier_name' => 'Summit Freight', 'driver_name' => 'Priya Nair', 'driver_phone' => '(555) 010-4417', 'balance' => '50.00', 'first_available_date' => '2026-09-10']);
 $D = mk_job(['job_number' => 'JT-103', 'customer_first_name' => 'Percent', 'customer_last_name' => '100%', 'from_location' => 'Miami, FL', 'to_location' => 'Tampa, FL', 'balance' => '0.00', 'first_available_date' => '2027-02-01']);
 $E = mk_job(['job_number' => 'JT-104', 'customer_first_name' => 'Ada', 'customer_last_name' => 'Lovelace', 'from_location' => 'Denver, CO', 'to_location' => 'Boston, MA', 'status' => 'on_hold', 'balance' => '75.00', 'first_available_date' => '2026-12-15']);
 $F = mk_job(['job_number' => 'JT-105', 'customer_first_name' => 'Under', 'customer_last_name' => 'Score_Co', 'from_location' => 'Reno, NV', 'to_location' => 'Boise, ID', 'balance' => '10.00', 'first_available_date' => '2026-11-05']);
@@ -347,7 +347,7 @@ check($toggle['sort'] === 'job' && $toggle['dir'] === 'desc' && criteria(['sort'
 
 // ================================================================ workflow
 
-section('Workflow: dispatch');
+section('Workflow: Move to In Transit (one click)');
 fresh_db();
 fresh_session();
 Clock::fake('2026-10-23');
@@ -357,29 +357,33 @@ sign_in($staff);
 $wf = new JobWorkflowService();
 $jobId = mk_job(['job_number' => 'W-1', 'first_available_date' => '2026-11-05', 'balance' => '10.00']);
 $carrier = ['carrier_name' => 'Blue Ridge Haulers', 'driver_name' => 'Marcus Reed', 'driver_phone' => '(555) 010-2231', 'note' => '  Picked up at dock 3 '];
+/** Carrier details are no longer collected by the workflow; they are filled in later through the edit form. */
+$set_carrier = static fn (int $id) => Database::execute("UPDATE jobs SET carrier_name = 'Blue Ridge Haulers', driver_name = 'Marcus Reed', driver_phone = '(555) 010-2231' WHERE id = ?", [$id]);
 
-$r = $wf->change($jobId, 'in_transit', ['carrier_name' => '', 'driver_name' => '', 'driver_phone' => '']);
-check(!$r['ok'] && $r['code'] === 'validation' && isset($r['errors']['carrier_name'], $r['errors']['driver_name'], $r['errors']['driver_phone']), 'dispatch needs carrier, driver and phone');
-$r = $wf->change($jobId, 'in_transit', ['carrier_name' => 'X', 'driver_name' => 'Y', 'driver_phone' => 'abc']);
-check(!$r['ok'] && isset($r['errors']['driver_phone']) && !isset($r['errors']['carrier_name']), 'a non-phone value is rejected');
-$r = $wf->change($jobId, 'in_transit', ['carrier_name' => str_repeat('c', 151), 'driver_name' => 'Y', 'driver_phone' => '5550001111']);
-check(!$r['ok'] && isset($r['errors']['carrier_name']), 'over-long carrier name is rejected');
+$r = $wf->change($jobId, 'in_transit', ['note' => str_repeat('n', 1001)]);
+check(!$r['ok'] && $r['code'] === 'validation', 'an over-long note is the only thing that can fail a dispatch');
 $j0 = (new JobRepository())->find($jobId);
-check($j0['status'] === 'booked' && $j0['carrier_name'] === null && (int) Database::fetchValue('SELECT COUNT(*) FROM job_status_history') === 0, 'failed attempts change nothing and write no history');
+check($j0['status'] === 'booked' && $j0['loaded_date'] === null && (int) Database::fetchValue('SELECT COUNT(*) FROM job_status_history') === 0, 'a failed attempt changes nothing and writes no history');
 check((int) Database::fetchValue("SELECT COUNT(*) FROM audit_logs WHERE action = 'job_status_changed'") === 0, '...and no audit entry');
 
-$r = $wf->change($jobId, 'in_transit', $carrier + ['status' => 'delivered', 'id' => 99]);
-check($r['ok'] && $r['from'] === 'booked' && $r['to'] === 'in_transit' && $r['job_number'] === 'W-1', 'valid dispatch succeeds');
+$r = $wf->change($jobId, 'in_transit', ['note' => '  Picked up at dock 3 ', 'status' => 'delivered', 'id' => 99, 'loaded_date' => '1999-01-01', 'carrier_name' => 'Smuggled']);
+check($r['ok'] && $r['from'] === 'booked' && $r['to'] === 'in_transit' && $r['job_number'] === 'W-1' && $r['loaded_date'] === '2026-10-23', 'one click: no carrier, driver or date is needed');
 $j1 = (new JobRepository())->find($jobId);
-check($j1['status'] === 'in_transit' && $j1['carrier_name'] === 'Blue Ridge Haulers' && $j1['driver_name'] === 'Marcus Reed' && $j1['driver_phone'] === '(555) 010-2231', 'status and carrier details saved');
-check($j1['in_transit_at'] !== null && $j1['delivered_at'] === null && (int) $j1['updated_by'] === (int) $staff['id'], 'dispatch time and updater recorded');
+check($j1['status'] === 'in_transit' && $j1['loaded_date'] === '2026-10-23', 'the loaded date is today (the business date), whatever the request says');
+check($j1['carrier_name'] === null && $j1['delivery_date'] === null && $j1['delivered_at'] === null, 'extra fields in the request cannot set carrier details or a delivery date');
+check($j1['in_transit_at'] !== null && (int) $j1['updated_by'] === (int) $staff['id'], 'dispatch time and updater recorded');
 check(numbers('transit') === ['W-1'] && !in_array('W-1', numbers('ready'), true) && !in_array('W-1', numbers('later'), true), 'the job moved into In Transit and out of Ready');
 $h = (new StatusHistoryRepository())->forJob($jobId);
 $hd = json_decode((string) $h[0]['details'], true);
 check(count($h) === 1 && $h[0]['from_status'] === 'booked' && $h[0]['to_status'] === 'in_transit' && $h[0]['note'] === 'Picked up at dock 3' && (int) $h[0]['changed_by'] === (int) $staff['id'], 'one history row with from/to, trimmed note and user');
-check($hd['carrier_name'] === 'Blue Ridge Haulers' && $hd['driver_phone'] === '(555) 010-2231', 'dispatch details are kept in the history');
+check($hd === ['loaded_date' => '2026-10-23'], 'the loaded date is kept in the history');
 $a = last_audit('job_status_changed');
-check($a !== null && (int) $a['entity_id'] === $jobId && str_contains((string) $a['old_values'], 'booked') && str_contains((string) $a['new_values'], 'in_transit'), 'the change is audited');
+check($a !== null && (int) $a['entity_id'] === $jobId && str_contains((string) $a['old_values'], 'booked') && str_contains((string) $a['new_values'], 'in_transit') && str_contains((string) $a['new_values'], '2026-10-23'), 'the change is audited, with the date');
+Clock::fake('2026-10-24');
+$next = mk_job(['job_number' => 'W-1b', 'first_available_date' => '2026-11-05']);
+$wf->change($next, 'in_transit', []);
+check((new JobRepository())->find($next)['loaded_date'] === '2026-10-24', 'the date follows the calendar: the next day it is the next date');
+Clock::fake('2026-10-23');
 
 section('Workflow: invalid transitions are refused');
 $bad = [['booked', 'delivered'], ['booked', 'booked'], ['in_transit', 'booked'], ['in_transit', 'in_transit'], ['delivered', 'booked'], ['delivered', 'cancelled'], ['delivered', 'on_hold'], ['cancelled', 'in_transit'], ['cancelled', 'delivered'], ['on_hold', 'in_transit'], ['on_hold', 'delivered']];
@@ -395,21 +399,18 @@ $trash = mk_job(['job_number' => 'W-TRASH']);
 (new JobRepository())->softDelete($trash, null);
 check($wf->change($trash, 'in_transit', $carrier)['code'] === 'not_found', 'a deleted job is not found');
 
-section('Workflow: deliver');
+section('Workflow: Mark as Delivered (one click)');
 sign_in($staff);
-$r = $wf->change($jobId, 'delivered', []);
-check(!$r['ok'] && isset($r['errors']['delivered_on']), 'delivery needs a date');
-$r = $wf->change($jobId, 'delivered', ['delivered_on' => 'soon']);
-check(!$r['ok'] && isset($r['errors']['delivered_on']), 'a non-date is rejected');
-$r = $wf->change($jobId, 'delivered', ['delivered_on' => '2026-10-24']);
-check(!$r['ok'] && str_contains($r['errors']['delivered_on'][0], 'future'), 'a future delivery date is rejected');
-check((new JobRepository())->find($jobId)['status'] === 'in_transit', 'rejected deliveries leave the job in transit');
-$r = $wf->change($jobId, 'delivered', ['delivered_on' => '2026-10-20', 'note' => 'Left with neighbour']);
+$set_carrier($jobId);
+$r = $wf->change($jobId, 'delivered', ['delivered_on' => '1999-01-01', 'delivery_date' => '1999-01-01', 'note' => 'Left with neighbour']);
 $j2 = (new JobRepository())->find($jobId);
-check($r['ok'] && $j2['status'] === 'delivered' && $j2['delivered_at'] === '2026-10-20 00:00:00', 'delivery stores the chosen date');
-check($j2['carrier_name'] === 'Blue Ridge Haulers', 'carrier details stay on the delivered job');
+check($r['ok'] && $r['delivery_date'] === '2026-10-23' && $j2['status'] === 'delivered', 'one click: no date is asked for');
+check($j2['delivery_date'] === '2026-10-23' && $j2['delivered_at'] === '2026-10-23 00:00:00', 'the delivery date is today, whatever the request says');
+check($j2['loaded_date'] === '2026-10-23' && $j2['carrier_name'] === 'Blue Ridge Haulers', 'the loaded date and carrier details stay on the delivered job');
 check(in_array('W-1', numbers('delivered'), true) && !in_array('W-1', numbers('transit'), true), 'the job moved to Delivered and out of In Transit');
-$r = $wf->change($jobId, 'delivered', ['delivered_on' => date('Y-m-d')]);
+$hd = json_decode((string) (new StatusHistoryRepository())->forJob($jobId)[0]['details'], true);
+check($hd === ['delivery_date' => '2026-10-23'], 'the delivery date is kept in the history');
+$r = $wf->change($jobId, 'delivered', []);
 check($r['code'] === 'invalid', 'a delivered job cannot be delivered again');
 
 section('Workflow: hold, resume, cancel');
@@ -427,25 +428,26 @@ check(!in_array('W-2', array_merge(numbers('ready'), numbers('later')), true), '
 // resuming a job that had been dispatched clears the carrier data (and keeps it in the history)
 $id = mk_job(['job_number' => 'W-3', 'first_available_date' => '2026-10-30']);
 $wf->change($id, 'in_transit', $carrier);
+$set_carrier($id);
 check($wf->change($id, 'on_hold', ['note' => 'Truck broke down'])['ok'], 'an in-transit job can be put on hold');
 check($wf->change($id, 'booked', ['note' => 'Fixed'])['ok'], '...and resumed');
 $j3 = (new JobRepository())->find($id);
-check($j3['status'] === 'booked' && $j3['carrier_name'] === null && $j3['driver_phone'] === null && $j3['in_transit_at'] === null && in_array('W-3', numbers('ready'), true), 'resume clears carrier data and puts the job back in Ready');
+check($j3['status'] === 'booked' && $j3['carrier_name'] === null && $j3['driver_phone'] === null && $j3['in_transit_at'] === null && $j3['loaded_date'] === null && in_array('W-3', numbers('ready'), true), 'resume clears carrier data and the loaded date and puts the job back in Ready');
 $cleared = json_decode((string) (new StatusHistoryRepository())->forJob($id)[0]['details'], true);
-check(($cleared['cleared']['carrier_name'] ?? '') === 'Blue Ridge Haulers' && ($cleared['cleared']['driver_name'] ?? '') === 'Marcus Reed', 'what was cleared is preserved in the history');
+check(($cleared['cleared']['carrier_name'] ?? '') === 'Blue Ridge Haulers' && ($cleared['cleared']['driver_name'] ?? '') === 'Marcus Reed' && ($cleared['cleared']['loaded_date'] ?? '') === '2026-10-23', 'what was cleared (carrier, loaded date) is preserved in the history');
 check(count((new StatusHistoryRepository())->forJob($id)) === 3, 'three transitions -> three history rows');
 $r = $wf->change($id, 'in_transit', $carrier);
-check($r['ok'], 'a resumed job can be dispatched again');
+check($r['ok'] && (new JobRepository())->find($id)['loaded_date'] === '2026-10-23', 'a resumed job can be moved again, with a fresh loaded date');
 
 section('Workflow: permissions and reopening');
 sign_in($staff);
-$id = mk_job(['job_number' => 'W-4', 'status' => 'delivered', 'delivered_at' => '2026-10-01 00:00:00', 'carrier_name' => 'Keep Me', 'driver_name' => 'Drv', 'driver_phone' => '5550002222', 'in_transit_at' => '2026-09-28 08:00:00']);
+$id = mk_job(['job_number' => 'W-4', 'status' => 'delivered', 'delivered_at' => '2026-10-01 00:00:00', 'delivery_date' => '2026-10-01', 'loaded_date' => '2026-09-28', 'carrier_name' => 'Keep Me', 'driver_name' => 'Drv', 'driver_phone' => '5550002222', 'in_transit_at' => '2026-09-28 08:00:00']);
 check($wf->availableTransitions((new JobRepository())->find($id)) === [], 'Staff is offered no actions on a delivered job');
 $r = $wf->change($id, 'in_transit', ['note' => 'Wrong delivery']);
 check(!$r['ok'] && $r['code'] === 'forbidden' && (new JobRepository())->find($id)['status'] === 'delivered', 'Staff cannot reopen a delivered job (needs jobs.reopen)');
 check(last_audit('access_denied') !== null, '...and the attempt is audited');
 $booked = (new JobRepository())->find(mk_job(['job_number' => 'W-5']));
-check(array_column($wf->availableTransitions($booked), 'to') === ['in_transit', 'on_hold', 'cancelled'], 'Staff on a booked job: dispatch, hold, cancel');
+check(array_column($wf->availableTransitions($booked), 'to') === ['in_transit', 'on_hold', 'cancelled'], 'Staff on a booked job: move to In Transit, hold, cancel');
 check($wf->canMove($booked, 'in_transit') && !$wf->canMove($booked, 'delivered'), 'canMove follows the rules and permissions');
 
 sign_in($manager);
@@ -453,7 +455,7 @@ check(array_column($wf->availableTransitions((new JobRepository())->find($id)), 
 check($wf->change($id, 'in_transit', [])['code'] === 'validation', 'reopening requires a reason');
 $r = $wf->change($id, 'in_transit', ['note' => 'Delivered to wrong address']);
 $j5 = (new JobRepository())->find($id);
-check($r['ok'] && $j5['status'] === 'in_transit' && $j5['delivered_at'] === null && $j5['carrier_name'] === 'Keep Me' && $j5['in_transit_at'] === '2026-09-28 08:00:00', 'reopen returns the job to transit: delivery date cleared, carrier data kept');
+check($r['ok'] && $j5['status'] === 'in_transit' && $j5['delivered_at'] === null && $j5['delivery_date'] === null && $j5['carrier_name'] === 'Keep Me' && $j5['in_transit_at'] === '2026-09-28 08:00:00' && $j5['loaded_date'] === '2026-09-28', 'reopen returns the job to transit: delivery date cleared, loaded date and carrier data kept');
 $cid = mk_job(['job_number' => 'W-6', 'status' => 'cancelled', 'first_available_date' => '2026-12-01']);
 check($wf->change($cid, 'booked', [])['code'] === 'validation' && $wf->change($cid, 'booked', ['note' => 'Customer came back'])['ok'] && in_array('W-6', numbers('later'), true), 'a cancelled job can be reopened as booked (with a reason)');
 
@@ -485,10 +487,10 @@ $staff = make_user('Staff', 'tl@example.com');
 sign_in($staff);
 $id = (new JobService())->create(job_input(['job_number' => 'TL-1', 'first_available_date' => '2026-11-04']));
 $wf->change($id, 'in_transit', $carrier);
-$wf->change($id, 'delivered', ['delivered_on' => '2026-10-22', 'note' => 'All good']);
+$wf->change($id, 'delivered', ['note' => 'All good']);
 $timeline = $wf->timeline((new JobRepository())->find($id));
 check(count($timeline) === 3 && $timeline[0]['to'] === 'delivered' && $timeline[1]['to'] === 'in_transit' && $timeline[2]['type'] === 'created', 'timeline: newest first, ending with the creation of the job');
-check($timeline[0]['note'] === 'All good' && $timeline[0]['details']['delivered_on'] === '2026-10-22' && $timeline[1]['details']['carrier_name'] === 'Blue Ridge Haulers' && $timeline[0]['by'] === $staff['name'], 'timeline carries notes, details and who did it');
+check($timeline[0]['note'] === 'All good' && $timeline[0]['details']['delivery_date'] === '2026-10-23' && $timeline[1]['details']['loaded_date'] === '2026-10-23' && $timeline[0]['by'] === $staff['name'], 'timeline carries notes, details and who did it');
 
 // ================================================================ routes and pages
 
@@ -500,9 +502,9 @@ $mgr = make_user('Manager', 'pg-mgr@example.com');
 $stf = make_user('Staff', 'pg-stf@example.com');
 mk_job(['job_number' => 'R-overdue', 'first_available_date' => '2026-10-22', 'balance' => '120.50', 'customer_first_name' => 'Olga', 'customer_last_name' => 'Overdue']);
 mk_job(['job_number' => 'R-soon', 'first_available_date' => '2026-10-28', 'balance' => '80.00']);
-mk_job(['job_number' => 'L-far', 'first_available_date' => '2026-12-31', 'storage_fee' => '45.00', 'balance' => '30.00']);
-mk_job(['job_number' => 'T-1', 'status' => 'in_transit', 'carrier_name' => 'Blue Ridge Haulers', 'driver_name' => 'Marcus Reed', 'driver_phone' => '(555) 010-2231', 'in_transit_at' => '2026-10-20 09:00:00', 'first_available_date' => '2026-10-19']);
-mk_job(['job_number' => 'D-1', 'status' => 'delivered', 'delivered_at' => '2026-09-15 00:00:00', 'carrier_name' => 'Summit Freight', 'driver_name' => 'Priya', 'driver_phone' => '5550104417', 'first_available_date' => '2026-09-10']);
+mk_job(['job_number' => 'L-far', 'first_available_date' => '2026-12-31', 'storage_fee' => '45.00', 'storage_fee_override' => '45.00', 'balance' => '30.00']);
+mk_job(['job_number' => 'T-1', 'status' => 'in_transit', 'carrier_name' => 'Blue Ridge Haulers', 'driver_name' => 'Marcus Reed', 'driver_phone' => '(555) 010-2231', 'in_transit_at' => '2026-10-20 09:00:00', 'loaded_date' => '2026-10-20', 'first_available_date' => '2026-10-19']);
+mk_job(['job_number' => 'D-1', 'status' => 'delivered', 'delivered_at' => '2026-09-15 00:00:00', 'delivery_date' => '2026-09-15', 'carrier_name' => 'Summit Freight', 'driver_name' => 'Priya', 'driver_phone' => '5550104417', 'first_available_date' => '2026-09-10']);
 mk_job(['job_number' => 'H-1', 'status' => 'on_hold']);
 
 sign_in($mgr);
@@ -521,7 +523,7 @@ check(str_contains(plain($bodies['later']), 'Moves to Ready on Dec 1, 2026'), '.
 check(str_contains(plain($bodies['later']), 'Storage fee') && str_contains($bodies['later'], '$45.00'), '...and the storage fee column for financial users');
 check(str_contains(plain($bodies['ready']), 'Balance') && str_contains($bodies['ready'], '$120.50'), 'Ready page shows the Balance column for financial users');
 check(str_contains($bodies['transit'], 'T-1') && str_contains($bodies['transit'], 'Blue Ridge Haulers') && str_contains($bodies['transit'], 'Marcus Reed') && str_contains($bodies['transit'], 'href="tel:5550102231"'), 'In Transit page shows carrier, driver and a tap-to-call phone link');
-check(str_contains(plain($bodies['transit']), 'Oct 20, 2026'), '...and when it was dispatched');
+check(str_contains(plain($bodies['transit']), 'Oct 20, 2026'), '...and the loaded date');
 check(str_contains($bodies['delivered'], 'D-1') && str_contains(plain($bodies['delivered']), 'Sep 15, 2026'), 'Delivered page shows the delivery date');
 check(str_contains($bodies['all'], 'H-1') && str_contains($bodies['all'], 'jt-badge-hold'), 'All Jobs shows every job with a status badge, including on hold');
 check(!str_contains($bodies['ready'], 'jt-badge-booked') && !str_contains($bodies['ready'], '>Status<'), 'section pages do not repeat a status column');
@@ -542,13 +544,14 @@ foreach ($pages as $path => $bucket) {
 $ready = call('GET', '/jobs/ready')->body();
 $rid = (int) Database::fetchValue("SELECT id FROM jobs WHERE job_number = 'R-soon'");
 $tid = (int) Database::fetchValue("SELECT id FROM jobs WHERE job_number = 'T-1'");
-check(str_contains($ready, "/jobs/{$rid}?do=in_transit") && str_contains($ready, '>Dispatch<'), 'Ready rows offer a Dispatch shortcut');
-check(str_contains(call('GET', '/jobs/in-transit')->body(), "/jobs/{$tid}?do=delivered"), 'In Transit rows offer Mark delivered');
-check(!str_contains(call('GET', '/jobs/delivered')->body(), '?do='), 'Delivered rows offer no shortcut');
+check(str_contains($ready, "action=\"/jobs/{$rid}/status\"") && str_contains($ready, 'value="in_transit"') && str_contains($ready, 'Move to In Transit') && str_contains($ready, 'data-confirm='), 'Ready rows have a one-click Move to In Transit button (a form, with a confirmation)');
+$transitBody = call('GET', '/jobs/in-transit')->body();
+check(str_contains($transitBody, "action=\"/jobs/{$tid}/status\"") && str_contains($transitBody, 'value="delivered"') && str_contains($transitBody, 'Mark as Delivered'), 'In Transit rows have a one-click Mark as Delivered button');
+check(!str_contains(call('GET', '/jobs/delivered')->body(), 'Mark as Delivered') && !str_contains(call('GET', '/jobs/delivered')->body(), 'Move to In Transit'), 'Delivered rows offer no shortcut');
 fresh_session();
 make_role('ViewerOnly', ['jobs.view']);
 sign_in(make_user('ViewerOnly', 'sc-viewer@example.com'));
-check(!str_contains(call('GET', '/jobs/ready')->body(), '?do='), 'a user without jobs.status sees no shortcuts');
+check(!str_contains(call('GET', '/jobs/ready')->body(), 'Move to In Transit'), 'a user without jobs.status sees no shortcuts');
 check(call('GET', '/jobs/ready')->status() === 200, '...but can still view the list');
 
 section('Pages: search, filter and sort in the UI');
@@ -582,27 +585,28 @@ fresh_session();
 sign_in($stf);
 $rid = (int) Database::fetchValue("SELECT id FROM jobs WHERE job_number = 'R-soon'");
 $body = call('GET', "/jobs/{$rid}")->body();
-check(str_contains($body, 'Update status') && str_contains($body, 'statusModal-in_transit') && str_contains($body, 'statusModal-on_hold') && str_contains($body, 'statusModal-cancelled') && !str_contains($body, 'statusModal-delivered'), 'a booked job offers dispatch, hold and cancel dialogs');
+check(str_contains($body, 'Update status') && str_contains($body, 'Move to In Transit') && !str_contains($body, 'statusModal-in_transit') && str_contains($body, 'statusModal-on_hold') && str_contains($body, 'statusModal-cancelled') && !str_contains($body, 'statusModal-delivered'), 'a booked job offers a one-click Move to In Transit, and hold and cancel dialogs');
 check(str_contains(plain($body), 'in 5 days'), 'the details page shows the countdown');
 check(!str_contains($body, 'data-auto-open-modal'), 'no dialog opens by itself on a plain visit');
-check(str_contains(call('GET', "/jobs/{$rid}", [], ['do' => 'in_transit'])->body(), 'data-auto-open-modal="statusModal-in_transit"'), '?do=in_transit opens the dispatch dialog (list shortcut)');
 check(!str_contains(call('GET', "/jobs/{$rid}", [], ['do' => 'delivered'])->body(), 'data-auto-open-modal'), '?do= for a change that is not possible is ignored');
 check(!str_contains(call('GET', "/jobs/{$rid}", [], ['do' => '"><script>'])->body(), '<script>'), '?do= cannot inject markup');
 
-// submit through the real route
-$r = call('POST', "/jobs/{$rid}/status", ['to' => 'in_transit', 'carrier_name' => '', 'driver_name' => 'Jo', 'driver_phone' => '']);
-check($r->status() === 302 && str_ends_with((string) $r->getHeader('Location'), "/jobs/{$rid}"), 'invalid dispatch redirects back to the job');
-check(($_SESSION['_flash_next']['open_modal'] ?? '') === 'in_transit' && isset($_SESSION['_flash_next']['errors']['carrier_name'], $_SESSION['_flash_next']['errors']['driver_phone']), '...flashing the errors and which dialog to reopen');
+// a dialog that fails validation reopens with its message
+$r = call('POST', "/jobs/{$rid}/status", ['to' => 'on_hold', 'note' => '']);
+check($r->status() === 302 && str_ends_with((string) $r->getHeader('Location'), "/jobs/{$rid}"), 'a hold without a reason redirects back to the job');
+check(($_SESSION['_flash_next']['open_modal'] ?? '') === 'on_hold' && isset($_SESSION['_flash_next']['errors']['note']), '...flashing the error and which dialog to reopen');
 $body = call('GET', "/jobs/{$rid}")->body();
-check(str_contains($body, 'data-auto-open-modal="statusModal-in_transit"') && str_contains($body, 'Carrier name is required.') && str_contains($body, 'value="Jo"'), 'the dialog reopens with its messages and the typed values');
-$r = call('POST', "/jobs/{$rid}/status", ['to' => 'in_transit', 'carrier_name' => '<b>Evil</b> Inc', 'driver_name' => 'Jo Driver', 'driver_phone' => '555 010 9999', 'note' => '<script>x</script>']);
-check($r->status() === 302 && (new JobRepository())->find($rid)['status'] === 'in_transit', 'valid dispatch through the route');
-check(($_SESSION['_flash_next']['alert']['type'] ?? '') === 'success' && str_contains((string) $_SESSION['_flash_next']['alert']['message'], 'is now In Transit'), '...with a success message');
+check(str_contains($body, 'data-auto-open-modal="statusModal-on_hold"') && str_contains($body, 'Note is required.'), 'the dialog reopens with its message');
+
+// one click through the real route
+$r = call('POST', "/jobs/{$rid}/status", ['to' => 'in_transit', 'note' => '<script>x</script>']);
+check($r->status() === 302 && (new JobRepository())->find($rid)['status'] === 'in_transit', 'one click through the route moves the job');
+check(($_SESSION['_flash_next']['alert']['type'] ?? '') === 'success' && str_contains((string) $_SESSION['_flash_next']['alert']['message'], 'is now In Transit') && str_contains((string) $_SESSION['_flash_next']['alert']['message'], 'Loaded date: Oct 23, 2026'), '...with a success message that names the loaded date');
 $body = call('GET', "/jobs/{$rid}")->body();
-check(str_contains($body, '&lt;b&gt;Evil&lt;/b&gt; Inc') && !str_contains($body, '<b>Evil</b>') && str_contains($body, '&lt;script&gt;x&lt;/script&gt;') && !str_contains($body, '<script>x</script>'), 'carrier and note text is escaped everywhere it is shown');
+check(str_contains($body, '&lt;script&gt;x&lt;/script&gt;') && !str_contains($body, '<script>x</script>'), 'note text is escaped everywhere it is shown');
 $text = plain($body);
-check(str_contains($text, 'Job created') && str_contains($text, 'Booked In Transit') && str_contains($text, 'Jo Driver'), 'history timeline shows creation and the dispatch');
-check(str_contains($body, 'href="tel:5550109999"') && str_contains($body, 'statusModal-delivered') && !str_contains($body, 'statusModal-in_transit'), 'details page: tap-to-call phone, and now offers Mark delivered');
+check(str_contains($text, 'Job created') && str_contains($text, 'Booked In Transit') && str_contains($text, 'Loaded on Oct 23, 2026'), 'history timeline shows creation and the move, with the loaded date');
+check(str_contains($text, 'Loaded date Oct 23, 2026') && str_contains($body, 'Mark as Delivered') && !str_contains($body, 'Move to In Transit'), 'details page: shows the loaded date and now offers Mark as Delivered');
 check(str_contains(plain($body), 'In Transit') && str_contains($body, 'jt-badge-transit'), 'status badge updated');
 
 $r = call('POST', "/jobs/{$rid}/status", ['to' => 'booked']);
@@ -613,13 +617,13 @@ check(call('POST', '/jobs/999999/status', ['to' => 'in_transit'])->status() === 
 $did = (int) Database::fetchValue("SELECT id FROM jobs WHERE job_number = 'D-1'");
 check(call('POST', "/jobs/{$did}/status", ['to' => 'in_transit', 'note' => 'try'])->status() === 403, 'Staff cannot reopen: 403');
 check((new JobRepository())->find($did)['status'] === 'delivered', '...and nothing changed');
-$noToken = real_router()->dispatch(Request::make('POST', "/jobs/{$rid}/status", ['to' => 'delivered', 'delivered_on' => '2026-10-20']));
+$noToken = real_router()->dispatch(Request::make('POST', "/jobs/{$rid}/status", ['to' => 'delivered']));
 check($noToken->status() === 403 && (new JobRepository())->find($rid)['status'] === 'in_transit', 'a status change without a CSRF token is refused');
 
 fresh_session();
 sign_in($mgr);
 $body = call('GET', "/jobs/{$did}")->body();
-check(str_contains($body, 'Reopen (back in transit)') && str_contains(plain($body), 'Delivered Sep 15, 2026'), 'Manager sees Reopen on a delivered job, and its delivery date');
+check(str_contains($body, 'Reopen (back in transit)') && str_contains(plain($body), 'Delivery date Sep 15, 2026'), 'Manager sees Reopen on a delivered job, and its delivery date');
 $r = call('POST', "/jobs/{$did}/status", ['to' => 'in_transit', 'note' => 'Wrong house']);
 check($r->status() === 302 && (new JobRepository())->find($did)['status'] === 'in_transit', 'Manager can reopen it');
 
@@ -632,7 +636,11 @@ check(!str_contains(call('GET', "/jobs/{$bid}/edit")->body(), 'name="carrier_nam
 $loaded = (string) (new JobRepository())->find($tid)['updated_at'];
 $base = job_input(['job_number' => 'T-1', 'first_available_date' => '2026-10-19', 'loaded_at' => $loaded]);
 $r = call('POST', "/jobs/{$tid}", $base + ['carrier_name' => '', 'driver_name' => '', 'driver_phone' => '']);
-check(isset($_SESSION['_flash_next']['errors']['carrier_name'], $_SESSION['_flash_next']['errors']['driver_phone']), 'carrier details cannot be blanked while in transit');
+check(!isset($_SESSION['_flash_next']['errors']['carrier_name']) && (new JobRepository())->find($tid)['carrier_name'] === null, 'carrier details are optional: they can be left blank');
+$r = call('POST', "/jobs/{$tid}", $base + ['carrier_name' => 'X', 'driver_name' => 'Y', 'driver_phone' => 'abc']);
+check(isset($_SESSION['_flash_next']['errors']['driver_phone']), 'but a driver phone that is not a phone number is refused');
+$loaded = (string) (new JobRepository())->find($tid)['updated_at'];
+$base['loaded_at'] = $loaded;
 $r = call('POST', "/jobs/{$tid}", $base + ['carrier_name' => 'Fixed Carrier', 'driver_name' => 'Marcus Reed', 'driver_phone' => '(555) 010-9999']);
 check($r->status() === 302 && (new JobRepository())->find($tid)['carrier_name'] === 'Fixed Carrier' && (new JobRepository())->find($tid)['driver_phone'] === '(555) 010-9999', 'a typo in the driver phone can be corrected');
 check((new JobRepository())->find($tid)['status'] === 'in_transit', '...without touching the status');

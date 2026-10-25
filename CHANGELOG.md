@@ -2,6 +2,15 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.1.0 - client change request: one-click moves, automatic storage fee, customer phone
+
+* **Move to In Transit** and **Mark as Delivered** are one-click buttons on every list row and on Job Details. Today's date is saved as the **Loaded date** / **Delivery date**. No dialog; a short confirmation guards against stray clicks. Carrier and driver details are now optional.
+* **Automatic storage fee = CF × rate** (default 0.6) once a job has waited more than 30 days. Rate, number of days and the date it is counted from are on the Settings page. A fee typed on a job is kept as an override. Delivered jobs keep the fee they had on delivery.
+* **Customer phone number** on Add/Edit Job, shown on Job Details and in the lists as a tap-to-call link, searchable, exported and importable.
+* Loaded and delivery dates can be corrected under Edit. Lists, exports and imports use them.
+* Actions column stays pinned at the right of wide lists so the one-click buttons are always visible; In Transit list compacted.
+* **Upgrade:** upload the new files, then `php cli/migrate.php` (migration 008: new columns, back-filled dates, hand-typed storage fees become overrides) and `php cli/seed.php` (adds the three new settings). Optional cron line for `php cli/storage-fees.php`.
+
 ## 1.0.1 - sign in with a username
 
 * People now sign in with a **username** instead of an e-mail address. E-mail is optional contact information.

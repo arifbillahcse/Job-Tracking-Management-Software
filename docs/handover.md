@@ -32,11 +32,12 @@ Everything the client's team needs to own, run, and extend this software.
 | `backup`, `cleanup` | Database backup; housekeeping (dry run unless `--apply`) |
 | `doctor`, `route-audit` | Environment self-check; access-rule check of every route |
 | `permission-report` | Regenerates `docs/permission-matrix.md` from the live system |
+| `storage-fees` | Re-assess the automatic storage fee of open jobs (the app also does this once a day by itself) |
 | `seed-demo`, `fetch-assets` | Demo data (never in production); bundle Bootstrap locally |
 
 ## 3. Evidence of quality
 
-1,420 automated unit/integration checks, a 44-check proof that the release archive runs on its own, 336 HTTP checks in 6 suites, a 19-step browser walkthrough, a scale test (20,000 and 100,000 jobs), WCAG-AA contrast and layout audits, and about 20 deliberate-breakage checks proving the tests can fail. Run all with `tests/all.sh --perf --e2e`. Details and what is *not* covered: `docs/test-plan.md`.
+1,568 automated unit/integration checks, a 44-check proof that the release archive runs on its own, 337 HTTP checks in 6 suites, a 24-step browser walkthrough, a scale test (20,000 and 100,000 jobs), WCAG-AA contrast and layout audits, and about 20 deliberate-breakage checks proving the tests can fail. Run all with `tests/all.sh --perf --e2e`. Details and what is *not* covered: `docs/test-plan.md`.
 
 ## 4. Known limits and things not verified
 
@@ -57,7 +58,7 @@ Be clear-eyed about these before relying on the system:
 
 ## 5. Not built (candidates for a next phase)
 
-Customer contact details (phone/e-mail/address), invoices and payments, documents or photos per job, e-mail/SMS notifications, a calendar or map view, reports, a customer portal, multiple companies or branches, an API, automatic storage-fee calculation, a "forgot password" e-mail flow, multi-factor sign-in. Each needs a decision from the client first (questions are at the end of `docs/uat-checklist.md`).
+Customer contact details (phone/e-mail/address), invoices and payments, documents or photos per job, e-mail/SMS notifications, a calendar or map view, reports, a customer portal, multiple companies or branches, an API, a "forgot password" e-mail flow, multi-factor sign-in. Each needs a decision from the client first (questions are at the end of `docs/uat-checklist.md`).
 
 ## 6. Ownership checklist (fill in at handover)
 

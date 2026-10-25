@@ -29,6 +29,7 @@ final class JobController extends Controller
 
     public function show(Request $request, int $id): Response
     {
+        \App\Services\StorageFeeService::refreshIfDue();
         $job = $this->jobs->find($id);
         if ($job === null) {
             return ErrorPages::response(404);
@@ -115,12 +116,15 @@ final class JobController extends Controller
         $editUrl = '/jobs/' . $id . '/edit';
         $data = $this->validate(
             $request,
-            JobRules::rules($id, $this->jobs->canEditFinancials(), $job['status'] === 'in_transit'),
+            JobRules::rules($id, $this->jobs->canEditFinancials(), $job['status'] === 'in_transit') + JobRules::dateRules((string) $job['status']),
             $editUrl,
             JobRules::labels()
         );
         if ($data instanceof Response) {
             return $data;
+        }
+        if (($problems = JobRules::dateProblems($data)) !== []) {
+            return $this->redirectWithErrors($request, $problems, $editUrl);
         }
 
         try {
@@ -157,7 +161,8 @@ final class JobController extends Controller
 
         if ($result['ok']) {
             $label = (string) \App\Core\Config::get('statuses.statuses.' . $result['to'] . '.label', $result['to']);
-            $this->flash('success', 'Job ' . $result['job_number'] . ' is now ' . $label . '.');
+            $on = $result['loaded_date'] ? ' Loaded date: ' . fmt_date($result['loaded_date']) . '.' : ($result['delivery_date'] ? ' Delivery date: ' . fmt_date($result['delivery_date']) . '.' : '');
+            $this->flash('success', 'Job ' . $result['job_number'] . ' is now ' . $label . '.' . $on);
             return $this->redirect($back);
         }
 

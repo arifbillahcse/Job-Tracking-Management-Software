@@ -8,6 +8,7 @@ For whoever looks after the server. Commands assume the application is in `/var/
 |---|---|---|
 | Daily (cron) | Database backup, keep 14 | `php cli/backup.php --keep=14` |
 | Daily (cron) | Housekeeping | `php cli/cleanup.php --apply` |
+| Daily (cron) | Storage fees follow the calendar (the app also does this on the first page view of each day) | `php cli/storage-fees.php` |
 | Weekly (cron) | Self-check | `php cli/doctor.php` |
 | Weekly | Copy backups off the server | see Backups |
 | Monthly | Look at the Audit Log for failed sign-ins and access-denied entries | Administration -> Audit Log, filter by action |

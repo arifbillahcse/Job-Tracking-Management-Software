@@ -21,6 +21,7 @@ final class ExportController extends Controller
 {
     public function export(Request $request, string $bucket): Response
     {
+        \App\Services\StorageFeeService::refreshIfDue(); // fees follow the calendar: re-assess once a day
         if (!JobBucket::isValid($bucket)) {
             return ErrorPages::response(404);
         }

@@ -31,7 +31,7 @@ post_job() {
     --data-urlencode "pickup_date=2026-11-01" --data-urlencode "first_available_date=2026-12-01" \
     --data-urlencode "from_location=Austin, TX" --data-urlencode "to_location=Denver, CO" \
     --data-urlencode "job_location=Main warehouse" --data-urlencode "cf=900" \
-    --data-urlencode "balance=$bal" --data-urlencode "storage_fee=25" --data-urlencode "notes=smoke test" "$@" "$BASE$path"
+    --data-urlencode "balance=$bal" --data-urlencode "storage_fee_override=25" --data-urlencode "notes=smoke test" "$@" "$BASE$path"
 }
 job_id() { grep -i '^location:' <<<"$1" | grep -o '/jobs/[0-9]*' | head -1 | grep -o '[0-9]*$'; }
 loaded_at() { grep -o 'name="loaded_at" value="[^"]*"' | head -1 | sed 's/.*value="//; s/"$//'; }
@@ -63,7 +63,7 @@ R=$(post_job "$AJ" /jobs "$RUN" "Ada" "1200.50"); JID=$(job_id "$R"); MADE+=("$J
 check "a valid job is created and redirects to its page" '[[ -n "$JID" ]]'
 D=$(curl -s -b "$AJ" -c "$AJ" "$BASE/jobs/$JID")
 check "details page shows the job, customer, money and a success message" 'grep -q "$RUN" <<<"$D" && grep -q "Ada Tester" <<<"$D" && grep -q "\$1,200.50" <<<"$D" && grep -q "was created" <<<"$D"'
-check "status is Booked and the carrier section says not dispatched" 'grep -q "jt-badge-booked" <<<"$D" && grep -q "Not dispatched yet" <<<"$D"'
+check "status is Booked and the carrier section says details are optional" 'grep -q "jt-badge-booked" <<<"$D" && grep -q "Carrier details are optional" <<<"$D"'
 R=$(post_job "$AJ" /jobs "$RUN" "Dup" "1")
 check "a duplicate job # goes back to the form" 'grep -qi "^location: .*/jobs/create" <<<"$R"'
 check "...with a field error" 'form_flash | grep -q "already in use"'
@@ -102,7 +102,7 @@ SL=$(curl -s -b "$SJ" -c "$SJ" "$BASE/jobs")
 check "Staff sees the list without a Balance column or amounts" 'grep -q "jt-jobno" <<<"$SL" && ! grep -q "Balance" <<<"$SL" && ! grep -qE "[$][0-9]" <<<"$SL"'
 check "Staff sees no Trash link" '! grep -q "/jobs/trash" <<<"$SL"'
 SF=$(curl -s -b "$SJ" "$BASE/jobs/create")
-check "the Staff form has no balance or storage fee inputs" '! grep -q "name=\"balance\"" <<<"$SF" && ! grep -q "name=\"storage_fee\"" <<<"$SF"'
+check "the Staff form has no balance or storage fee inputs" '! grep -q "name=\"balance\"" <<<"$SF" && ! grep -q "name=\"storage_fee_override\"" <<<"$SF"'
 R=$(post_job "$SJ" /jobs "$RUN-S" "StaffMade" "999"); SID=$(job_id "$R"); MADE+=("$SID")
 check "Staff can create a job" '[[ -n "$SID" ]]'
 SD=$(curl -s -b "$SJ" "$BASE/jobs/$SID")

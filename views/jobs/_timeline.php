@@ -20,8 +20,14 @@ $labelOf = static fn (string $status): string => (string) \App\Core\Config::get(
                 <?php if (!empty($d['carrier_name'])): ?>
                     <div class="small mt-1">Carrier <?= e($d['carrier_name']) ?> &middot; driver <?= e($d['driver_name'] ?? '') ?> &middot; <?= e($d['driver_phone'] ?? '') ?></div>
                 <?php endif; ?>
-                <?php if (!empty($d['delivered_on'])): ?>
-                    <div class="small mt-1">Delivered on <?= e(fmt_date((string) $d['delivered_on'])) ?></div>
+                <?php if (!empty($d['loaded_date'])): ?>
+                    <div class="small mt-1">Loaded on <?= e(fmt_date((string) $d['loaded_date'])) ?></div>
+                <?php endif; ?>
+                <?php if (!empty($d['delivery_date']) || !empty($d['delivered_on'])): ?>
+                    <div class="small mt-1">Delivered on <?= e(fmt_date((string) ($d['delivery_date'] ?? $d['delivered_on']))) ?></div>
+                <?php endif; ?>
+                <?php if (!empty($d['reopened'])): ?>
+                    <div class="small mt-1 text-body-secondary">Re-opened after delivery<?= !empty($d['delivery_date_cleared']) ? ' (was delivered on ' . e(fmt_date((string) $d['delivery_date_cleared'])) . ')' : '' ?></div>
                 <?php endif; ?>
                 <?php if (!empty($d['cleared'])): ?>
                     <div class="small mt-1 text-body-secondary">Cleared on return to Booked:

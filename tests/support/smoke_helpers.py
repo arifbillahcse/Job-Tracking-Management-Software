@@ -26,7 +26,7 @@ def main():
         row = read_csv(path)[1]
         assert row[1].startswith("'=HYPERLINK"), row[1]
         assert row[2] == "'+cmd", row[2]
-        assert row[5] == "'-1" and row[6] == "'@x", (row[5], row[6])
+        assert row[6] == "'-1" and row[7] == "'@x", (row[6], row[7])
     elif cmd == "problems":
         rows = read_csv(path)
         assert rows[0][:2] == ["Row", "Problems"], rows[0]

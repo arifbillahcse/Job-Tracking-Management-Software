@@ -13,4 +13,8 @@ return [
     'currency_symbol' => '$',
     'timezone' => 'UTC',
     'page_size' => '25',
+    // Automatic storage fee = CF x rate, charged once a job has waited more than N days (assumption J1).
+    'storage_fee_rate' => '0.6',
+    'storage_fee_after_days' => '30',
+    'storage_fee_basis' => 'first_available', // or 'loaded'
 ];

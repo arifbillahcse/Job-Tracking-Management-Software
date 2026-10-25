@@ -330,7 +330,7 @@ final class ImportService
                 'row' => $rowNo,
                 'job' => $job,
                 'history' => in_array($status, ['in_transit', 'delivered'], true)
-                    ? array_filter(['carrier_name' => $job['carrier_name'], 'driver_name' => $job['driver_name'], 'driver_phone' => $job['driver_phone'], 'delivered_on' => substr((string) $job['delivered_at'], 0, 10) ?: null])
+                    ? array_filter(['carrier_name' => $job['carrier_name'], 'driver_name' => $job['driver_name'], 'driver_phone' => $job['driver_phone'], 'loaded_date' => $job['loaded_date'], 'delivery_date' => $job['delivery_date']])
                     : null,
                 'display' => $display,
                 'raw' => $cells,
@@ -386,7 +386,7 @@ final class ImportService
                 JobFields::DATE => ValueParser::date($raw, $spreadsheet),
                 JobFields::MONEY, JobFields::NUMBER => ValueParser::number($raw),
                 JobFields::STATUS => ValueParser::status($raw),
-                default => in_array($key, ['job_number', 'driver_phone'], true) ? ValueParser::wholeNumberText($raw) : ValueParser::text($raw),
+                default => in_array($key, ['job_number', 'driver_phone', 'customer_phone'], true) ? ValueParser::wholeNumberText($raw) : ValueParser::text($raw),
             };
 
             if ($parsed === false) {
@@ -406,6 +406,9 @@ final class ImportService
         $rules = JobRules::rules(null, $context['financials'], false, false);
         if (in_array($status, ['in_transit', 'delivered'], true)) {
             $rules += JobRules::dispatchRules();
+        }
+        if (in_array($status, ['in_transit', 'delivered'], true)) {
+            $rules['loaded_date'] = 'nullable|date';
         }
         if ($status === 'delivered') {
             $rules['delivered_on'] = 'required|date';
@@ -432,6 +435,7 @@ final class ImportService
             'job_number' => $clean['job_number'] ?? null,
             'customer_first_name' => $clean['customer_first_name'] ?? null,
             'customer_last_name' => $clean['customer_last_name'] ?? null,
+            'customer_phone' => $clean['customer_phone'] ?? null,
             'pickup_date' => $clean['pickup_date'] ?? null,
             'first_available_date' => $clean['first_available_date'] ?? null,
             'from_location' => $clean['from_location'] ?? null,
@@ -439,15 +443,23 @@ final class ImportService
             'job_location' => $clean['job_location'] ?? null,
             'cf' => $decimal($clean['cf'] ?? null),
             'balance' => $decimal($clean['balance'] ?? null) ?? '0.00',
-            'storage_fee' => $decimal($clean['storage_fee'] ?? null) ?? '0.00',
+            'storage_fee' => '0.00',
+            'storage_fee_override' => $decimal($clean['storage_fee'] ?? null),
             'notes' => $clean['notes'] ?? null,
             'status' => $status,
             'carrier_name' => $dispatched ? ($clean['carrier_name'] ?? null) : null,
             'driver_name' => $dispatched ? ($clean['driver_name'] ?? null) : null,
             'driver_phone' => $dispatched ? ($clean['driver_phone'] ?? null) : null,
             'in_transit_at' => $dispatched ? gmdate('Y-m-d H:i:s') : null,
+            'loaded_date' => $dispatched ? ($clean['loaded_date'] ?? null) : null,
+            'delivery_date' => $status === 'delivered' && !empty($clean['delivered_on']) ? $clean['delivered_on'] : null,
             'delivered_at' => $status === 'delivered' && !empty($clean['delivered_on']) ? $clean['delivered_on'] . ' 00:00:00' : null,
         ];
+
+        // Storage fee is calculated, never typed (a number in the file is an override).
+        $assessed = StorageFeeService::assess($job);
+        $job['storage_fee'] = $assessed['fee'];
+        $job['storage_rate'] = $assessed['rate'];
 
         $display = [];
         foreach (['job_number', 'customer_first_name', 'customer_last_name', 'first_available_date', 'from_location', 'to_location', 'status'] as $field) {

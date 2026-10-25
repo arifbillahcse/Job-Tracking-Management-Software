@@ -197,7 +197,7 @@ function job_input(array $override = []): array
         'job_location' => 'Main warehouse',
         'cf' => '900',
         'balance' => '1200.5',
-        'storage_fee' => '40',
+        'storage_fee_override' => '40',
         'notes' => 'Handle with care',
     ];
 }
@@ -488,7 +488,7 @@ check(Validator::make(job_input(['job_number' => str_repeat('A', 41)]), JobRules
 check(Validator::make(job_input(['first_available_date' => '2026-13-45']), JobRules::rules(), JobRules::labels())->fails(), 'impossible available date rejected');
 check(Validator::make(job_input(['pickup_date' => 'tomorrow']), JobRules::rules(), JobRules::labels())->fails(), 'non-date pickup rejected');
 check(Validator::make(job_input(['balance' => '-5']), JobRules::rules(null, true), JobRules::labels())->fails(), 'negative balance rejected');
-check(Validator::make(job_input(['storage_fee' => 'abc']), JobRules::rules(null, true), JobRules::labels())->fails(), 'non-numeric storage fee rejected');
+check(Validator::make(job_input(['storage_fee_override' => 'abc']), JobRules::rules(null, true), JobRules::labels())->fails(), 'non-numeric storage fee rejected');
 check(Validator::make(job_input(['balance' => '99999999999']), JobRules::rules(null, true), JobRules::labels())->fails(), 'balance above the column limit rejected');
 check(Validator::make(job_input(['cf' => '123456789']), JobRules::rules(null, true), JobRules::labels())->fails(), 'CF above the column limit rejected');
 check(Validator::make(job_input(['customer_first_name' => str_repeat('x', 101)]), JobRules::rules(), JobRules::labels())->fails(), 'first name max 100 characters');
@@ -510,7 +510,7 @@ check($job['balance'] == 1200.5 && $job['storage_fee'] == 40 && $job['cf'] == 90
 $audit = last_audit('job_created');
 check($audit !== null && (int) $audit['entity_id'] === $id && str_contains((string) $audit['new_values'], 'JT-5001'), 'creation is audited');
 
-$id2 = $svc->create(job_input(['job_number' => 'JT-5002', 'pickup_date' => '', 'cf' => '', 'job_location' => '  ', 'notes' => '', 'balance' => '', 'storage_fee' => '']));
+$id2 = $svc->create(job_input(['job_number' => 'JT-5002', 'pickup_date' => '', 'cf' => '', 'job_location' => '  ', 'notes' => '', 'balance' => '', 'storage_fee_override' => '']));
 $j2 = (new JobRepository())->find($id2);
 check($j2['pickup_date'] === null && $j2['cf'] === null && $j2['job_location'] === null && $j2['notes'] === null, 'empty optional fields are stored as NULL');
 check($j2['balance'] == 0 && $j2['storage_fee'] == 0, 'empty money fields default to 0.00');
@@ -518,7 +518,7 @@ check($j2['balance'] == 0 && $j2['storage_fee'] == 0, 'empty money fields defaul
 section('Jobs: financial fields are enforced server-side');
 sign_in($staff);
 check(!$svc->canSeeFinancials() && !$svc->canEditFinancials(), 'Staff has no financial access');
-$sid = $svc->create(job_input(['job_number' => 'JT-5003', 'balance' => '777', 'storage_fee' => '88']));
+$sid = $svc->create(job_input(['job_number' => 'JT-5003', 'balance' => '777', 'storage_fee_override' => '88']));
 $sj = (new JobRepository())->find($sid);
 check($sj['balance'] == 0 && $sj['storage_fee'] == 0, 'a Staff-supplied balance and storage fee are ignored on create');
 $view = $svc->find($id);
@@ -526,7 +526,7 @@ check(!array_key_exists('balance', $view) && !array_key_exists('storage_fee', $v
 $rows = $svc->search(App\Services\JobCriteria::forBucket('all'), 50, 0);
 check($rows !== [] && array_reduce($rows, static fn (bool $c, array $r): bool => $c && !array_key_exists('balance', $r), true), 'service strips them from list rows too');
 $loaded = (string) (new JobRepository())->find($id)['updated_at'];
-$res = $svc->update($id, job_input(['job_number' => 'JT-5001', 'customer_last_name' => 'Renamed', 'balance' => '1', 'storage_fee' => '1']), $loaded);
+$res = $svc->update($id, job_input(['job_number' => 'JT-5001', 'customer_last_name' => 'Renamed', 'balance' => '1', 'storage_fee_override' => '1']), $loaded);
 $after = (new JobRepository())->find($id);
 check($res['ok'] && $after['customer_last_name'] === 'Renamed', 'Staff can edit non-financial fields');
 check($after['balance'] == 1200.5 && $after['storage_fee'] == 40, 'Staff cannot change balance or storage fee, even by forging the POST');
@@ -550,7 +550,7 @@ check((int) $row['updated_by'] === (int) $manager['id'], 'updated_by recorded');
 
 $auditCount = (int) Database::fetchValue("SELECT COUNT(*) FROM audit_logs WHERE action = 'job_updated'");
 $loaded = (string) $row['updated_at'];
-$same = $svc->update($id, job_input(['job_number' => 'JT-5010', 'customer_first_name' => 'Grace', 'balance' => '250', 'storage_fee' => '40', 'customer_last_name' => 'Smith']), $loaded);
+$same = $svc->update($id, job_input(['job_number' => 'JT-5010', 'customer_first_name' => 'Grace', 'balance' => '250', 'storage_fee_override' => '40', 'customer_last_name' => 'Smith']), $loaded);
 check($same['ok'] && $same['changed'] === [], 'saving without changes is a no-op');
 check((int) Database::fetchValue("SELECT COUNT(*) FROM audit_logs WHERE action = 'job_updated'") === $auditCount, 'a no-op writes no audit entry');
 
@@ -619,7 +619,7 @@ check(!str_contains($staffList, 'Balance') && !str_contains($staffList, '$'), 'S
 $staffShow = call('GET', '/jobs/' . (int) Database::fetchValue("SELECT id FROM jobs WHERE job_number = 'JT-5001'"))->body();
 check(!str_contains($staffShow, 'Balance') && !str_contains($staffShow, 'Storage fee') && !str_contains($staffShow, '1,200.50'), 'Staff: no financial figures on the details page');
 $staffForm = call('GET', '/jobs/create')->body();
-check(!str_contains($staffForm, 'name="balance"') && !str_contains($staffForm, 'name="storage_fee"'), 'Staff: financial inputs are not in the form');
+check(!str_contains($staffForm, 'name="balance"') && !str_contains($staffForm, 'name="storage_fee_override"'), 'Staff: financial inputs are not in the form');
 check(!str_contains($staffList, 'Delete') && !str_contains($staffList, '/jobs/trash'), 'Staff: no delete/trash links shown');
 
 fresh_session();
@@ -736,5 +736,6 @@ require __DIR__ . '/phase5.php';
 require __DIR__ . '/phase7.php';
 require __DIR__ . '/phase8.php';
 require __DIR__ . '/phase9.php';
+require __DIR__ . '/phase10.php';
 
 finish();

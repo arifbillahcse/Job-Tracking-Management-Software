@@ -55,7 +55,10 @@ final class SettingsService
     }
 
     /** Settings the page may change. Anything else in the table (or in a request) is ignored. */
-    public const KEYS = ['company_name', 'ready_threshold_days', 'currency_symbol', 'timezone', 'page_size'];
+    public const KEYS = ['company_name', 'ready_threshold_days', 'currency_symbol', 'timezone', 'page_size', 'storage_fee_rate', 'storage_fee_after_days', 'storage_fee_basis'];
+
+    /** Changing any of these re-assesses every open job's storage fee. */
+    private const STORAGE_KEYS = ['storage_fee_rate', 'storage_fee_after_days', 'storage_fee_basis'];
 
     /**
      * @param array<string,mixed> $input
@@ -96,6 +99,27 @@ final class SettingsService
         }
         $values['page_size'] = $size;
 
+        $rate = is_string($input['storage_fee_rate'] ?? null) ? trim($input['storage_fee_rate']) : '';
+        if (preg_match('/^(\d{1,4}(\.\d{1,4})?|\.\d{1,4})$/', $rate) !== 1 || (float) $rate > 1000) {
+            $errors['storage_fee_rate'] = 'Enter a rate such as 0.6 (up to 4 decimals, at most 1000). Use 0 for no storage fee.';
+        }
+        $values['storage_fee_rate'] = $rate === '' ? '' : rtrim(rtrim(number_format((float) $rate, 4, '.', ''), '0'), '.');
+        if ($values['storage_fee_rate'] === '' && !isset($errors['storage_fee_rate'])) {
+            $values['storage_fee_rate'] = '0';
+        }
+
+        $storageDays = is_string($input['storage_fee_after_days'] ?? null) ? trim($input['storage_fee_after_days']) : '';
+        if (filter_var($storageDays, FILTER_VALIDATE_INT) === false || (int) $storageDays < 0 || (int) $storageDays > 3650) {
+            $errors['storage_fee_after_days'] = 'Enter a whole number of days from 0 to 3650.';
+        }
+        $values['storage_fee_after_days'] = (string) (int) $storageDays;
+
+        $basis = is_string($input['storage_fee_basis'] ?? null) ? trim($input['storage_fee_basis']) : '';
+        if (!isset(StorageFeeService::BASIS[$basis])) {
+            $errors['storage_fee_basis'] = 'Choose where the waiting time is counted from.';
+        }
+        $values['storage_fee_basis'] = $basis;
+
         return ['values' => $values, 'errors' => $errors];
     }
 
@@ -129,6 +153,9 @@ final class SettingsService
             AuditService::record('settings_updated', 'settings', null, $old, $new);
         });
         self::flush();
+        if (array_intersect(self::STORAGE_KEYS, array_keys($new)) !== []) {
+            StorageFeeService::refresh();
+        }
 
         return ['old' => $old, 'new' => $new];
     }

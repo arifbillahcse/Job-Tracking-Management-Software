@@ -16,16 +16,16 @@ final class JobService
     /** Columns any editor may write. Status, carrier and dispatch fields are NOT here: they change only through the Phase 3 workflow. */
     private const EDITABLE = [
         'job_number', 'customer_first_name', 'customer_last_name', 'pickup_date', 'first_available_date',
-        'from_location', 'to_location', 'job_location', 'cf', 'notes',
+        'from_location', 'to_location', 'job_location', 'cf', 'notes', 'customer_phone',
     ];
 
     /** Columns only users with jobs.edit_financials may write. */
-    private const FINANCIAL = ['balance', 'storage_fee'];
+    private const FINANCIAL = ['balance', 'storage_fee_override'];
 
     /** Writable only while the job is In Transit (to correct a typo); otherwise they change through the workflow. */
     private const CARRIER = ['carrier_name', 'driver_name', 'driver_phone'];
 
-    private const DECIMAL = ['cf', 'balance', 'storage_fee'];
+    private const DECIMAL = ['cf', 'balance', 'storage_fee', 'storage_fee_override'];
 
     public function __construct(private JobRepository $jobs = new JobRepository())
     {
@@ -94,7 +94,7 @@ final class JobService
     public function forViewer(array $job): array
     {
         if (!$this->canSeeFinancials()) {
-            unset($job['balance'], $job['storage_fee']);
+            unset($job['balance'], $job['storage_fee'], $job['storage_fee_override'], $job['storage_rate']);
         }
         return $job;
     }
@@ -109,11 +109,12 @@ final class JobService
 
         if ($this->canEditFinancials()) {
             $row['balance'] = $this->decimal($input['balance'] ?? null) ?? '0.00';
-            $row['storage_fee'] = $this->decimal($input['storage_fee'] ?? null) ?? '0.00';
+            $row['storage_fee_override'] = $this->decimal($input['storage_fee_override'] ?? null); // NULL = automatic
         }
 
         $id = $this->jobs->create($row, Auth::id());
         AuditService::record('job_created', 'job', $id, null, $row);
+        StorageFeeService::settle($id);
         return $id;
     }
 
@@ -136,13 +137,22 @@ final class JobService
 
         $row = $this->writable($input);
         if ($this->canEditFinancials()) {
-            foreach (self::FINANCIAL as $column) {
-                $row[$column] = $this->decimal($input[$column] ?? null) ?? '0.00';
-            }
+            $row['balance'] = $this->decimal($input['balance'] ?? null) ?? '0.00';
+            $row['storage_fee_override'] = $this->decimal($input['storage_fee_override'] ?? null);
         }
         if ((string) $current['status'] === 'in_transit') {
             foreach (self::CARRIER as $column) {
                 $row[$column] = $this->normalize($column, $input[$column] ?? null);
+            }
+        }
+        // Dates that exist once a job has moved on can be corrected (the workflow sets them to today on the click).
+        if (in_array((string) $current['status'], ['in_transit', 'delivered'], true)) {
+            $row['loaded_date'] = $this->normalize('loaded_date', $input['loaded_date'] ?? null);
+        }
+        if ((string) $current['status'] === 'delivered') {
+            $row['delivery_date'] = $this->normalize('delivery_date', $input['delivery_date'] ?? ($current['delivery_date'] ?? null));
+            if ($row['delivery_date'] !== null) {
+                $row['delivered_at'] = $row['delivery_date'] . ' 00:00:00';
             }
         }
 
@@ -162,6 +172,7 @@ final class JobService
 
         $this->jobs->update($id, $new, Auth::id());
         AuditService::record('job_updated', 'job', $id, $old, $new);
+        StorageFeeService::settle($id); // CF, dates or an override may have changed the fee
 
         return ['ok' => true, 'conflict' => false, 'changed' => array_keys($new)];
     }

@@ -8,5 +8,8 @@ APP=/var/www/job-tracker
 # 03:10 daily: housekeeping (old sign-in attempts, abandoned import previews, old logs).
 10 3 * * *  cd $APP && php cli/cleanup.php --apply   >> storage/logs/cron.log 2>&1
 
+# 00:20 daily: storage fees follow the calendar (the app also does this on the first page view of each day).
+20 0 * * *  cd $APP && php cli/storage-fees.php  >> storage/logs/cron.log 2>&1
+
 # Mondays 07:00: self-check. A non-zero exit shows up as cron mail; the report is in the log.
 0 7 * * 1   cd $APP && php cli/doctor.php           >> storage/logs/cron.log 2>&1
