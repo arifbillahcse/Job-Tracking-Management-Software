@@ -35,8 +35,8 @@ $threshold = JobBucket::threshold();
     $statuses = $data['statuses'];
     $cards = [
         [JobBucket::ALL, 'all', 'briefcase', 'Total jobs', ($statuses['on_hold'] ?? 0) . ' on hold · ' . ($statuses['cancelled'] ?? 0) . ' cancelled'],
-        [JobBucket::READY, 'ready', 'clock', 'Ready for delivery', 'within ' . $threshold . ' days' . ($data['overdue_count'] > 0 ? ' · ' . $data['overdue_count'] . ' overdue' : '')],
-        [JobBucket::LATER, 'later', 'calendar', 'More than ' . $threshold . ' days', 'move to Ready automatically'],
+        [JobBucket::READY, 'ready', 'clock', 'Ready for delivery', 'within ' . $threshold . ' days of today'],
+        [JobBucket::LATER, 'later', 'calendar', 'More than ' . $threshold . ' days', 'ahead, or already waiting longer'],
         [JobBucket::TRANSIT, 'transit', 'truck', 'In transit', 'on the road now'],
         [JobBucket::DELIVERED, 'delivered', 'check-circle', 'Delivered', 'completed deliveries'],
     ];

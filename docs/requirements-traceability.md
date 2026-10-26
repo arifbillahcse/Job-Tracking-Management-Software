@@ -37,6 +37,7 @@ Each requirement from the client's brief, where it is built, and the checks that
 | R26 | On the In Transit page a **Mark as Delivered** button saves **today as the Delivery date** and moves the job to Delivered | same | U phase3, phase10; H smoke-workflow; B; UAT C3 |
 | R27 | **Automatic storage fee** after 30 days: fee = CF × rate, default 0.6, rate changeable (Settings) | `StorageFeeService`, Settings page | U phase10 (day 30/31 boundary, CF 100 → 60, rounding, override, frozen at delivery, rate/day/basis changes, daily refresh; 10 deliberate-breakage checks); B; UAT C9, C10. **Assumption to confirm: 30 days counted from the 1st available date (J2)** |
 | R28 | **Customer phone number** on Add/Edit Job, shown on Job Details and the lists, tap-to-call on phones | `jobs.customer_phone`, `tel_link()` | U phase10 (validation, saving, display, search, export, import); B; UAT B12 |
+| R30 | Booked jobs more than 30 days past their available date show in More Than 30 Days; storage rate accepts cents (assumptions K1, K2) | `JobBucket`, `SettingsService` | U phase3 (day -30 Ready, -31 More Than 30 Days, SQL/PHP agree), phase10 (`60c`, `60 cents`, invalid) |
 | R29 | Database: `customer_phone`, `loaded_date`, `delivery_date`, storage fee and rate stored; calculation logic; dashboard counts and sections follow | migration 008 | U phase10 (migration on a database with jobs: back-fill, nothing lost, idempotent; dashboard counts after each click; every job in exactly one section) |
 
 ## Requirements implied but not built (needs the client's decision)

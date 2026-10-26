@@ -11,8 +11,9 @@ use App\Core\Clock;
  * WHERE clause from condition(), so they cannot disagree. A job's section is never stored; it is
  * computed from status and 1st available date every time, so changing either moves the job automatically.
  *
- *   Ready for Delivery  status = booked AND available date <= today + N days   (assumption A2; includes overdue, A3)
- *   More Than 30 Days   status = booked AND available date >  today + N days
+ *   Ready for Delivery  status = booked AND available date from today - N days to today + N days   (assumptions A2, K1)
+ *   More Than 30 Days   status = booked AND available date more than N days away, in the future OR in the past
+ *                       (jobs that have already waited more than N days are the ones that carry the storage fee)
  *   In Transit          status = in_transit
  *   Delivered           status = delivered
  *   All Jobs            every job that is not deleted (also on hold / cancelled, which belong to no other section)
@@ -61,6 +62,12 @@ final class JobBucket
         return is_numeric($value) ? max(0, min(3650, (int) $value)) : 30;
     }
 
+    /** Oldest available date that is still "ready": today - threshold (older jobs have waited too long and move to More Than N Days). */
+    public static function pastCutoff(): string
+    {
+        return Clock::addDays(Clock::today(), -self::threshold());
+    }
+
     /** Last available date that is still "ready": today + threshold. */
     public static function cutoff(): string
     {
@@ -77,8 +84,8 @@ final class JobBucket
         $base = "{$alias}.deleted_at IS NULL";
 
         return match ($bucket) {
-            self::READY => ["{$base} AND {$alias}.status = ? AND {$alias}.first_available_date <= ?", ['booked', self::cutoff()]],
-            self::LATER => ["{$base} AND {$alias}.status = ? AND {$alias}.first_available_date > ?", ['booked', self::cutoff()]],
+            self::READY => ["{$base} AND {$alias}.status = ? AND {$alias}.first_available_date <= ? AND {$alias}.first_available_date >= ?", ['booked', self::cutoff(), self::pastCutoff()]],
+            self::LATER => ["{$base} AND {$alias}.status = ? AND ({$alias}.first_available_date > ? OR {$alias}.first_available_date < ?)", ['booked', self::cutoff(), self::pastCutoff()]],
             self::TRANSIT => ["{$base} AND {$alias}.status = ?", ['in_transit']],
             self::DELIVERED => ["{$base} AND {$alias}.status = ?", ['delivered']],
             default => [$base, []],
@@ -94,7 +101,7 @@ final class JobBucket
     public static function of(array $job): ?string
     {
         return match ((string) $job['status']) {
-            'booked' => (string) $job['first_available_date'] <= self::cutoff() ? self::READY : self::LATER,
+            'booked' => (string) $job['first_available_date'] <= self::cutoff() && (string) $job['first_available_date'] >= self::pastCutoff() ? self::READY : self::LATER,
             'in_transit' => self::TRANSIT,
             'delivered' => self::DELIVERED,
             default => null,

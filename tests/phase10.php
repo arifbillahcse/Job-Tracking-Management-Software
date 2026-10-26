@@ -105,6 +105,13 @@ foreach (['-1', '1e3', '0.12345', '1001', 'abc', '', '0,6', '$1', '1 000', '0.6x
     check($bad('storage_fee_rate', $v), 'rate ' . json_encode($v) . ' is refused');
 }
 check(SettingsService::validate(['storage_fee_rate' => '0.60'] + $good)['values']['storage_fee_rate'] === '0.6' && SettingsService::validate(['storage_fee_rate' => '2.0'] + $good)['values']['storage_fee_rate'] === '2', 'the rate is stored without trailing zeros');
+$cents = static fn (string $v) => SettingsService::validate(['storage_fee_rate' => $v] + $good);
+foreach (['60c' => '0.6', '60 cents' => '0.6', '60¢' => '0.6', '0.5c' => '0.005', '5 C' => '0.05', '100c' => '1'] as $in => $out) {
+    check(($cents($in)['values']['storage_fee_rate'] ?? null) === $out && !isset($cents($in)['errors']['storage_fee_rate']), "rate {$in} is read as cents -> {$out} dollars per CF");
+}
+foreach (['c', '-5c', 'abc c', '60cc', '999999c'] as $v) {
+    check(isset($cents($v)['errors']['storage_fee_rate']), 'cent rate ' . json_encode($v) . ' is refused');
+}
 foreach (['0', '30', '3650'] as $v) {
     check(!$bad('storage_fee_after_days', $v), "{$v} days is accepted");
 }

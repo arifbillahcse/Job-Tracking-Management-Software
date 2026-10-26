@@ -18,7 +18,7 @@ $val = static fn (string $key): string => old_or($key, $values[$key] ?? '');
                 <div class="mb-3">
                     <label for="ready_threshold_days" class="form-label">Ready-for-delivery limit (days) <span class="text-danger" aria-hidden="true">*</span></label>
                     <input type="number" class="form-control<?= has_error('ready_threshold_days') ? ' is-invalid' : '' ?>" id="ready_threshold_days" name="ready_threshold_days" value="<?= e($val('ready_threshold_days')) ?>" min="1" max="365" step="1" required inputmode="numeric" aria-describedby="ready_threshold_days-help">
-                    <div class="form-text" id="ready_threshold_days-help">A booked job whose 1st available date is within this many days is <strong>Ready for Delivery</strong>; later ones are in <strong>More Than <?= e($val('ready_threshold_days')) ?> Days</strong>. Jobs move between sections automatically and immediately when this changes.</div>
+                    <div class="form-text" id="ready_threshold_days-help">A booked job whose 1st available date is within this many days of today is <strong>Ready for Delivery</strong>. Jobs further away than that, <strong>or that have already waited longer than that</strong>, are in <strong>More Than <?= e($val('ready_threshold_days')) ?> Days</strong>. Jobs move between sections automatically and immediately when this changes.</div>
                     <?= error_text('ready_threshold_days') ?>
                 </div>
 
@@ -57,7 +57,7 @@ $val = static fn (string $key): string => old_or($key, $values[$key] ?? '');
                     <div class="col-12 col-sm-4">
                         <label for="storage_fee_rate" class="form-label">Rate <span class="text-danger" aria-hidden="true">*</span></label>
                         <input type="text" inputmode="decimal" class="form-control<?= has_error('storage_fee_rate') ? ' is-invalid' : '' ?>" id="storage_fee_rate" name="storage_fee_rate" value="<?= e($val('storage_fee_rate')) ?>" maxlength="10" required aria-describedby="storage_fee_rate-help">
-                        <div class="form-text" id="storage_fee_rate-help">Per cubic foot, e.g. <code>0.6</code>. <code>0</code> turns it off.</div>
+                        <div class="form-text" id="storage_fee_rate-help">Dollars per cubic foot, e.g. <code>0.6</code>, <strong>or cents</strong>, e.g. <code>60c</code>. Now: <?= e(rtrim(rtrim(number_format((float) $values['storage_fee_rate'] * 100, 2, '.', ''), '0'), '.')) ?> cents per CF. <code>0</code> turns it off.</div>
                         <?= error_text('storage_fee_rate') ?>
                     </div>
                     <div class="col-12 col-sm-4">

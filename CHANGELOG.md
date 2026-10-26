@@ -2,6 +2,12 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.1.1 - overdue jobs go to More Than 30 Days; storage rate in cents
+
+* A booked job whose 1st available date is **more than 30 days in the past** now shows in **More Than 30 Days** (not Ready for Delivery). These are the jobs that carry the automatic storage fee (CF × 0.6 by default). Ready for Delivery = within 30 days either side of today. The dashboard Overdue panel still lists every overdue job. *Interpretation of the client's note, to be confirmed (assumption K1).*
+* The storage fee rate can be typed in dollars (`0.6`) or cents (`60c`, `60 cents`, `60¢`) on the Settings page.
+* **Upgrade:** upload the new files; no migration. Run `php cli/doctor.php`.
+
 ## 1.1.0 - client change request: one-click moves, automatic storage fee, customer phone
 
 * **Move to In Transit** and **Mark as Delivered** are one-click buttons on every list row and on Job Details. Today's date is saved as the **Loaded date** / **Delivery date**. No dialog; a short confirmation guards against stray clicks. Carrier and driver details are now optional.

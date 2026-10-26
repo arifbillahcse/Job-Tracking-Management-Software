@@ -206,16 +206,20 @@ final class JobRepository
     }
 
     /**
-     * Ready-for-delivery jobs split at today: overdue ones (past date) or the soonest upcoming ones.
-     * Built on the same Ready condition as the list page and the dashboard count.
+     * Booked jobs split at today: overdue ones (past date, in Ready OR already in More Than N Days) or the soonest
+     * upcoming Ready ones. The upcoming slice uses the same Ready condition as the list page and the dashboard count.
      *
      * @return array<int,array<string,mixed>>
      */
     public function readySlice(bool $overdue, int $limit): array
     {
-        [$where, $params] = JobBucket::condition(JobBucket::READY, 'j');
-        $where .= $overdue ? ' AND j.first_available_date < ?' : ' AND j.first_available_date >= ?';
-        $params[] = Clock::today();
+        if ($overdue) {
+            [$where, $params] = ["j.deleted_at IS NULL AND j.status = ? AND j.first_available_date < ?", ['booked', Clock::today()]];
+        } else {
+            [$where, $params] = JobBucket::condition(JobBucket::READY, 'j');
+            $where .= ' AND j.first_available_date >= ?';
+            $params[] = Clock::today();
+        }
 
         return Database::fetchAll(
             "SELECT j.* FROM jobs j WHERE {$where} ORDER BY j.first_available_date ASC, j.id ASC LIMIT ?",
@@ -223,13 +227,12 @@ final class JobRepository
         );
     }
 
-    /** Ready-for-delivery jobs whose available date has already passed. */
+    /** Booked jobs whose available date has already passed (whether they are still Ready or have waited more than N days). */
     public function overdueCount(): int
     {
-        [$where, $params] = JobBucket::condition(JobBucket::READY, 'j');
         return (int) Database::fetchValue(
-            "SELECT COUNT(*) FROM jobs j WHERE {$where} AND j.first_available_date < ?",
-            [...$params, Clock::today()]
+            "SELECT COUNT(*) FROM jobs j WHERE j.deleted_at IS NULL AND j.status = ? AND j.first_available_date < ?",
+            ['booked', Clock::today()]
         );
     }
 

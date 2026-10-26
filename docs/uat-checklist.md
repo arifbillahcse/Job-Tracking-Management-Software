@@ -29,6 +29,8 @@ Sign in as **Admin** unless a scenario says otherwise. Replace `TEST-1` etc. wit
 | B3 | Create `TEST-2` with a 1st available date **45 days from today**. Open **More Than 30 Days**. | `TEST-2` is there and is **not** in Ready for Delivery. | ☐ | |
 | B4 | Create jobs with a date exactly **30** and exactly **31** days from today. | 30 days → Ready for Delivery. 31 days → More Than 30 Days. | ☐ | |
 | B5 | Create a job whose 1st available date was **last week**. | It is in Ready for Delivery and marked **Overdue**. | ☐ | |
+| B6 | Create a job whose 1st available date was **45 days ago** (or use the demo data). | It is in **More Than 30 Days** (not Ready), and shows a storage fee of CF × 0.6. A job 30 days ago is still in Ready. *(assumption K1: client to confirm)* | ☐ | |
+| B7 | Settings: type the storage rate as `60c` and save. | Accepted; shown as 0.6 dollars per CF (60 cents). | ☐ | |
 | B6 | Try to create another job with the same job number. | A message that it is already in use. What you typed is still there. | ☐ | |
 | B7 | Leave First name empty and save. | A message beside that field. Nothing is saved. | ☐ | |
 | B8 | Type a balance of `12.345`. | A message that money can have at most two decimals. | ☐ | |

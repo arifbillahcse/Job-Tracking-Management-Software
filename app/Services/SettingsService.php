@@ -100,6 +100,11 @@ final class SettingsService
         $values['page_size'] = $size;
 
         $rate = is_string($input['storage_fee_rate'] ?? null) ? trim($input['storage_fee_rate']) : '';
+        // Cents are accepted too: "60c", "60 cents" or "60¢" mean 0.6 dollars per CF.
+        if (preg_match('/^(\d{1,6}(?:\.\d{1,4})?|\.\d{1,4})\s*(?:c|¢|cents?)$/iu', $rate, $cents) === 1) {
+            $rate = rtrim(rtrim(number_format((float) $cents[1] / 100, 6, '.', ''), '0'), '.');
+            $rate = $rate === '' ? '0' : $rate;
+        }
         if (preg_match('/^(\d{1,4}(\.\d{1,4})?|\.\d{1,4})$/', $rate) !== 1 || (float) $rate > 1000) {
             $errors['storage_fee_rate'] = 'Enter a rate such as 0.6 (up to 4 decimals, at most 1000). Use 0 for no storage fee.';
         }

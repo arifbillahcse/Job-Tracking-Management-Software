@@ -122,7 +122,30 @@ check(JobBucket::cutoff() === '2026-11-02' && numbers('ready') === ['B-today', '
 check(numbers('later') === ['B-far', 'B-p29', 'B-p30', 'B-p31'], '...and into More Than 30 Days');
 check(JobBucket::label('later') === 'More Than 10 Days', 'the section title follows the threshold');
 set_setting('ready_threshold_days', '0');
-check(numbers('ready') === ['B-today', 'B-yesterday'], 'threshold 0 = only today and overdue');
+check(numbers('ready') === ['B-today'] && in_array('B-yesterday', numbers('later'), true), 'threshold 0 = only today is Ready; every other date (past or future) is More Than 0 Days');
+set_setting('ready_threshold_days', '30');
+
+section('Sections: jobs waiting more than N days move to More Than 30 Days by default');
+foreach (['w30' => '2026-09-23', 'w31' => '2026-09-22', 'w45' => '2026-09-08'] as $name => $date) {
+    mk_job(['job_number' => "W-{$name}", 'first_available_date' => $date]);
+}
+check(in_array('W-w30', numbers('ready'), true) && !in_array('W-w30', numbers('later'), true), 'a job exactly 30 days past its date is still Ready');
+check(in_array('W-w31', numbers('later'), true) && in_array('W-w45', numbers('later'), true) && !in_array('W-w31', numbers('ready'), true), 'a job 31+ days past its date is in More Than 30 Days');
+check(JobBucket::pastCutoff() === '2026-09-23', 'past cutoff = today - 30 days');
+$wd = [];
+foreach ((new JobRepository())->fetch(JobCriteria::forBucket('all'), 100, 0) as $row) {
+    $mine = JobBucket::of($row);
+    foreach (['ready', 'later'] as $b) {
+        if (in_array($row['job_number'], numbers($b), true) !== ($mine === $b)) {
+            $wd[] = $row['job_number'];
+        }
+    }
+}
+check($wd === [], 'the PHP and SQL definitions still agree for overdue jobs');
+check((new JobRepository())->overdueCount() >= 3 && in_array('W-w45', array_column((new JobRepository())->readySlice(true, 50), 'job_number'), true), 'the dashboard Overdue panel and count still include jobs overdue more than N days');
+set_setting('ready_threshold_days', '60');
+check(in_array('W-w45', numbers('ready'), true), 'a bigger threshold brings the older job back to Ready');
+set_setting('ready_threshold_days', '30');
 set_setting('ready_threshold_days', 'abc');
 check(JobBucket::threshold() === 30, 'a non-numeric threshold falls back to 30 instead of emptying Ready');
 set_setting('ready_threshold_days', '-5');
@@ -698,7 +721,7 @@ foreach (['/jobs', '/jobs/ready', '/jobs/more-than-30', '/jobs/in-transit', '/jo
 }
 check(str_contains(call('GET', '/jobs/more-than-30')->body(), 'More Than 30 Days'), 'section titles render');
 set_setting('ready_threshold_days', '45');
-check(str_contains(call('GET', '/jobs/more-than-30')->body(), 'More Than 45 Days') && str_contains(call('GET', '/jobs/ready')->body(), 'within the next 45 days'), 'titles and descriptions follow the threshold setting');
+check(str_contains(call('GET', '/jobs/more-than-30')->body(), 'More Than 45 Days') && str_contains(call('GET', '/jobs/ready')->body(), 'within 45 days of today'), 'titles and descriptions follow the threshold setting');
 set_setting('ready_threshold_days', '30');
 
 Clock::fake(null);

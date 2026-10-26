@@ -267,7 +267,6 @@ function availability_chip(array $job): string
     return $hint === null ? '' : '<span class="jt-chip jt-chip-' . e($hint['tone']) . '">' . e($hint['text']) . '</span>';
 }
 
-/** Tap-to-call link for a phone number; plain text when it has too few digits to dial. HTML, escaped. */
 /** One line explaining where a job's storage fee comes from (plain text; escape with e()). */
 function storage_fee_note(array $job): string
 {
@@ -293,6 +292,7 @@ function storage_fee_note(array $job): string
         : 'Automatic: starts on ' . fmt_date($start) . ' (CF × rate ' . (string) (float) \App\Services\StorageFeeService::rate() . ')';
 }
 
+/** Tap-to-call link for a phone number; plain text when it has too few digits to dial. HTML, escaped. */
 function tel_link(?string $phone): string
 {
     $phone = trim((string) $phone);
