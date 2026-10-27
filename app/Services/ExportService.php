@@ -156,6 +156,8 @@ final class ExportService
             'delivered_on' => ($job['delivery_date'] ?? null) !== null ? (string) $job['delivery_date'] : ($job['delivered_at'] === null ? null : substr((string) $job['delivered_at'], 0, 10)),
             'status' => (string) \App\Core\Config::get('statuses.statuses.' . $job['status'] . '.label', $job['status']),
             'balance', 'storage_fee' => number_format((float) $job[$field], 2, '.', ''),
+            'estimated_total', 'deposit', 'grand_total', 'bh_total', 'paid' => ($job[$field] ?? null) === null ? null : number_format((float) $job[$field], 2, '.', ''),
+            'estimated_cf' => ($job['estimated_cf'] ?? null) === null ? null : rtrim(rtrim(number_format((float) $job['estimated_cf'], 2, '.', ''), '0'), '.'),
             'cf' => $job['cf'] === null ? null : rtrim(rtrim(number_format((float) $job['cf'], 2, '.', ''), '0'), '.'),
             default => $job[$field] ?? null,
         };

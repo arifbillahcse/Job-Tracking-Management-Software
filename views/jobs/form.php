@@ -36,6 +36,9 @@ $input = static function (string $name, string $label, array $opts = []) use ($v
                         <div class="col-12 col-md-4"><?= $input('job_number', 'Job #', ['required' => true, 'maxlength' => 40, 'help' => 'Letters, numbers and - _ / . only. Must be unique.']) ?></div>
                         <div class="col-12 col-md-4"><?= $input('customer_first_name', 'Customer first name', ['required' => true, 'maxlength' => 100]) ?></div>
                         <div class="col-12 col-md-4"><?= $input('customer_last_name', 'Customer last name', ['required' => true, 'maxlength' => 100]) ?></div>
+                        <div class="col-12 col-md-4"><?= $input('foreman_name', 'Foreman', ['maxlength' => 150]) ?></div>
+                        <div class="col-12 col-md-4"><?= $input('job_lot', 'Job lot', ['maxlength' => 60]) ?></div>
+                        <div class="col-12 col-md-4"><?= $input('color', 'Color', ['maxlength' => 60]) ?></div>
                         <div class="col-12 col-md-4"><?= $input('customer_phone', 'Customer phone number', ['type' => 'tel', 'maxlength' => 30, 'inputmode' => 'tel', 'placeholder' => '(555) 010-2231', 'help' => 'Shown as a tap-to-call link on phones.']) ?></div>
                     </div>
                 </div>
@@ -69,8 +72,12 @@ $input = static function (string $name, string $label, array $opts = []) use ($v
                 <div class="card-header bg-transparent fw-semibold">Cargo<?= $editFinancials ? ' &amp; money' : '' ?></div>
                 <div class="card-body">
                     <div class="row g-3">
-                        <div class="col-12"><?= $input('cf', 'CF (cubic feet)', ['type' => 'number', 'step' => '0.01', 'min' => '0', 'inputmode' => 'decimal']) ?></div>
+                        <div class="col-12"><?= $input('estimated_cf', 'E-CF (estimated cubic feet)', ['type' => 'number', 'step' => '0.01', 'min' => '0', 'inputmode' => 'decimal']) ?></div>
+                        <div class="col-12"><?= $input('cf', 'A-CF (actual cubic feet)', ['type' => 'number', 'step' => '0.01', 'min' => '0', 'inputmode' => 'decimal', 'help' => 'The storage fee is calculated from this.']) ?></div>
                         <?php if ($editFinancials): ?>
+                            <?php foreach (['estimated_total' => 'E-Total', 'deposit' => 'Deposit', 'grand_total' => 'Grand total', 'bh_total' => 'BH total', 'paid' => 'Paid'] as $name => $label): ?>
+                                <div class="col-12 col-sm-6 col-xl-12"><?= $input($name, $label, ['type' => 'number', 'step' => '0.01', 'min' => '0', 'inputmode' => 'decimal']) ?></div>
+                            <?php endforeach; ?>
                             <div class="col-12 col-sm-6 col-xl-12"><?= $input('balance', 'Balance', ['type' => 'number', 'step' => '0.01', 'min' => '0', 'inputmode' => 'decimal', 'help' => 'Amount the customer still owes.']) ?></div>
                             <div class="col-12 col-sm-6 col-xl-12">
                                 <?= $input('storage_fee_override', 'Storage fee override', ['type' => 'number', 'step' => '0.01', 'min' => '0', 'inputmode' => 'decimal', 'help' => 'Leave empty for the automatic fee (CF × rate after ' . \App\Services\StorageFeeService::days() . ' days). A number here replaces it.']) ?>

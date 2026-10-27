@@ -739,5 +739,6 @@ require __DIR__ . '/phase7.php';
 require __DIR__ . '/phase8.php';
 require __DIR__ . '/phase9.php';
 require __DIR__ . '/phase10.php';
+require __DIR__ . '/phase11.php';
 
 finish();

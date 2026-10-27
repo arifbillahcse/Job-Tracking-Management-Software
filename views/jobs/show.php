@@ -71,8 +71,15 @@ $dl = static function (string $label, string $valueHtml): string {
                     <?php if ((string) $job['status'] === 'delivered' && !empty($job['delivery_date'])): ?>
                         <?= $dl('Delivery date', e(fmt_date((string) $job['delivery_date']))) ?>
                     <?php endif; ?>
-                    <?= $dl('CF', e(fmt_number($job['cf']) ?: '—')) ?>
+                    <?= $dl('E-CF', e(fmt_number($job['estimated_cf'] ?? null) ?: '—')) ?>
+                    <?= $dl('A-CF', e(fmt_number($job['cf']) ?: '—')) ?>
+                    <?= $dl('Foreman', e($job['foreman_name'] ?? '') ?: '—') ?>
+                    <?= $dl('Job lot', e($job['job_lot'] ?? '') ?: '—') ?>
+                    <?= $dl('Color', e($job['color'] ?? '') ?: '—') ?>
                     <?php if ($showFinancials): ?>
+                        <?php foreach (['estimated_total' => 'E-Total', 'deposit' => 'Deposit', 'grand_total' => 'Grand total', 'bh_total' => 'BH total', 'paid' => 'Paid'] as $field => $label): ?>
+                            <?= $dl($label, ($job[$field] ?? null) === null ? '—' : e(fmt_money($job[$field]))) ?>
+                        <?php endforeach; ?>
                         <?= $dl('Balance', e(fmt_money($job['balance']))) ?>
                         <?= $dl('Storage fee', e(fmt_money($job['storage_fee'])) . '<div class="jt-subtle">' . e(storage_fee_note($job)) . '</div>') ?>
                     <?php endif; ?>

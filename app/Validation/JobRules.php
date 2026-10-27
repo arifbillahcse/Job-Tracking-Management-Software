@@ -9,6 +9,9 @@ namespace App\Validation;
  */
 final class JobRules
 {
+    /** Money fields from the client's sheet, stored as typed (no formula is applied to them). Need the financial permission. */
+    public const MONEY_FIELDS = ['estimated_total', 'deposit', 'grand_total', 'bh_total', 'paid'];
+
     /**
      * @param bool $checkUnique false for bulk imports, which check duplicates themselves in one query
      * @return array<string,string>
@@ -28,12 +31,19 @@ final class JobRules
             'to_location' => 'required|max:190',
             'job_location' => 'nullable|max:190',
             'cf' => 'nullable|money|min_value:0|max_value:99999999.99',
+            'estimated_cf' => 'nullable|money|min_value:0|max_value:99999999.99',
+            'foreman_name' => 'nullable|max:150',
+            'job_lot' => 'nullable|max:60',
+            'color' => 'nullable|max:60',
             'notes' => 'nullable|max:5000',
         ];
 
         if ($withFinancials) {
             $rules['balance'] = 'nullable|money|min_value:0|max_value:9999999999.99';
             $rules['storage_fee'] = 'nullable|money|min_value:0|max_value:9999999999.99'; // import column: becomes the override
+            foreach (self::MONEY_FIELDS as $field) {
+                $rules[$field] = 'nullable|money|min_value:0|max_value:9999999999.99';
+            }
             $rules['storage_fee_override'] = 'nullable|money|min_value:0|max_value:9999999999.99';
         }
 
@@ -107,7 +117,16 @@ final class JobRules
             'from_location' => 'From',
             'to_location' => 'To',
             'job_location' => 'Job location',
-            'cf' => 'CF',
+            'cf' => 'A-CF',
+            'estimated_cf' => 'E-CF',
+            'estimated_total' => 'E-Total',
+            'deposit' => 'Deposit',
+            'grand_total' => 'Grand total',
+            'bh_total' => 'BH total',
+            'paid' => 'Paid',
+            'foreman_name' => 'Foreman',
+            'job_lot' => 'Job lot',
+            'color' => 'Color',
             'balance' => 'Balance',
             'storage_fee' => 'Storage fee',
             'storage_fee_override' => 'Storage fee override',
