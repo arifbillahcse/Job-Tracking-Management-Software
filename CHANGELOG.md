@@ -2,6 +2,14 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.1.4 - the client's sheet fields on a job (roadmap phase 2)
+
+* New job fields from the client's spreadsheet: **E-CF** (estimated cubic feet), **E-Total**, **Deposit**, **Grand total**, **BH total**, **Paid**, **Foreman**, **Job lot** and **Color**. The existing CF is now labelled **A-CF** (actual CF); the storage fee is calculated from it.
+* The money fields (E-Total, Deposit, Grand total, BH total, Paid) are visible and editable only with the same financial permissions as Balance. E-CF, Foreman, Job lot and Color are ordinary fields.
+* **They are stored exactly as typed. No formula is applied** (the sheet's Grand total, BH total and Balance relationships are not confirmed; see assumption M2).
+* Add/Edit Job, Job Details, search (foreman, job lot), CSV/Excel export and import all carry the new columns. The import reads the client's own headings (`Forman`, `A-CF`, `E-Total`, `Depo`, ...).
+* **Upgrade:** upload the new files, then `php cli/migrate.php` (migration 009 only adds empty columns; nothing existing changes) and `php cli/doctor.php`.
+
 ## 1.1.3 - section rule default set back to the 1st available date
 
 * The client's sheet says a job is ready for delivery when its **1st available date** is within 30 days, and that the **storage fee** counts 30 days from the **pickup date**. So the default of *Count the days from* is the **1st available date** again; the Pickup date choice stays available in Settings.

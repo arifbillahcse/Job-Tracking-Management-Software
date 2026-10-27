@@ -149,6 +149,16 @@ The generated role x route matrix is in `docs/permission-matrix.md` (`php cli/pe
 | L1 | The client asked for the 30-day period to run from the **Pickup Date**. Optional rule (setting *Count the days from* = Pickup date; **not the default since 1.1.3**, because the client's sheet says a job is ready when its 1st available date is within 30 days): a booked job is in **More Than 30 Days** when its pickup date is more than N days (default 30) before today, otherwise in **Ready for Delivery**. A job whose pickup is still in the future counts as Ready. A job **without a pickup date** uses its 1st available date instead (the list shows a "no pickup date" note). Exactly 30 days ago is still Ready; 31 days ago is More Than 30 Days. K1 describes the default (*1st available date*). The pickup date clock is meant for the **storage fee** (client sheet: fee after 30 days from the pick-up date), coming in the next phase. | `JobBucket`, `settings.section_basis` |
 | L2 | The **storage fee** still counts from the 1st available date (J1) until the next roadmap phase moves it to the pickup date, so for a short time the fee and the section can disagree. | `StorageFeeService` |
 
+## The client's sheet fields (version 1.1.4)
+
+| # | Assumption | Where |
+|---|------------|-------|
+| M1 | The sheet's **A-CF** is the existing `cf` column (actual cubic feet, the base of the storage fee); **E-CF** is a new estimated-cubic-feet field. | `jobs.cf`, `jobs.estimated_cf` |
+| M2 | **No formulas.** E-Total, Deposit, Grand total, BH total and Paid are stored exactly as typed. One sample row in the sheet suggests BH total = Grand total - Deposit (3500 - 1000 = 2500) and Balance = BH total - Paid (2500 - 1250 = 1250), but a single row does not prove a rule, and Grand total does not equal A-CF x any obvious rate. Nothing is calculated until the client confirms the rule. | `JobService` |
+| M3 | The sheet's separate **Balance Due** and **Balance** columns are not both stored: `balance` is the one field. Importing a file that has both columns is refused with a "more than one column matches" message until one is removed. Balance Due = Balance + storage fee on the More Than 30 Days sheet is not applied. | `jobs.balance` |
+| M4 | **Foreman** on a job is plain text for now. The foreman and trip module (later phase) will link jobs to foremen. | `jobs.foreman_name` |
+| M5 | The money fields follow the existing financial permissions: `jobs.view_financials` to see, `jobs.edit_financials` to change/import. Staff cannot see or write them. | `JobService`, `JobFields` |
+
 ## Security defaults (can be tuned in `app/Config/app.php` / `.env`)
 
 * Sessions end after **30 minutes idle** or **8 hours** in total.
