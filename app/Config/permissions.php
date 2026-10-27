@@ -27,6 +27,7 @@ return [
         'roles.manage'          => ['Administration', 'Manage roles and permissions'],
         'audit.view'            => ['Administration', 'View the audit log'],
         'settings.manage'       => ['Administration', 'Change application settings'],
+        'settings.storage_fee'  => ['Administration', 'Change the storage fee rate and rules'],
     ],
 
     'roles' => [
@@ -41,6 +42,7 @@ return [
             'permissions' => [
                 'dashboard.view', 'jobs.view', 'jobs.create', 'jobs.edit', 'jobs.delete', 'jobs.status',
                 'jobs.reopen', 'jobs.view_financials', 'jobs.edit_financials', 'jobs.import', 'jobs.export',
+                'settings.storage_fee',
             ],
         ],
         'Staff' => [

@@ -40,7 +40,7 @@ for jar in SJ MJ; do
   done
 done
 check "Staff: forged POST (user delete, role delete, matrix) -> 403" '[[ $(post "$SJ" /users/1/delete | head -1 | grep -c 403) == 1 && $(post "$SJ" /roles/1/delete | head -1 | grep -c 403) == 1 && $(post "$SJ" /roles/matrix version=x | head -1 | grep -c 403) == 1 ]]'
-check "Staff and Manager see no administration links" '! get "$SJ" /dashboard | text | grep -q "Roles & Permissions" && ! get "$MJ" /dashboard | text | grep -q "Administration"'
+check "Staff and Manager see no administration links (a Manager only gets Storage Fee)" '! get "$SJ" /dashboard | text | grep -q "Roles & Permissions" && ! get "$SJ" /dashboard | text | grep -q "Administration" && ! get "$MJ" /dashboard | text | grep -qE "Users|Roles & Permissions|Audit Log"'
 check "Admin sees the Administration section" 'get "$AJ" /dashboard | text | grep -q "Administration" && get "$AJ" /dashboard | text | grep -q "Users"'
 check "signed-out visitors are redirected" '[[ $(code "$BASE/users") == 302 && $(code "$BASE/roles/matrix") == 302 ]]'
 

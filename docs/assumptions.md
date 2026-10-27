@@ -167,6 +167,13 @@ The generated role x route matrix is in `docs/permission-matrix.md` (`php cli/pe
 | N2 | **Charged every month** (client sheet: "times whatever months stay, no prorating or at rate we decide"). Fee = A-CF x rate x months. Provisional month length: **30 days** (day 31-60 = 1 month, 61-90 = 2, ...), and a part month counts as a whole month. The sheet does not say how a month is counted; this is our reading and the length is one constant (`MONTH_DAYS`). Setting *Charged = once* restores the single charge (J1). The sheet's "at rate we decide" is the configurable rate (cents accepted, e.g. `60c`). | `StorageFeeService::months()` |
 | N3 | Automatic fees are re-assessed every day. Turning on monthly charging therefore raises the fee on open jobs older than 60 days at the next refresh. Fees typed by hand (override) and the fee of delivered jobs are never changed. | `StorageFeeService::refresh()` |
 
+## Storage fee columns and permission (version 1.1.6)
+
+| # | Assumption | Where |
+|---|------------|-------|
+| P1 | The **Storage fee** column is shown in all five lists and in every export, to users who may see financials (`jobs.view_financials` or `jobs.edit_financials`). Staff never see it. | `views/jobs/list.php`, `ExportService` |
+| P2 | "Authorized users can change the rate" is the new permission `settings.storage_fee` and its own **Storage Fee** page (only the storage fee settings; other settings in the request are ignored). Admin and, on a new install, Manager have it; on an existing install an admin ticks it for Manager in the permission matrix (seeding never changes a role that already exists). | `SettingsController::storageUpdate` |
+
 ## Security defaults (can be tuned in `app/Config/app.php` / `.env`)
 
 * Sessions end after **30 minutes idle** or **8 hours** in total.

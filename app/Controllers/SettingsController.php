@@ -40,4 +40,23 @@ final class SettingsController extends Controller
         }
         return $this->redirect('/settings');
     }
+
+    public function storageEdit(Request $request): Response
+    {
+        return $this->view('settings/storage', ['title' => 'Storage fee', 'values' => SettingsService::editable()]);
+    }
+
+    /** Only the storage fee keys are read; anything else in the request is ignored. */
+    public function storageUpdate(Request $request): Response
+    {
+        $result = SettingsService::validate($request->allPost() + SettingsService::editable());
+        $errors = array_intersect_key($result['errors'], array_flip(SettingsService::STORAGE_KEYS));
+        if ($errors !== []) {
+            return $this->redirectWithErrors($request, array_map(static fn (string $m): array => [$m], $errors), '/settings/storage-fee');
+        }
+
+        $changes = SettingsService::update(array_intersect_key($result['values'], array_flip(SettingsService::STORAGE_KEYS)));
+        $this->flash($changes['new'] === [] ? 'info' : 'success', $changes['new'] === [] ? 'Nothing changed.' : 'Storage fee settings saved. Open jobs have been re-calculated.');
+        return $this->redirect('/settings/storage-fee');
+    }
 }

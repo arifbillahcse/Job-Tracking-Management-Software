@@ -27,7 +27,7 @@ final class ExportService
     public const XLSX_MAX_ROWS = 20000;
     private const CHUNK = 500;
 
-    private const BASE = ['job_number', 'customer_first_name', 'customer_last_name', 'customer_phone', 'pickup_date', 'first_available_date', 'from_location', 'to_location', 'cf', 'balance'];
+    private const BASE = ['job_number', 'customer_first_name', 'customer_last_name', 'customer_phone', 'pickup_date', 'first_available_date', 'from_location', 'to_location', 'cf', 'balance', 'storage_fee'];
 
     public function __construct(private JobRepository $jobs = new JobRepository())
     {
@@ -40,7 +40,7 @@ final class ExportService
     {
         $columns = match ($bucket) {
             JobBucket::READY => self::BASE,
-            JobBucket::LATER => [...self::BASE, 'storage_fee'],
+            JobBucket::LATER => self::BASE,
             JobBucket::TRANSIT => [...self::BASE, 'loaded_date', 'carrier_name', 'driver_name', 'driver_phone'],
             JobBucket::DELIVERED => [...self::BASE, 'loaded_date', 'delivered_on'],
             default => array_keys(JobFields::all()),

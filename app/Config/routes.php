@@ -90,4 +90,7 @@ return static function (Router $router): void {
     $router->get('/audit/{id:int}', [AuditController::class, 'show'])->can('audit.view')->name('audit.show');
     $router->get('/settings', [SettingsController::class, 'edit'])->can('settings.manage')->name('settings');
     $router->post('/settings', [SettingsController::class, 'update'])->can('settings.manage')->name('settings.update');
+    // The storage fee rules alone, for people who may change the rate but not the other settings.
+    $router->get('/settings/storage-fee', [SettingsController::class, 'storageEdit'])->can('settings.storage_fee')->name('settings.storage');
+    $router->post('/settings/storage-fee', [SettingsController::class, 'storageUpdate'])->can('settings.storage_fee')->name('settings.storage.update');
 };

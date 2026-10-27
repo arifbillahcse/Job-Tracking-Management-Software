@@ -58,7 +58,7 @@ final class SettingsService
     public const KEYS = ['company_name', 'ready_threshold_days', 'section_basis', 'currency_symbol', 'timezone', 'page_size', 'storage_fee_rate', 'storage_fee_after_days', 'storage_fee_basis', 'storage_fee_mode'];
 
     /** Changing any of these re-assesses every open job's storage fee. */
-    private const STORAGE_KEYS = ['storage_fee_rate', 'storage_fee_after_days', 'storage_fee_basis', 'storage_fee_mode'];
+    public const STORAGE_KEYS = ['storage_fee_rate', 'storage_fee_after_days', 'storage_fee_basis', 'storage_fee_mode'];
 
     /**
      * @param array<string,mixed> $input

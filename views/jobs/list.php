@@ -30,11 +30,11 @@ $all = [
     'delivered' => ['Delivered on', 'delivered', ''],
 ];
 $layouts = [
-    JobBucket::ALL => ['job', 'customer', 'pickup', 'available', 'route', 'cf', 'balance', 'status'],
-    JobBucket::READY => ['job', 'customer', 'pickup', 'available', 'route', 'cf', 'balance'],
+    JobBucket::ALL => ['job', 'customer', 'pickup', 'available', 'route', 'cf', 'balance', 'storage', 'status'],
+    JobBucket::READY => ['job', 'customer', 'pickup', 'available', 'route', 'cf', 'balance', 'storage'],
     JobBucket::LATER => ['job', 'customer', 'pickup', 'available', 'route', 'cf', 'balance', 'storage'],
-    JobBucket::TRANSIT => ['job', 'customer', 'route', 'cf', 'balance', 'dispatched', 'carrierblock'],
-    JobBucket::DELIVERED => ['job', 'customer', 'pickup', 'available', 'route', 'cf', 'balance', 'delivered'],
+    JobBucket::TRANSIT => ['job', 'customer', 'route', 'cf', 'balance', 'storage', 'dispatched', 'carrierblock'],
+    JobBucket::DELIVERED => ['job', 'customer', 'pickup', 'available', 'route', 'cf', 'balance', 'storage', 'delivered'],
 ];
 $columns = array_values(array_filter(
     $layouts[$bucket],

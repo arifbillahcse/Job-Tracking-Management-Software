@@ -641,10 +641,10 @@ $csvOf = static function (string $bucket, array $query = [], bool $financials = 
     }
     return [$text, $rows];
 };
-foreach ([['ready', ['Job #', 'Customer First Name', 'Customer Last Name', 'Customer Phone', 'Pickup Date', '1st Available Date', 'From', 'To', 'A-CF', 'Balance']],
+foreach ([['ready', ['Job #', 'Customer First Name', 'Customer Last Name', 'Customer Phone', 'Pickup Date', '1st Available Date', 'From', 'To', 'A-CF', 'Balance', 'Storage Fee']],
     ['later', ['Job #', 'Customer First Name', 'Customer Last Name', 'Customer Phone', 'Pickup Date', '1st Available Date', 'From', 'To', 'A-CF', 'Balance', 'Storage Fee']],
-    ['transit', ['Job #', 'Customer First Name', 'Customer Last Name', 'Customer Phone', 'Pickup Date', '1st Available Date', 'From', 'To', 'A-CF', 'Balance', 'Loaded Date', 'Carrier Name', 'Driver Name', 'Phone']],
-    ['delivered', ['Job #', 'Customer First Name', 'Customer Last Name', 'Customer Phone', 'Pickup Date', '1st Available Date', 'From', 'To', 'A-CF', 'Balance', 'Loaded Date', 'Delivered Date']]] as [$bucket, $expected]) {
+    ['transit', ['Job #', 'Customer First Name', 'Customer Last Name', 'Customer Phone', 'Pickup Date', '1st Available Date', 'From', 'To', 'A-CF', 'Balance', 'Storage Fee', 'Loaded Date', 'Carrier Name', 'Driver Name', 'Phone']],
+    ['delivered', ['Job #', 'Customer First Name', 'Customer Last Name', 'Customer Phone', 'Pickup Date', '1st Available Date', 'From', 'To', 'A-CF', 'Balance', 'Storage Fee', 'Loaded Date', 'Delivered Date']]] as [$bucket, $expected]) {
     [$text, $rows] = $csvOf($bucket);
     check($rows[0] === $expected, "{$bucket}: headings follow the client's sheet for that section");
 }

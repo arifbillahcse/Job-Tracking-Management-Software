@@ -2,6 +2,13 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.1.6 - Storage Fee column in every list; storage fee permission (roadmap phase 4)
+
+* **A-CF and Storage fee columns** are now in All Jobs, Ready for Delivery, More Than 30 Days, In Transit and Delivered (the fee only for users who may see financials). Every export has a Storage Fee column too (same rule).
+* New permission **`settings.storage_fee`** ("Change the storage fee rate and rules"): a person with it gets a **Storage Fee** page with only the rate, days, counting basis and month rule, without the rest of Settings. Admin has it; **Manager has it by default on a new install**. Changes are audited and open jobs are re-calculated at once.
+* **Upgrade:** upload the new files, then `php cli/seed.php` (adds the permission and gives it to Admin). On an existing install tick **Change the storage fee rate and rules** for Manager under Roles & Permissions if you want managers to have it. No migration.
+* The sheet's *Balance Due* column is not added: how it differs from Balance is not defined (assumption M3).
+
 ## 1.1.5 - storage fee counted from the pickup date, charged every month (roadmap phase 3)
 
 * **Storage fee = A-CF x rate x months** (client sheet: "A-CF @0.6 after 30 days from the pick up date and times whatever months stay, no prorating"). Month 1 starts on day 31 after the **pickup date**; each further 30 days adds one more month; part of a month counts as a whole month. Example: A-CF 1000 x 0.6 = 600 for days 31-60, 1200 for days 61-90.

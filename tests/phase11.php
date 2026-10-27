@@ -182,3 +182,60 @@ sign_in(make_user('Admin', 'n-admin@example.com'));
 $page = plain(call('GET', '/settings')->body());
 check(str_contains(call('GET', '/settings')->body(), 'name="storage_fee_mode"') && str_contains($page, 'pickup date') && str_contains($page, 'with no prorating'), 'the settings page offers the mode and the pickup date, and explains no prorating');
 Clock::fake(null);
+
+// ================================================================ roadmap phase 4: columns everywhere, storage fee permission
+
+section('CF and Storage Fee columns in every list, and who may change the rate');
+fresh_db();
+fresh_session();
+Clock::fake('2026-10-23');
+$admin = make_user('Admin', 'q4-admin@example.com');
+$mgr = make_user('Manager', 'q4-mgr@example.com');
+$stf = make_user('Staff', 'q4-stf@example.com');
+p10_set(['storage_fee_basis' => 'pickup', 'storage_fee_mode' => 'monthly']);
+mk_job(['job_number' => 'Q4-R', 'cf' => '100', 'first_available_date' => '2026-11-01']);
+mk_job(['job_number' => 'Q4-L', 'cf' => '100', 'first_available_date' => '2027-03-01']);
+mk_job(['job_number' => 'Q4-T', 'cf' => '100', 'status' => 'in_transit', 'first_available_date' => '2026-11-01', 'storage_fee' => '60.00', 'storage_fee_override' => '60.00']);
+mk_job(['job_number' => 'Q4-D', 'cf' => '100', 'status' => 'delivered', 'first_available_date' => '2026-09-01', 'storage_fee' => '60.00', 'delivered_at' => '2026-10-01 00:00:00']);
+sign_in($mgr);
+foreach (['/jobs', '/jobs/ready', '/jobs/more-than-30', '/jobs/in-transit', '/jobs/delivered'] as $path) {
+    $h = plain(call('GET', $path)->body());
+    check(str_contains($h, 'A-CF') && str_contains($h, 'Storage fee'), "{$path} shows the A-CF and Storage fee columns");
+}
+check(str_contains(plain(call('GET', '/jobs/in-transit')->body()), '$60.00'), 'the fee itself is shown on the In Transit list');
+foreach (['ready', 'later', 'transit', 'delivered', 'all'] as $bucket) {
+    check(in_array('Storage Fee', array_map([\App\Services\Import\JobFields::class, 'label'], ExportService::columns($bucket, true)), true) && !in_array('storage_fee', ExportService::columns($bucket, false), true), "the {$bucket} export has a Storage Fee column, but not for a user without financial access");
+}
+fresh_session();
+sign_in($stf);
+foreach (['/jobs', '/jobs/ready', '/jobs/more-than-30', '/jobs/in-transit', '/jobs/delivered'] as $path) {
+    $h = plain(call('GET', $path)->body());
+    check(str_contains($h, 'A-CF') && !str_contains($h, 'Storage fee'), "{$path}: Staff sees A-CF but no Storage fee column");
+}
+
+check(Database::fetchValue("SELECT COUNT(*) FROM permissions WHERE name = 'settings.storage_fee'") == 1, 'the settings.storage_fee permission exists');
+$has = static fn (string $role): bool => (int) Database::fetchValue("SELECT COUNT(*) FROM role_permissions rp JOIN permissions p ON p.id = rp.permission_id JOIN roles r ON r.id = rp.role_id WHERE r.name = ? AND p.name = 'settings.storage_fee'", [$role]) === 1;
+check($has('Admin') && $has('Manager') && !$has('Staff'), 'Admin and Manager have it by default, Staff does not');
+check(call('GET', '/settings/storage-fee')->status() === 403 && call('POST', '/settings/storage-fee', ['storage_fee_rate' => '9'])->status() === 403, 'Staff cannot open or post the storage fee page');
+fresh_session();
+sign_in($mgr);
+check(call('GET', '/settings')->status() === 403, 'a Manager still cannot open the full Settings page');
+$page = call('GET', '/settings/storage-fee');
+$pb = $page->body();
+check($page->status() === 200 && str_contains($pb, 'name="storage_fee_rate"') && str_contains($pb, 'name="storage_fee_mode"') && !str_contains($pb, 'name="company_name"'), 'a Manager gets a page with only the storage fee settings');
+$j = mk_job(['job_number' => 'Q4-FEE', 'cf' => '1000', 'first_available_date' => '2026-12-01', 'pickup_date' => '2026-09-01']);   // 52 days -> 1 month
+StorageFeeService::refresh();
+check(p10_fee($j) === '600.00', 'a job picked up 52 days ago has a fee of 600.00 at rate 0.6');
+$r = call('POST', '/settings/storage-fee', ['storage_fee_rate' => '75c', 'storage_fee_after_days' => '30', 'storage_fee_basis' => 'pickup', 'storage_fee_mode' => 'monthly', 'company_name' => 'Hacked', 'ready_threshold_days' => '5']);
+check($r->status() === 302 && StorageFeeService::rate() === '0.75', 'a Manager can change the rate (cents accepted)');
+check(p10_fee($j) === '750.00', '...and open jobs are re-calculated at once');
+check(SettingsService::get('company_name') !== 'Hacked' && SettingsService::get('ready_threshold_days') === '30', 'other settings in the request are ignored');
+$audit = (string) Database::fetchValue("SELECT new_values FROM audit_logs WHERE action = 'settings_updated' ORDER BY id DESC LIMIT 1");
+check(str_contains($audit, 'storage_fee_rate') && !str_contains($audit, 'company_name'), 'the change is audited, with only the storage keys');
+$r = call('POST', '/settings/storage-fee', ['storage_fee_rate' => 'abc', 'storage_fee_after_days' => '30', 'storage_fee_basis' => 'pickup', 'storage_fee_mode' => 'monthly']);
+check(StorageFeeService::rate() === '0.75' && isset($_SESSION['_flash_next']['errors']), 'a bad rate is refused and nothing changes');
+$r = call('POST', '/settings/storage-fee', ['storage_fee_rate' => '1', 'storage_fee_after_days' => '30', 'storage_fee_basis' => 'nonsense', 'storage_fee_mode' => 'monthly']);
+check(StorageFeeService::rate() === '0.75', 'an invalid basis refuses the whole save');
+$n = plain((string) preg_replace('#.*<aside(.*?)</aside>.*#s', '$1', call('GET', '/account')->body()));
+check(str_contains($n, 'Storage Fee') && !preg_match('/\bSettings\b/', $n), 'the menu shows Storage Fee (not Settings) to a Manager');
+Clock::fake(null);
