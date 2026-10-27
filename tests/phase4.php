@@ -291,7 +291,7 @@ $post = static function (array $changes) use ($roles, $m): array {
 $before = $roles->matrix()['version'];
 $r = $roles->saveMatrix($post(['Staff' => ['jobs.view_financials' => true, 'jobs.create' => false]]), $before);
 check($r['ok'] && $r['roles_changed'] === 1 && has_perm('Staff', 'jobs.view_financials') && !has_perm('Staff', 'jobs.create'), 'ticking and unticking boxes updates exactly those permissions');
-check(has_perm('Staff', 'jobs.view') && count(role_perms('Manager')) === 12, 'other permissions and roles are untouched');
+check(has_perm('Staff', 'jobs.view') && count(role_perms('Manager')) === 16, 'other permissions and roles are untouched');
 $a = Database::fetchOne("SELECT * FROM audit_logs WHERE action = 'role_permissions_changed' ORDER BY id DESC LIMIT 1");
 check(str_contains((string) $a['new_values'], 'jobs.view_financials') && str_contains((string) $a['old_values'], 'jobs.create'), 'the audit entry lists what was added and removed');
 check($roles->matrix()['version'] !== $before, 'the version changes when permissions change');

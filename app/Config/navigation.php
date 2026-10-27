@@ -18,6 +18,9 @@ return [
 
     ['group' => 'Jobs', 'label' => 'Import Jobs',        'path' => '/jobs/import',       'icon' => 'upload',       'permission' => 'jobs.import'],
 
+    ['group' => 'Foremen & Trips', 'label' => 'Trips',   'path' => '/trips',   'icon' => 'truck', 'permission' => 'trips.view', 'match' => '#^/trips(/(create|\\d+(/.*)?))?$#'],
+    ['group' => 'Foremen & Trips', 'label' => 'Foremen', 'path' => '/foremen', 'icon' => 'users', 'permission' => 'foremen.manage', 'match' => '#^/foremen(/(create|\\d+(/.*)?))?$#'],
+
     ['group' => 'Administration', 'label' => 'Users',             'path' => '/users', 'icon' => 'users',  'permission' => 'users.manage'],
     ['group' => 'Administration', 'label' => 'Roles & Permissions', 'path' => '/roles', 'icon' => 'shield', 'permission' => 'roles.manage'],
 

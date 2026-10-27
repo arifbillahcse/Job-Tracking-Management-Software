@@ -26,6 +26,10 @@ return [
         'users.manage'          => ['Administration', 'Manage users'],
         'roles.manage'          => ['Administration', 'Manage roles and permissions'],
         'audit.view'            => ['Administration', 'View the audit log'],
+        'trips.view'            => ['Trips', 'View foreman trips'],
+        'trips.manage'          => ['Trips', 'Create, edit and delete foreman trips'],
+        'trips.financials'      => ['Trips', 'See and edit trip expenses (diesel, hotels, helpers, ...)'],
+        'foremen.manage'        => ['Trips', 'Manage foremen'],
         'settings.manage'       => ['Administration', 'Change application settings'],
         'settings.storage_fee'  => ['Administration', 'Change the storage fee rate and rules'],
     ],
@@ -42,7 +46,7 @@ return [
             'permissions' => [
                 'dashboard.view', 'jobs.view', 'jobs.create', 'jobs.edit', 'jobs.delete', 'jobs.status',
                 'jobs.reopen', 'jobs.view_financials', 'jobs.edit_financials', 'jobs.import', 'jobs.export',
-                'settings.storage_fee',
+                'settings.storage_fee', 'trips.view', 'trips.manage', 'trips.financials', 'foremen.manage',
             ],
         ],
         'Staff' => [

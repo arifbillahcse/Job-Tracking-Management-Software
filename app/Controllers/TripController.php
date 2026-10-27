@@ -1,0 +1,132 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Controllers;
+
+use App\Core\Controller;
+use App\Core\ErrorPages;
+use App\Core\Request;
+use App\Core\Response;
+use App\Core\Session;
+use App\Helpers\Paginator;
+use App\Repositories\ForemanRepository;
+use App\Services\TripCriteria;
+use App\Services\TripService;
+
+/**
+ * Foreman trips. Thin: TripService validates and decides; this picks the response.
+ * Unknown or deleted ids answer 404.
+ */
+final class TripController extends Controller
+{
+    private TripService $trips;
+
+    public function __construct()
+    {
+        $this->trips = new TripService();
+    }
+
+    public function index(Request $request): Response
+    {
+        $criteria = TripCriteria::fromRequest($request);
+        $total = $this->trips->count($criteria);
+        $paginator = new Paginator($total, TripCriteria::PER_PAGE, $criteria->page);
+
+        return $this->view('trips/index', [
+            'title' => 'Trips',
+            'trips' => $total === 0 ? [] : $this->trips->search($criteria, TripCriteria::PER_PAGE, $paginator->offset()),
+            'criteria' => $criteria,
+            'paginator' => $paginator,
+            'foremen' => (new ForemanRepository())->options(),
+            'showMoney' => $this->trips->canSeeFinancials(),
+        ]);
+    }
+
+    public function show(Request $request, int $id): Response
+    {
+        $trip = $this->trips->find($id);
+        if ($trip === null) {
+            return ErrorPages::response(404);
+        }
+        return $this->view('trips/show', ['title' => 'Trip ' . $trip['trip_number'], 'trip' => $trip, 'showMoney' => $this->trips->canSeeFinancials()]);
+    }
+
+    public function create(Request $request): Response
+    {
+        return $this->form('New Trip', null, '/trips', '/trips', 'Create trip');
+    }
+
+    public function store(Request $request): Response
+    {
+        $prepared = $this->trips->prepare($request->allPost());
+        if ($prepared['errors'] !== []) {
+            return $this->redirectWithErrors($request, $prepared['errors'], '/trips/create');
+        }
+
+        $id = $this->trips->create($prepared['header'], $prepared['rows']);
+        $this->flash('success', 'Trip ' . $prepared['header']['trip_number'] . ' was created.');
+        return $this->redirect('/trips/' . $id);
+    }
+
+    public function edit(Request $request, int $id): Response
+    {
+        $trip = $this->trips->find($id);
+        if ($trip === null) {
+            return ErrorPages::response(404);
+        }
+        return $this->form('Edit Trip ' . $trip['trip_number'], $trip, '/trips/' . $id, '/trips/' . $id, 'Save changes');
+    }
+
+    public function update(Request $request, int $id): Response
+    {
+        if ($this->trips->find($id) === null) {
+            return ErrorPages::response(404);
+        }
+
+        $editUrl = '/trips/' . $id . '/edit';
+        $prepared = $this->trips->prepare($request->allPost(), $id, $this->trips->existingRows($id));
+        if ($prepared['errors'] !== []) {
+            return $this->redirectWithErrors($request, $prepared['errors'], $editUrl);
+        }
+
+        $result = $this->trips->update($id, $prepared['header'], $prepared['rows'], $request->str('loaded_at'));
+        if ($result['conflict']) {
+            Session::flash('alert', [
+                'type' => 'warning',
+                'message' => 'Someone else changed this trip while you were editing. Your entries are shown below; review them and save again to overwrite.',
+            ]);
+            return $this->redirectWithErrors($request, [], $editUrl);
+        }
+        if (!$result['ok']) {
+            return ErrorPages::response(404);
+        }
+
+        $this->flash('success', $result['changed'] ? 'Trip ' . $prepared['header']['trip_number'] . ' was updated.' : 'No changes were made.');
+        return $this->redirect('/trips/' . $id);
+    }
+
+    public function destroy(Request $request, int $id): Response
+    {
+        $number = $this->trips->delete($id);
+        if ($number === null) {
+            return ErrorPages::response(404);
+        }
+        $this->flash('success', 'Trip ' . $number . ' was deleted. The jobs on it are not affected.');
+        return $this->redirect('/trips');
+    }
+
+    /** @param array<string,mixed>|null $trip */
+    private function form(string $title, ?array $trip, string $action, string $cancelTo, string $submitLabel): Response
+    {
+        return $this->view('trips/form', [
+            'title' => $title,
+            'trip' => $trip,
+            'action' => $action,
+            'cancelTo' => $cancelTo === '/trips' ? '/trips' : $cancelTo,
+            'submitLabel' => $submitLabel,
+            'foremen' => (new ForemanRepository())->options($trip === null ? null : (int) $trip['foreman_id']),
+            'editMoney' => $this->trips->canSeeFinancials(),
+        ]);
+    }
+}

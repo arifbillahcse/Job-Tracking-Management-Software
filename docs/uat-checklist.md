@@ -89,6 +89,19 @@ Sign in as **Admin** unless a scenario says otherwise. Replace `TEST-1` etc. wit
 | F6 | **Audit Log**: find what you did today. Filter by person and by date. | Each action with who, when and the before/after values. No passwords anywhere. | ☐ | |
 | F7 | **Settings**: change the day limit from 30 to 45. | Jobs 31 to 45 days away move to Ready for Delivery by themselves. Change it back. | ☐ | |
 
+## H. Foreman trips
+
+| # | Do this | You should see | Pass | Notes |
+|---|---------|----------------|------|-------|
+| H1 | Open **Foremen** and add a foreman (name, phone). | He is listed as Active. Adding the same name again is refused. | ☐ | |
+| H2 | Open **Trips -> New trip**. Enter a trip number, choose the foreman, dates, **Collected by**. In the first row type the job number of an existing job, a BH, Diesel, Hotels, Helper, Misc, Commission, Extra and a remark. | Saved. The trip page shows the customer and From of the job, each amount exactly as typed, a Totals row and **Total expenses** (the sum of the six columns). | ☐ | |
+| H3 | Add a second job on the same trip with a Diesel of 0.20 when the first has 120.10. | Diesel total is 120.30 (no lost cent). | ☐ | |
+| H4 | Type a job number that does not exist, a deleted job, or the same job twice. | Each is refused with a message next to the row. | ☐ | |
+| H5 | Search Trips by trip number, foreman, collected by, a job number and a customer name; filter by foreman and by dates. | The right trips only. | ☐ | |
+| H6 | Edit the trip: change an amount, remove a job, add one. Open the Audit Log. | Saved; "Trip updated" shows what changed. | ☐ | |
+| H7 | Sign in as a user whose role has Trips but **not** "See and edit trip expenses". | No expense columns, totals or inputs anywhere; changing a remark does not erase the amounts (check again as Manager). | ☐ | |
+| H8 | Delete a trip. | It disappears from the list; the jobs on it are not affected. | ☐ | |
+
 ## G. Phone and tablet
 
 | # | Do this | You should see | Pass | Notes |
@@ -98,6 +111,8 @@ Sign in as **Admin** unless a scenario says otherwise. Replace `TEST-1` etc. wit
 | G3 | Create a job and move it to In Transit from the phone. | It works as on a computer. | ☐ | |
 
 ## Questions we still need your answer on
+
+_Foreman trips:_ what do **BH**, **Total to BH**, **Addio**, **Job Beg** and the **15%** mean, and how are **Grand Total, BH Total, Paid and Balance** worked out? Is Total expenses = Diesel + Hotels + Helper + Misc + Commission + Extra? (Assumptions T1-T4.)
 
 These are assumptions we made so the demo could be built. Please confirm or correct each one (details in `docs/assumptions.md`).
 

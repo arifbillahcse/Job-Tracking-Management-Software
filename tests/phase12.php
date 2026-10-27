@@ -1,0 +1,259 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Roadmap phases 5 and 6 (version 1.2): foremen, foreman trips with per-job expense rows, migration 010, permissions,
+ * audit. Included by tests/run.php (after phase11.php).
+ */
+
+use App\Core\Clock;
+use App\Core\Database;
+use App\Database\Migrator;
+use App\Repositories\JobRepository;
+use App\Repositories\TripRepository;
+use App\Services\TripCriteria;
+use App\Services\TripService;
+use App\Services\TripTotals;
+
+section('Trips: migration 010 keeps existing data');
+$dir = sys_get_temp_dir() . '/jt-mig10-' . bin2hex(random_bytes(4));
+mkdir($dir);
+foreach (glob(BASE_PATH . '/database/migrations/00[1-9]_*.sql') as $f) {
+    copy($f, $dir . '/' . basename($f));
+}
+$pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
+Database::setConnection($pdo);
+(new Migrator($dir))->migrate();
+$now = '2026-01-01 00:00:00';
+$pdo->exec("INSERT INTO jobs (job_number, customer_first_name, customer_last_name, first_available_date, from_location, to_location, status, cf, balance, created_at, updated_at) VALUES ('OLD-10', 'A', 'B', '2026-01-01', 'X', 'Y', 'booked', 900, 50, '{$now}', '{$now}')");
+copy(BASE_PATH . '/database/migrations/010_create_foremen_and_trips.sql', $dir . '/010_create_foremen_and_trips.sql');
+check((new Migrator($dir))->migrate() === ['010_create_foremen_and_trips.sql'], 'only migration 010 runs on an existing database');
+check((int) $pdo->query("SELECT COUNT(*) FROM jobs")->fetchColumn() === 1 && (float) $pdo->query("SELECT balance FROM jobs")->fetchColumn() === 50.0, 'existing jobs are untouched');
+$tables = $pdo->query("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('foremen', 'trips', 'trip_jobs')")->fetchAll(PDO::FETCH_COLUMN);
+sort($tables);
+check($tables === ['foremen', 'trip_jobs', 'trips'], 'the three new tables exist');
+check((new Migrator($dir))->migrate() === [], 'running it again does nothing');
+Database::setConnection(null);
+array_map('unlink', glob($dir . '/*'));
+rmdir($dir);
+
+section('Foremen');
+fresh_db();
+fresh_session();
+Clock::fake('2026-10-23');
+$admin = make_user('Admin', 'f-admin@example.com');
+$mgr = make_user('Manager', 'f-mgr@example.com');
+$stf = make_user('Staff', 'f-stf@example.com');
+sign_in($stf);
+check(call('GET', '/foremen')->status() === 403 && call('GET', '/trips')->status() === 403 && call('GET', '/trips/create')->status() === 403 && call('POST', '/foremen', ['name' => 'X'])->status() === 403, 'Staff (no trip permissions) cannot open or post anything');
+fresh_session();
+sign_in($mgr);
+check(call('GET', '/foremen')->status() === 200 && str_contains(call('GET', '/foremen')->body(), 'No foremen yet'), 'a Manager sees the (empty) foremen page');
+$r = call('POST', '/foremen', ['name' => 'Joe', 'phone' => '(555) 010-2231']);
+$joe = (int) Database::fetchValue("SELECT id FROM foremen WHERE name = 'Joe'");
+check($r->status() === 302 && $joe > 0, 'a foreman can be added');
+call('POST', '/foremen', ['name' => 'Sam', 'phone' => '']);
+$sam = (int) Database::fetchValue("SELECT id FROM foremen WHERE name = 'Sam'");
+check(Database::fetchValue('SELECT phone FROM foremen WHERE id = ?', [$sam]) === null, 'a blank phone is stored as NULL');
+call('POST', '/foremen', ['name' => 'Joe']);
+check((int) Database::fetchValue("SELECT COUNT(*) FROM foremen WHERE name = 'Joe'") === 1 && isset($_SESSION['_flash_next']['errors']['name']), 'a duplicate name is refused');
+call('POST', '/foremen', ['name' => '']);
+check(isset($_SESSION['_flash_next']['errors']['name']), 'a name is required');
+call('POST', '/foremen', ['name' => 'Bad', 'phone' => 'abc']);
+check((int) Database::fetchValue("SELECT COUNT(*) FROM foremen WHERE name = 'Bad'") === 0, 'a bad phone number is refused');
+call('POST', "/foremen/{$sam}", ['name' => 'Samuel', 'phone' => '555.010.7777']);
+check(Database::fetchValue('SELECT name FROM foremen WHERE id = ?', [$sam]) === 'Samuel', 'a foreman can be renamed');
+check(call('GET', "/foremen/{$sam}/edit")->status() === 200 && call('GET', '/foremen/9999/edit')->status() === 404, 'the edit page opens; an unknown id is a 404');
+check(str_contains(call('GET', '/foremen')->body(), 'Samuel') && str_contains(call('GET', '/foremen')->body(), 'href="tel:5550102231"'), 'the list shows them, phone as a tap-to-call link');
+$a = (string) Database::fetchValue("SELECT new_values FROM audit_logs WHERE action = 'foreman_created' ORDER BY id LIMIT 1");
+check(str_contains($a, 'Joe'), 'adding a foreman is audited');
+
+section('Trips: create with the client\'s sheet columns');
+$j1 = mk_job(['job_number' => 'TJ-11', 'customer_first_name' => 'John', 'customer_last_name' => 'smith', 'pickup_date' => '2026-10-24', 'from_location' => 'GA', 'to_location' => 'CA']);
+$j2 = mk_job(['job_number' => 'TJ-12', 'customer_first_name' => 'Mia', 'customer_last_name' => 'Lee', 'pickup_date' => null, 'from_location' => 'FL', 'to_location' => 'NY']);
+$j3 = mk_job(['job_number' => 'TJ-13']);
+$gone = mk_job(['job_number' => 'TJ-GONE']);
+(new JobRepository())->softDelete($gone, null);
+$form = call('GET', '/trips/create');
+$fb = $form->body();
+check($form->status() === 200 && str_contains($fb, 'name="trip_number"') && str_contains($fb, 'name="foreman_id"') && str_contains($fb, 'name="collected_by"') && str_contains($fb, 'name="begins_on"') && str_contains($fb, 'name="ends_on"') && str_contains($fb, 'name="rows[0][job_number]"') && str_contains($fb, 'name="rows[0][diesel]"') && str_contains($fb, 'name="rows[4][commission]"') && !str_contains($fb, 'name="rows[5][job_number]"'), 'the form has the header, five spare job rows and the expense columns');
+$post = [
+    'trip_number' => 'TRIP-1', 'foreman_id' => (string) $joe, 'begins_on' => '2026-10-20', 'ends_on' => '2026-10-25', 'collected_by' => 'BH Office', 'notes' => 'First run',
+    'rows' => [
+        ['job_number' => 'tj-11', 'job_date' => '', 'bh' => 'BH', 'diesel' => '120.10', 'hotels' => '80', 'helper' => '50.20', 'misc' => '10', 'commission' => '375', 'extra' => '5', 'remark' => 'ok'],
+        ['job_number' => 'TJ-12', 'job_date' => '2026-10-22', 'bh' => '', 'diesel' => '0.2', 'hotels' => '', 'helper' => '', 'misc' => '', 'commission' => '', 'extra' => '', 'remark' => ''],
+        ['job_number' => '', 'job_date' => '', 'bh' => '', 'diesel' => '', 'hotels' => '', 'helper' => '', 'misc' => '', 'commission' => '', 'extra' => '', 'remark' => ''],
+    ],
+];
+$r = call('POST', '/trips', $post);
+$t1 = (int) Database::fetchValue("SELECT id FROM trips WHERE trip_number = 'TRIP-1'");
+check($r->status() === 302 && $t1 > 0, 'a trip with two jobs is created (a blank spare row is ignored)');
+$trip = Database::fetchOne('SELECT * FROM trips WHERE id = ?', [$t1]);
+check((int) $trip['foreman_id'] === $joe && $trip['begins_on'] === '2026-10-20' && $trip['ends_on'] === '2026-10-25' && $trip['collected_by'] === 'BH Office', 'the header is saved');
+$rows = (new TripRepository())->rows($t1);
+check(count($rows) === 2 && $rows[0]['job_number'] === 'TJ-11' && $rows[0]['customer_name'] === 'John smith' && $rows[0]['from_location'] === 'GA', 'the job number is matched case-insensitively; customer name and From are copied from the job');
+check($rows[0]['job_date'] === '2026-10-24' && $rows[1]['job_date'] === '2026-10-22', 'a blank Date defaults to the job\'s pickup date; a typed one is kept');
+check(n($rows[0]['diesel']) === 120.1 && n($rows[0]['hotels']) === 80.0 && n($rows[0]['helper']) === 50.2 && n($rows[0]['commission']) === 375.0 && $rows[0]['bh'] === 'BH' && $rows[1]['hotels'] === null, 'the expenses are saved exactly as typed (empty = NULL, not 0)');
+check(TripTotals::forRows($rows)['diesel'] === '120.30' && TripTotals::forRows($rows)['total'] === '640.50', 'totals are exact in cents (120.10 + 0.20 = 120.30), total expenses = sum of the six columns');
+check(TripTotals::forRows([['diesel' => '0.29'], ['diesel' => '0.57'], ['diesel' => null, 'misc' => '1.15']])['diesel'] === '0.86' && TripTotals::forRows([['misc' => '1.15'], ['misc' => '2.30']])['total'] === '3.45' && TripTotals::forRows([])['total'] === '0.00', 'totals do not lose a cent to floating point (0.29 + 0.57 = 0.86, 1.15 + 2.30 = 3.45)');
+$page = plain(call('GET', "/trips/{$t1}")->body());
+check(str_contains($page, 'Trip TRIP-1') && str_contains($page, 'Joe') && str_contains($page, 'BH Office') && str_contains($page, 'TJ-11') && str_contains($page, 'John smith') && str_contains($page, 'Totals') && str_contains($page, '$640.50') && str_contains($page, '$120.30'), 'the trip page shows the rows and the totals');
+$audit = (string) Database::fetchValue("SELECT new_values FROM audit_logs WHERE action = 'trip_created' ORDER BY id DESC LIMIT 1");
+check(str_contains($audit, 'TRIP-1') && str_contains($audit, 'TJ-11') && str_contains($audit, 'TJ-12'), 'creation is audited with the jobs on it');
+(new JobRepository())->update($j1, ['customer_last_name' => 'Changed'], null);
+check((new TripRepository())->rows($t1)[0]['customer_name'] === 'John smith', 'editing the job later does not rewrite the trip row');
+
+section('Trips: validation');
+$bad = static function (array $over, string $field, string $why) use ($post): void {
+    $before = (int) Database::fetchValue('SELECT COUNT(*) FROM trips');
+    call('POST', '/trips', $over + ['trip_number' => 'TRIP-X'] + $post);
+    check((int) Database::fetchValue('SELECT COUNT(*) FROM trips') === $before && isset($_SESSION['_flash_next']['errors'][$field]), $why);
+};
+$bad(['trip_number' => ''], 'trip_number', 'a trip number is required');
+$bad(['trip_number' => 'TRIP-1'], 'trip_number', 'a duplicate trip number is refused');
+$bad(['trip_number' => 'bad number!'], 'trip_number', 'a trip number with odd characters is refused');
+$bad(['foreman_id' => ''], 'foreman_id', 'a foreman is required');
+$bad(['foreman_id' => '9999'], 'foreman_id', 'an unknown foreman is refused');
+$bad(['begins_on' => '2026-13-45'], 'begins_on', 'an impossible date is refused');
+$bad(['begins_on' => '2026-10-25', 'ends_on' => '2026-10-20'], 'ends_on', 'the trip cannot end before it begins');
+$bad(['rows' => []], 'rows', 'a trip needs at least one job');
+$bad(['rows' => [['job_number' => 'NOPE-1']]], 'rows.0.job_number', 'an unknown job number is refused');
+$bad(['rows' => [['job_number' => 'TJ-GONE']]], 'rows.0.job_number', 'a deleted job cannot be added');
+$bad(['rows' => [['job_number' => 'TJ-11'], ['job_number' => 'tj-11']]], 'rows.1.job_number', 'the same job twice on one trip is refused');
+$bad(['rows' => [['job_number' => 'TJ-11', 'diesel' => '-5']]], 'rows.0.diesel', 'a negative expense is refused');
+$bad(['rows' => [['job_number' => 'TJ-11', 'misc' => 'abc']]], 'rows.0.misc', 'a non-numeric expense is refused');
+$bad(['rows' => [['job_number' => 'TJ-11', 'extra' => '1.234']]], 'rows.0.extra', 'a third decimal is refused (no silent rounding)');
+$bad(['rows' => [['job_number' => 'TJ-11', 'remark' => str_repeat('x', 501)]]], 'rows.0.remark', 'a too-long remark is refused');
+$bad(['rows' => [['job_number' => 'TJ-11', 'job_date' => 'tomorrow']]], 'rows.0.job_date', 'a bad row date is refused');
+$bad(['collected_by' => str_repeat('x', 151)], 'collected_by', 'collected by has a length limit');
+check(call('POST', '/trips', ['trip_number' => 'T-NOCSRF', '_csrf' => 'wrong'] + $post)->status() === 403, 'a request without a valid token is refused');
+$bad(['rows' => 'not-an-array'], 'rows', 'a malformed rows field is refused, not a crash');
+$bad(['rows' => ['x' => 'y']], 'rows', 'a non-array row is skipped, not a crash (and then there is no job)');
+
+section('Trips: edit, conflict, delete');
+call('GET', '/trips'); // a page load, so the flash data of the last failed post is gone
+$edit = call('GET', "/trips/{$t1}/edit");
+$eb = $edit->body();
+check($edit->status() === 200 && str_contains($eb, 'value="TRIP-1"') && str_contains($eb, 'value="TJ-11"') && (str_contains($eb, 'value="120.1"') || str_contains($eb, 'value="120.10"')), 'Edit shows the saved trip and rows');
+check(str_contains($eb, 'name="rows[2][job_number]"') && str_contains($eb, 'name="rows[6][job_number]"') && !str_contains($eb, 'name="rows[7][job_number]"'), '...with five spare rows after the two saved ones');
+$loaded = (string) Database::fetchValue('SELECT updated_at FROM trips WHERE id = ?', [$t1]);
+$existing = (new TripRepository())->rows($t1);
+$edited = $post;
+$edited['loaded_at'] = $loaded;
+$edited['collected_by'] = 'New Collector';
+$edited['rows'] = [
+    ['id' => (string) $existing[0]['id'], 'job_number' => 'TJ-11', 'job_date' => '', 'bh' => 'BH', 'diesel' => '200', 'hotels' => '80', 'helper' => '50.20', 'misc' => '10', 'commission' => '375', 'extra' => '5', 'remark' => 'ok'],
+    ['job_number' => 'TJ-13', 'job_date' => '', 'bh' => '', 'diesel' => '30'],
+];
+$r = call('POST', "/trips/{$t1}", $edited);
+$rows = (new TripRepository())->rows($t1);
+check($r->status() === 302 && count($rows) === 2 && $rows[0]['job_number'] === 'TJ-11' && $rows[1]['job_number'] === 'TJ-13' && n($rows[0]['diesel']) === 200.0 && Database::fetchValue('SELECT collected_by FROM trips WHERE id = ?', [$t1]) === 'New Collector', 'rows can be changed, one removed and one added; the header can be edited');
+$aud = (string) Database::fetchValue("SELECT new_values FROM audit_logs WHERE action = 'trip_updated' ORDER BY id DESC LIMIT 1");
+check(str_contains($aud, 'New Collector') && str_contains($aud, 'TJ-13') && str_contains($aud, '"total_expenses"'), 'the edit is audited (header changes, jobs, total expenses)');
+Database::execute('UPDATE trips SET updated_at = ? WHERE id = ?', ['2026-10-23 12:00:01', $t1]); // another save, a moment later
+$r = call('POST', "/trips/{$t1}", $edited);
+check(isset($_SESSION['_flash_next']['alert']) && str_contains(json_encode($_SESSION['_flash_next']['alert']), 'Someone else changed this trip'), 'saving with a stale form is refused as a conflict');
+$loaded = (string) Database::fetchValue('SELECT updated_at FROM trips WHERE id = ?', [$t1]);
+$before = (int) Database::fetchValue("SELECT COUNT(*) FROM audit_logs WHERE action = 'trip_updated'");
+$same = $edited;
+$same['loaded_at'] = $loaded;
+$same['rows'][0]['id'] = (string) $rows[0]['id'];
+call('POST', "/trips/{$t1}", $same);
+check((int) Database::fetchValue("SELECT COUNT(*) FROM audit_logs WHERE action = 'trip_updated'") === $before, 'saving with no change writes no audit entry');
+call('POST', "/trips/{$t1}", ['trip_number' => 'TRIP-1', 'foreman_id' => (string) $joe, 'loaded_at' => (string) Database::fetchValue('SELECT updated_at FROM trips WHERE id = ?', [$t1]), 'rows' => [['job_number' => 'TJ-11']]] + []);
+check(count((new TripRepository())->rows($t1)) === 1, 'a row left out of the form is removed from the trip');
+$sam2 = (int) $sam;
+call('POST', "/foremen/{$sam2}/toggle");
+check((int) Database::fetchValue('SELECT active FROM foremen WHERE id = ?', [$sam2]) === 0 && !str_contains(call('GET', '/trips/create')->body(), '>Samuel<'), 'a deactivated foreman disappears from the trip form');
+call('POST', "/trips/{$t1}", ['trip_number' => 'TRIP-1', 'foreman_id' => (string) $sam2, 'loaded_at' => (string) Database::fetchValue('SELECT updated_at FROM trips WHERE id = ?', [$t1]), 'rows' => [['job_number' => 'TJ-11']]]);
+check((int) Database::fetchValue('SELECT foreman_id FROM trips WHERE id = ?', [$t1]) === $sam2 && str_contains(call('GET', "/trips/{$t1}/edit")->body(), 'Samuel (inactive)'), 'but stays on his existing trips (shown as inactive)');
+call('POST', "/foremen/{$sam2}/toggle");
+$r = call('POST', "/trips/{$t1}/delete");
+check($r->status() === 302 && Database::fetchValue('SELECT deleted_at FROM trips WHERE id = ?', [$t1]) !== null && call('GET', "/trips/{$t1}")->status() === 404 && call('GET', "/trips/{$t1}/edit")->status() === 404, 'delete is a soft delete; the trip then answers 404');
+check(Database::fetchValue('SELECT COUNT(*) FROM jobs WHERE id = ?', [$j1]) == 1 && (int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ?', [$t1]) === 1, 'the jobs are not affected and the rows are kept');
+check(call('POST', "/trips/{$t1}/delete")->status() === 404 && call('GET', '/trips/99999')->status() === 404 && call('POST', '/trips/99999', $post)->status() === 404, 'deleting twice or opening an unknown trip is a 404');
+check(str_contains((string) Database::fetchValue("SELECT old_values FROM audit_logs WHERE action = 'trip_deleted' ORDER BY id DESC LIMIT 1"), 'TRIP-1'), 'delete is audited');
+
+section('Trips: list, search, filters, foreman totals');
+fresh_session();
+sign_in($mgr);
+$repo = new TripRepository();
+$mk = static function (string $number, int $foreman, ?string $begins, string $jobNumber, string $diesel) use ($repo): int {
+    $job = $repo->findJobByNumber($jobNumber);
+    return $repo->create(['trip_number' => $number, 'foreman_id' => $foreman, 'begins_on' => $begins, 'ends_on' => null, 'collected_by' => 'Col-' . $number, 'notes' => null], [[
+        'job_id' => (int) $job['id'], 'job_number' => $job['job_number'], 'customer_name' => $job['customer_first_name'] . ' ' . $job['customer_last_name'], 'job_date' => null,
+        'from_location' => $job['from_location'], 'bh' => null, 'diesel' => $diesel, 'hotels' => null, 'helper' => null, 'misc' => null, 'commission' => null, 'extra' => null, 'remark' => null,
+    ]], null);
+};
+for ($i = 1; $i <= 27; $i++) {
+    $mk('LT-' . str_pad((string) $i, 2, '0', STR_PAD_LEFT), $i % 2 === 0 ? $joe : $sam, sprintf('2026-09-%02d', min($i, 28)), $i % 3 === 0 ? 'TJ-12' : 'TJ-13', '10.00');
+}
+$list = call('GET', '/trips');
+$lb = $list->body();
+check($list->status() === 200 && str_contains(plain($lb), '27 trips') && str_contains($lb, 'LT-27') && !str_contains($lb, 'LT-01'), 'the list shows the newest trip first, 25 per page (27 trips)');
+check(str_contains(call('GET', '/trips', [], ['page' => '2'])->body(), 'LT-01') && str_contains($lb, 'Total expenses'), 'page 2 has the rest; a Manager sees the Total expenses column');
+$ids = static fn (array $q): string => implode(',', array_map(static fn (array $r): string => $r['trip_number'], (new TripService())->search(TripCriteria::fromRequest(\App\Core\Request::make('GET', '/trips', [], $q)), 100, 0)));
+check($ids(['q' => 'LT-05']) === 'LT-05', 'search by trip number');
+check(substr_count($ids(['q' => 'Samuel']), 'LT') === 14 && $ids(['q' => 'nomatch']) === '', 'search by foreman name');
+check($ids(['q' => 'Col-LT-09']) === 'LT-09', 'search by collected by');
+check(substr_count($ids(['q' => 'TJ-12']), 'LT') === 9 && substr_count($ids(['q' => 'Mia']), 'LT') === 9, 'search by job number or customer name finds the trips that carry the job');
+check(substr_count($ids(['foreman' => (string) $joe]), 'LT') === 13, 'filter by foreman');
+check($ids(['from' => '2026-09-10', 'to' => '2026-09-12']) === 'LT-12,LT-11,LT-10', 'filter by the date the trip begins');
+check(substr_count($ids(['q' => '%']), 'LT') === 0 && substr_count($ids(['q' => '_']), 'LT') === 0, 'LIKE wildcards in the search are literal');
+check(substr_count($ids(['from' => 'garbage', 'to' => '2026-02-30']), 'LT') === 27, 'a garbage date filter is ignored, not an error');
+check(call('GET', '/trips', [], ['foreman' => ['x'], 'q' => ['y'], 'page' => ['z']])->status() === 200, 'array-valued query parameters do not crash the list');
+$fp = plain(call('GET', '/foremen')->body());
+check(str_contains($fp, 'Joe') && str_contains($fp, '13') && str_contains($fp, '14') && str_contains($fp, '$130.00') && str_contains($fp, '$140.00'), 'the foreman page shows each foreman\'s trip count and total expenses');
+check(count((new TripRepository())->forJob($j2)) === 9, 'a job knows which trips it is on');
+
+section('Trips: money is hidden from people without trips.financials');
+$rid = make_role('Trip clerk', ['dashboard.view', 'jobs.view', 'trips.view', 'trips.manage']);
+$clerk = make_user('Trip clerk', 'clerk@example.com');
+fresh_session();
+sign_in($clerk);
+$page = call('GET', '/trips')->body();
+check(!str_contains($page, 'Total expenses') && !str_contains($page, '$10.00'), 'the list has no expense column for a clerk');
+$tid = (int) Database::fetchValue("SELECT id FROM trips WHERE trip_number = 'LT-03'");
+$show = call('GET', "/trips/{$tid}")->body();
+check(str_contains($show, 'LT-03') && !str_contains($show, 'Diesel') && !str_contains($show, '10.00') && !str_contains($show, 'Totals'), 'the trip page has no expense columns or totals');
+check(!str_contains(call('GET', "/trips/{$tid}/edit")->body(), 'name="rows[0][diesel]"') && !str_contains(call('GET', '/trips/create')->body(), 'name="rows[0][diesel]"'), 'the form has no expense inputs');
+$svc = (new TripService())->find($tid);
+check($svc !== null && !array_key_exists('total_expenses', $svc) && $svc['totals'] === null && !array_key_exists('diesel', $svc['rows'][0]), 'the service strips the figures before any template sees them');
+$rowsBefore = (new TripRepository())->rows($tid);
+$loaded = (string) Database::fetchValue('SELECT updated_at FROM trips WHERE id = ?', [$tid]);
+call('POST', "/trips/{$tid}", ['trip_number' => 'LT-03', 'foreman_id' => (string) Database::fetchValue('SELECT foreman_id FROM trips WHERE id = ?', [$tid]), 'collected_by' => 'Changed by clerk', 'loaded_at' => $loaded,
+    'rows' => [['id' => (string) $rowsBefore[0]['id'], 'job_number' => $rowsBefore[0]['job_number'], 'remark' => 'clerk note', 'diesel' => '9999']]]);
+$after = (new TripRepository())->rows($tid);
+check(Database::fetchValue('SELECT collected_by FROM trips WHERE id = ?', [$tid]) === 'Changed by clerk' && $after[0]['remark'] === 'clerk note', 'a clerk can change the non-money fields');
+check(n($after[0]['diesel']) === 10.0, 'editing a trip never wipes the hidden expenses, and a forged diesel value is ignored');
+call('POST', '/trips', ['trip_number' => 'CLERK-NEW', 'foreman_id' => (string) $joe, 'rows' => [['job_number' => 'TJ-13', 'diesel' => '500', 'commission' => '80']]]);
+$cr = (new TripRepository())->rows((int) Database::fetchValue("SELECT id FROM trips WHERE trip_number = 'CLERK-NEW'"));
+check(count($cr) === 1 && $cr[0]['diesel'] === null && $cr[0]['commission'] === null, 'a forged money field on a new trip is ignored');
+check(call('GET', '/foremen')->status() === 403, 'a clerk without foremen.manage cannot open the foremen page');
+fresh_session();
+sign_in(make_user('Trip clerk', 'clerk2@example.com'));
+check(call('POST', "/trips/{$tid}/delete")->status() === 302, 'trips.manage includes deleting');
+fresh_session();
+$viewer = make_role('Trip viewer', ['trips.view']);
+sign_in(make_user('Trip viewer', 'viewer@example.com'));
+check(call('GET', '/trips')->status() === 200 && call('GET', '/trips/create')->status() === 403 && call('POST', '/trips', $post)->status() === 403 && call('GET', '/trips/' . (int) Database::fetchValue("SELECT id FROM trips WHERE trip_number = 'LT-04'") . '/edit')->status() === 403, 'a viewer can look but not create or edit');
+$show = call('GET', '/trips/' . (int) Database::fetchValue("SELECT id FROM trips WHERE trip_number = 'LT-04'"))->body();
+check(!str_contains($show, '/edit') && !str_contains($show, '/delete'), '...and sees no Edit or Delete buttons');
+
+check(!str_contains(call('GET', '/trips/create')->body(), 'style="') && !str_contains(call('GET', '/foremen')->body(), 'style="') && !str_contains(call('GET', '/trips')->body(), 'style="'), 'the trip pages use no inline styles (the Content Security Policy would block them)');
+
+section('Trips: menu and permissions');
+fresh_session();
+sign_in($mgr);
+$nav = plain((string) preg_replace('#.*<aside(.*?)</aside>.*#s', '$1', call('GET', '/account')->body()));
+check(str_contains($nav, 'Trips') && str_contains($nav, 'Foremen'), 'a Manager sees Trips and Foremen in the menu');
+fresh_session();
+sign_in($stf);
+$nav = plain((string) preg_replace('#.*<aside(.*?)</aside>.*#s', '$1', call('GET', '/account')->body()));
+check(!str_contains($nav, 'Trips') && !str_contains($nav, 'Foremen'), 'Staff does not');
+foreach (['trips.view', 'trips.manage', 'trips.financials', 'foremen.manage'] as $perm) {
+    $has = static fn (string $role): bool => (int) Database::fetchValue('SELECT COUNT(*) FROM role_permissions rp JOIN permissions p ON p.id = rp.permission_id JOIN roles r ON r.id = rp.role_id WHERE r.name = ? AND p.name = ?', [$role, $perm]) === 1;
+    check($has('Admin') && $has('Manager') && !$has('Staff'), "{$perm}: Admin and Manager have it, Staff does not");
+}
+Clock::fake(null);

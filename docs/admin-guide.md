@@ -63,6 +63,10 @@ Changing a storage fee setting re-calculates every open job immediately; deliver
 
 Session length, lockout rules and password rules are server settings (`.env`) and are changed by whoever looks after the server.
 
+## Foremen and trips
+
+Four permissions control the module: **View foreman trips**, **Create, edit and delete foreman trips**, **See and edit trip expenses** and **Manage foremen** (Admin has all four, Manager has all four on a new install, Staff none). On an existing install tick them for Manager under *Roles & Permissions*. Give a clerk *view + create/edit* without *expenses* to let them record trips without seeing any amounts. Everything is in the Audit Log (trip and foreman entries).
+
 ## Imports and exports
 
 - **Import Jobs** takes `.csv` or `.xlsx` (up to 5 MB and 5,000 rows). Always read the **preview**: it shows what will be saved, what is skipped and why. Nothing is saved until you press **Import**. The *problem report* download lists skipped rows with reasons so they can be fixed and uploaded again.

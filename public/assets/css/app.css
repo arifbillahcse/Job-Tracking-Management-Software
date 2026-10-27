@@ -852,3 +852,9 @@ summary:focus-visible {
     a { color: inherit !important; text-decoration: none !important; }
     .table-responsive { overflow: visible !important; }
 }
+
+/* Minimum column widths for the trip form's job table (no inline styles: the CSP forbids them). */
+.jt-w6 { min-width: 6rem; }
+.jt-w65 { min-width: 6.5rem; }
+.jt-w9 { min-width: 9rem; }
+.jt-w12 { min-width: 12rem; }

@@ -64,6 +64,10 @@ Everything you do is written into the job's **history** (who, when, any note). I
 
 On any list press **Export -> CSV** or **Excel**. You get exactly the jobs matching your current search and filters. Open CSV in Excel normally; accents display correctly.
 
+## Foreman trips (managers)
+
+**Foremen** lists the people who pick jobs up; **Trips -> New trip** records one trip: trip number, foreman, when it began and ended, who collected, and a row for every job picked up. Type the job number and the customer and "from" are filled in for you. Fill in the expense amounts (Diesel, Hotels, Helper, Misc, Commission, Extra) exactly as they are; the trip page adds up each column and shows **Total expenses**. Spare rows may stay empty. Search finds a trip by number, foreman, collected by, job number or customer. If you may not see expenses, those columns are simply not there. Deleting a trip never deletes its jobs; a foreman who left is deactivated, not deleted.
+
 ## Questions
 
 | | |

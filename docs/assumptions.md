@@ -174,6 +174,18 @@ The generated role x route matrix is in `docs/permission-matrix.md` (`php cli/pe
 | P1 | The **Storage fee** column is shown in all five lists and in every export, to users who may see financials (`jobs.view_financials` or `jobs.edit_financials`). Staff never see it. | `views/jobs/list.php`, `ExportService` |
 | P2 | "Authorized users can change the rate" is the new permission `settings.storage_fee` and its own **Storage Fee** page (only the storage fee settings; other settings in the request are ignored). Admin and, on a new install, Manager have it; on an existing install an admin ticks it for Manager in the permission matrix (seeding never changes a role that already exists). | `SettingsController::storageUpdate` |
 
+## Foreman trips and expenses (version 1.2.0)
+
+| # | Assumption | Where |
+|---|------------|-------|
+| T1 | **Total expenses = Diesel + Hotels + Helper + Misc + Commission + Extra**, and every column total is the plain sum of its rows. This is the only calculation in the module and is labelled "sum of the six columns" on screen. It is our reading, not a rule from the client. Amounts are otherwise stored as typed, never calculated or rounded (a third decimal is refused). | `TripTotals` |
+| T2 | The job-level columns of the client's trip sheet (**E-CF, E-Total, Deposit, A-CF, Grand Total, BH Total, Paid, Balance**) already live on the job (version 1.1.4), so a trip row **links to the job** and does not retype them. Only what is specific to the trip is stored on the row: date, BH, the six expenses and a remark. | `trip_jobs` |
+| T3 | **"Collected by"** is one name on the trip (the sheet has "Collected" above the BH column). **BH** on a row is free text. We do not know what BH stands for. | `trips.collected_by`, `trip_jobs.bh` |
+| T4 | The sheet shows no **Hotels** column and no **trip begin/end dates**; the client's list has them, so Hotels is a column and both dates are optional. **Addio, Job Beg, "Total to BH" and a 15% commission rate** are not in the sheet we were given, so they are **not built**: Commission is a typed amount. | `trips`, `trip_jobs` |
+| T5 | A row's **Date** defaults to the job's pickup date when left empty. The customer name, job number and "from" are copied onto the row when it is saved, so the trip still reads correctly after the job is edited or deleted. A deleted job cannot be added to a trip; the same job cannot be on one trip twice (it can be on several trips). | `TripService::prepare()` |
+| T6 | Trips are **soft-deleted**; foremen are **deactivated**, never deleted, and an inactive foreman stays on his old trips. A trip must have at least one job. | `TripRepository`, `ForemanController` |
+| T7 | Permissions: `trips.view`, `trips.manage` (create, edit, delete), `trips.financials` (see and edit the six expense columns and totals) and `foremen.manage`. Without `trips.financials` the amounts are stripped in the service (not just hidden in the page) and a save keeps the amounts that were hidden. | `TripService` |
+
 ## Security defaults (can be tuned in `app/Config/app.php` / `.env`)
 
 * Sessions end after **30 minutes idle** or **8 hours** in total.

@@ -251,16 +251,52 @@ async function createJob(page, number, availableOffset, extra = {}) {
         await phone.close();
     });
 
+    console.log('== Foreman trips');
+    await step('a foreman and a trip with a job and expenses can be added, and the totals add up', async () => {
+        await page.goto(BASE + '/foremen/create');
+        await page.fill('#name', RUN + ' Foreman');
+        await Promise.all([page.waitForNavigation(), page.click('main form button[type=submit]')]);
+        must((await page.textContent('main')).includes(RUN + ' Foreman'), 'foreman not listed');
+        await page.goto(BASE + '/trips/create');
+        await page.fill('#trip_number', RUN + '-TR');
+        await page.selectOption('#foreman_id', { label: RUN + ' Foreman' });
+        await page.fill('#collected_by', 'BH Office');
+        await page.fill('input[name="rows[0][job_number]"]', RUN + '-A');
+        await page.fill('input[name="rows[0][diesel]"]', '120.10');
+        await page.fill('input[name="rows[0][hotels]"]', '80');
+        await Promise.all([page.waitForNavigation(), page.click('main form button[type=submit]')]);
+        const text = await page.textContent('main');
+        must(text.includes(RUN + '-TR') && text.includes(RUN + '-A') && text.includes('$200.10'), 'trip page does not show the job and the $200.10 total');
+    });
+    await step('the trip is found by search and a bad job number is refused with a message', async () => {
+        await page.goto(BASE + '/trips?q=' + RUN + '-A');
+        must((await page.textContent('main')).includes(RUN + '-TR'), 'not found by job number');
+        await page.goto(BASE + '/trips/create');
+        await page.fill('#trip_number', RUN + '-BAD');
+        await page.selectOption('#foreman_id', { label: RUN + ' Foreman' });
+        await page.fill('input[name="rows[0][job_number]"]', 'NO-SUCH-JOB');
+        await Promise.all([page.waitForNavigation(), page.click('main form button[type=submit]')]);
+        must(page.url().includes('/trips/create') && /was not found/.test(await page.textContent('main')), 'no message for an unknown job');
+    });
+    await step('a trip can be deleted', async () => {
+        await page.goto(BASE + '/trips?q=' + RUN + '-TR');
+        await page.click('a.jt-jobno[href^="/trips/"]');
+        page.once('dialog', (d) => d.accept());
+        await Promise.all([page.waitForNavigation(), page.click('button[data-confirm]')]);
+        await page.goto(BASE + '/trips?q=' + RUN + '-TR');
+        must(!(await page.textContent('main')).includes(RUN + '-TR'), 'trip still listed');
+    });
+
     console.log('== A Staff member');
     await step('Staff cannot see money, imports, users or settings', async () => {
         const staff = await browser.newContext({ viewport: { width: 1280, height: 800 } });
         const p = await staff.newPage();
         await signIn(p, STAFF, STAFF_PASS);
         const menu = await p.textContent('#sidebar');
-        must(!/Users|Import Jobs|Settings|Audit Log|Roles/.test(menu), 'admin items in the menu: ' + menu.replace(/\s+/g, ' ').slice(0, 120));
+        must(!/Users|Import Jobs|Settings|Audit Log|Roles|Trips|Foremen/.test(menu), 'admin items in the menu: ' + menu.replace(/\s+/g, ' ').slice(0, 120));
         await p.goto(BASE + '/jobs?q=' + RUN + '-A');
         must(!/\$1,250\.50|1250\.5/.test(await p.textContent('main')), 'a balance is visible');
-        for (const url of ['/users', '/settings', '/audit', '/jobs/import', '/roles']) {
+        for (const url of ['/users', '/settings', '/audit', '/jobs/import', '/roles', '/trips', '/trips/create', '/foremen']) {
             const r = await p.goto(BASE + url);
             must(r.status() === 403, url + ' returned ' + r.status());
         }

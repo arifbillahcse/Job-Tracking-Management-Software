@@ -1,0 +1,160 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Repositories;
+
+use App\Core\Database;
+use App\Services\TripCriteria;
+
+/**
+ * SQL for trips and their job rows. Soft-deleted trips are excluded everywhere.
+ */
+final class TripRepository
+{
+    /** The expense columns of a job row, added up in SQL (assumption T1: "Total expenses" is just this sum). */
+    public const EXPENSE_SUM = 'COALESCE(tj.diesel, 0) + COALESCE(tj.hotels, 0) + COALESCE(tj.helper, 0) + COALESCE(tj.misc, 0) + COALESCE(tj.commission, 0) + COALESCE(tj.extra, 0)';
+
+    public const MONEY = ['diesel', 'hotels', 'helper', 'misc', 'commission', 'extra'];
+
+    private const SELECT = 'SELECT t.*, f.name AS foreman_name,
+            (SELECT COUNT(*) FROM trip_jobs tj WHERE tj.trip_id = t.id) AS job_count,
+            (SELECT COALESCE(SUM(' . self::EXPENSE_SUM . '), 0) FROM trip_jobs tj WHERE tj.trip_id = t.id) AS total_expenses
+        FROM trips t JOIN foremen f ON f.id = t.foreman_id';
+
+    /** @return array<string,mixed>|null */
+    public function find(int $id): ?array
+    {
+        return Database::fetchOne(self::SELECT . ' WHERE t.id = ? AND t.deleted_at IS NULL', [$id]);
+    }
+
+    /** @return array<int,array<string,mixed>> */
+    public function rows(int $tripId): array
+    {
+        return Database::fetchAll('SELECT * FROM trip_jobs WHERE trip_id = ? ORDER BY sort_order ASC, id ASC', [$tripId]);
+    }
+
+    /** @return array<int,array<string,mixed>> the live trips a job appears on */
+    public function forJob(int $jobId): array
+    {
+        return Database::fetchAll(
+            'SELECT t.id, t.trip_number, t.begins_on, f.name AS foreman_name FROM trip_jobs tj
+             JOIN trips t ON t.id = tj.trip_id JOIN foremen f ON f.id = t.foreman_id
+             WHERE tj.job_id = ? AND t.deleted_at IS NULL ORDER BY t.begins_on DESC, t.id DESC',
+            [$jobId]
+        );
+    }
+
+    public function count(TripCriteria $c): int
+    {
+        [$where, $params] = $this->where($c);
+        return (int) Database::fetchValue("SELECT COUNT(*) FROM trips t JOIN foremen f ON f.id = t.foreman_id WHERE {$where}", $params);
+    }
+
+    /** @return array<int,array<string,mixed>> */
+    public function search(TripCriteria $c, int $limit, int $offset): array
+    {
+        [$where, $params] = $this->where($c);
+        return Database::fetchAll(
+            self::SELECT . " WHERE {$where} ORDER BY t.begins_on DESC, t.id DESC LIMIT ? OFFSET ?",
+            [...$params, $limit, $offset]
+        );
+    }
+
+    /** @return array{0:string,1:array<int,mixed>} */
+    private function where(TripCriteria $c): array
+    {
+        $sql = 't.deleted_at IS NULL';
+        $params = [];
+        $like = static fn (string $text): string => '%' . strtr($text, ['!' => '!!', '%' => '!%', '_' => '!_']) . '%';
+
+        foreach (array_slice(preg_split('/\s+/', $c->q, -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 5) as $word) {
+            $sql .= " AND (t.trip_number LIKE ? ESCAPE '!' OR f.name LIKE ? ESCAPE '!' OR t.collected_by LIKE ? ESCAPE '!'
+                OR EXISTS (SELECT 1 FROM trip_jobs x WHERE x.trip_id = t.id AND (x.job_number LIKE ? ESCAPE '!' OR x.customer_name LIKE ? ESCAPE '!')))";
+            array_push($params, ...array_fill(0, 5, $like($word)));
+        }
+        if ($c->foremanId > 0) {
+            $sql .= ' AND t.foreman_id = ?';
+            $params[] = $c->foremanId;
+        }
+        if ($c->from !== '') {
+            $sql .= ' AND t.begins_on >= ?';
+            $params[] = $c->from;
+        }
+        if ($c->to !== '') {
+            $sql .= ' AND t.begins_on <= ?';
+            $params[] = $c->to;
+        }
+        return [$sql, $params];
+    }
+
+    /**
+     * @param array<string,mixed> $header
+     * @param array<int,array<string,mixed>> $rows
+     */
+    public function create(array $header, array $rows, ?int $userId): int
+    {
+        return (int) Database::transaction(function () use ($header, $rows, $userId): int {
+            $now = gmdate('Y-m-d H:i:s');
+            $id = Database::insert(
+                'INSERT INTO trips (trip_number, foreman_id, begins_on, ends_on, collected_by, notes, created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [$header['trip_number'], $header['foreman_id'], $header['begins_on'], $header['ends_on'], $header['collected_by'], $header['notes'], $userId, $userId, $now, $now]
+            );
+            $this->insertRows($id, $rows);
+            return $id;
+        });
+    }
+
+    /**
+     * Replaces the header and every job row in one transaction.
+     *
+     * @param array<string,mixed> $header
+     * @param array<int,array<string,mixed>> $rows
+     */
+    public function update(int $id, array $header, array $rows, ?int $userId): void
+    {
+        Database::transaction(function () use ($id, $header, $rows, $userId): void {
+            Database::execute(
+                'UPDATE trips SET trip_number = ?, foreman_id = ?, begins_on = ?, ends_on = ?, collected_by = ?, notes = ?, updated_by = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+                [$header['trip_number'], $header['foreman_id'], $header['begins_on'], $header['ends_on'], $header['collected_by'], $header['notes'], $userId, gmdate('Y-m-d H:i:s'), $id]
+            );
+            Database::execute('DELETE FROM trip_jobs WHERE trip_id = ?', [$id]);
+            $this->insertRows($id, $rows);
+        });
+    }
+
+    public function softDelete(int $id, ?int $userId): bool
+    {
+        $now = gmdate('Y-m-d H:i:s');
+        return Database::execute('UPDATE trips SET deleted_at = ?, updated_at = ?, updated_by = ? WHERE id = ? AND deleted_at IS NULL', [$now, $now, $userId, $id]) === 1;
+    }
+
+    /** @param array<int,array<string,mixed>> $rows */
+    private function insertRows(int $tripId, array $rows): void
+    {
+        $order = 0;
+        foreach ($rows as $row) {
+            Database::insert(
+                'INSERT INTO trip_jobs (trip_id, job_id, sort_order, job_number, customer_name, job_date, from_location, bh, diesel, hotels, helper, misc, commission, extra, remark)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [$tripId, $row['job_id'], $order++, $row['job_number'], $row['customer_name'], $row['job_date'], $row['from_location'], $row['bh'],
+                    $row['diesel'], $row['hotels'], $row['helper'], $row['misc'], $row['commission'], $row['extra'], $row['remark']]
+            );
+        }
+    }
+
+    /** @return array<string,mixed>|null the live job with this number (any letter case), or null */
+    public function findJobByNumber(string $number): ?array
+    {
+        $column = Database::driver() === 'sqlite' ? 'job_number COLLATE NOCASE' : 'job_number';
+        return Database::fetchOne(
+            "SELECT id, job_number, customer_first_name, customer_last_name, pickup_date, from_location FROM jobs WHERE {$column} = ? AND deleted_at IS NULL",
+            [$number]
+        );
+    }
+
+    public function numberExists(string $tripNumber, ?int $exceptId = null): bool
+    {
+        return (int) Database::fetchValue('SELECT COUNT(*) FROM trips WHERE trip_number = ? AND id <> ?', [$tripNumber, $exceptId ?? 0]) > 0;
+    }
+}

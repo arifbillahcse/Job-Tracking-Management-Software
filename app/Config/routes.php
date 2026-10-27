@@ -7,11 +7,13 @@ use App\Controllers\AuditController;
 use App\Controllers\AuthController;
 use App\Controllers\DashboardController;
 use App\Controllers\ExportController;
+use App\Controllers\ForemanController;
 use App\Controllers\ImportController;
 use App\Controllers\JobController;
 use App\Controllers\JobListController;
 use App\Controllers\RoleController;
 use App\Controllers\SettingsController;
+use App\Controllers\TripController;
 use App\Controllers\UserController;
 use App\Core\Router;
 use App\Middleware\GuestMiddleware;
@@ -58,6 +60,21 @@ return static function (Router $router): void {
     $router->post('/jobs/{id:int}/status', [JobController::class, 'changeStatus'])->can('jobs.view')->name('jobs.status');
     $router->post('/jobs/{id:int}/delete', [JobController::class, 'destroy'])->can('jobs.delete')->name('jobs.delete');
     $router->post('/jobs/{id:int}/restore', [JobController::class, 'restore'])->can('jobs.delete')->name('jobs.restore');
+
+    // Foreman trips and foremen (/trips/create is a literal path; {id:int} only matches digits).
+    $router->get('/trips', [TripController::class, 'index'])->can('trips.view')->name('trips');
+    $router->get('/trips/create', [TripController::class, 'create'])->can('trips.manage')->name('trips.create');
+    $router->post('/trips', [TripController::class, 'store'])->can('trips.manage')->name('trips.store');
+    $router->get('/trips/{id:int}', [TripController::class, 'show'])->can('trips.view')->name('trips.show');
+    $router->get('/trips/{id:int}/edit', [TripController::class, 'edit'])->can('trips.manage')->name('trips.edit');
+    $router->post('/trips/{id:int}', [TripController::class, 'update'])->can('trips.manage')->name('trips.update');
+    $router->post('/trips/{id:int}/delete', [TripController::class, 'destroy'])->can('trips.manage')->name('trips.delete');
+    $router->get('/foremen', [ForemanController::class, 'index'])->can('foremen.manage')->name('foremen');
+    $router->get('/foremen/create', [ForemanController::class, 'create'])->can('foremen.manage')->name('foremen.create');
+    $router->post('/foremen', [ForemanController::class, 'store'])->can('foremen.manage')->name('foremen.store');
+    $router->get('/foremen/{id:int}/edit', [ForemanController::class, 'edit'])->can('foremen.manage')->name('foremen.edit');
+    $router->post('/foremen/{id:int}', [ForemanController::class, 'update'])->can('foremen.manage')->name('foremen.update');
+    $router->post('/foremen/{id:int}/toggle', [ForemanController::class, 'toggle'])->can('foremen.manage')->name('foremen.toggle');
 
     // User administration. The services add finer rules (only manage users whose permissions you hold, never remove the last administrator).
     $router->get('/users', [UserController::class, 'index'])->can('users.manage')->name('users');

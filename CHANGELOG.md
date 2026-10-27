@@ -2,6 +2,16 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.2.0 - foreman trips and expenses (roadmap phases 5 and 6)
+
+* **New module: Foremen & Trips.** Add foremen, then record each trip: trip number, foreman, trip begins/ends, collected by, notes, and the **jobs picked up on it**. For each job row: date, BH, **Diesel, Hotels, Helper, Misc, Commission, Extra** and a remark (the sheet's columns). Job rows are matched to real jobs by job number; the customer name and "from" are filled in from the job.
+* **Amounts are stored exactly as typed.** The only calculation is the column totals and **Total expenses** (the sum of the six expense columns), done in whole cents (assumption T1). The sheet's Grand Total, BH Total, Paid and Balance stay on the job (they are not repeated on the trip).
+* Trip list with search (trip #, foreman, collected by, job # or customer), foreman and date filters, paging; trip page with totals; edit with a "someone else changed this" warning; soft delete. The foremen page shows each foreman's trip count and total expenses. Foremen are deactivated, never deleted.
+* **Permissions** (new): `trips.view`, `trips.manage`, `trips.financials` (see/edit the expense amounts), `foremen.manage`. Admin has all four; Manager has all four on a new install; Staff none. Without `trips.financials` nobody sees the amounts, and saving a trip never wipes expenses they cannot see.
+* All changes are audited (trip created / updated / deleted, foreman created / updated / activated / deactivated).
+* **Upgrade:** upload the new files, then `php cli/migrate.php` (migration 010 adds three tables, nothing existing changes), `php cli/seed.php` (adds the permissions to Admin) and `php cli/doctor.php`. On an existing install tick the four new permissions for Manager under Roles & Permissions.
+* Not built yet (roadmap phase 7+): foreman-wise reports and CSV export of trips, trips on the Job Details page.
+
 ## 1.1.6 - Storage Fee column in every list; storage fee permission (roadmap phase 4)
 
 * **A-CF and Storage fee columns** are now in All Jobs, Ready for Delivery, More Than 30 Days, In Transit and Delivered (the fee only for users who may see financials). Every export has a Storage Fee column too (same rule).

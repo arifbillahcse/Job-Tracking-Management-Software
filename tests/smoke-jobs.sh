@@ -103,10 +103,10 @@ check "Staff sees the list without a Balance column or amounts" 'grep -q "jt-job
 check "Staff sees no Trash link" '! grep -q "/jobs/trash" <<<"$SL"'
 SF=$(curl -s -b "$SJ" "$BASE/jobs/create")
 check "the Staff form has no balance or storage fee inputs" '! grep -q "name=\"balance\"" <<<"$SF" && ! grep -q "name=\"storage_fee_override\"" <<<"$SF"'
-R=$(post_job "$SJ" /jobs "$RUN-S" "StaffMade" "999"); SID=$(job_id "$R"); MADE+=("$SID")
+R=$(post_job "$SJ" /jobs "$RUN-S" "StaffMade" "4242.17"); SID=$(job_id "$R"); MADE+=("$SID")
 check "Staff can create a job" '[[ -n "$SID" ]]'
 SD=$(curl -s -b "$SJ" "$BASE/jobs/$SID")
-check "the Staff details page shows no money" '! grep -q "Balance" <<<"$SD" && ! grep -q "Storage fee" <<<"$SD" && ! grep -q "999" <<<"$SD"'
+check "the Staff details page shows no money" '! grep -q "Balance" <<<"$SD" && ! grep -q "Storage fee" <<<"$SD" && ! grep -q "4242.17" <<<"$SD"'
 check "the forged balance of 999 was NOT stored (Admin sees \$0.00)" 'curl -s -b "$AJ" "$BASE/jobs/$SID" | grep -q "\$0.00"'
 ST=$(curl -s -b "$SJ" "$BASE/jobs/$JID/edit"); sleep 1
 post_job "$SJ" "/jobs/$JID" "$RUN" "Grace" "5" --data-urlencode "loaded_at=$(loaded_at <<<"$ST")" >/dev/null
