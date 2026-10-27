@@ -18,5 +18,7 @@ return [
     // Automatic storage fee = CF x rate, charged once a job has waited more than N days (assumption J1).
     'storage_fee_rate' => '0.6',
     'storage_fee_after_days' => '30',
-    'storage_fee_basis' => 'first_available', // or 'loaded'
+    'storage_fee_basis' => 'pickup', // or 'first_available' or 'loaded' (assumption N1)
+    // 'monthly' = CF x rate x months stayed, no prorating (the client's sheet); 'once' = CF x rate a single time (assumption N2).
+    'storage_fee_mode' => 'monthly',
 ];

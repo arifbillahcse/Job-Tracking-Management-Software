@@ -55,10 +55,10 @@ final class SettingsService
     }
 
     /** Settings the page may change. Anything else in the table (or in a request) is ignored. */
-    public const KEYS = ['company_name', 'ready_threshold_days', 'section_basis', 'currency_symbol', 'timezone', 'page_size', 'storage_fee_rate', 'storage_fee_after_days', 'storage_fee_basis'];
+    public const KEYS = ['company_name', 'ready_threshold_days', 'section_basis', 'currency_symbol', 'timezone', 'page_size', 'storage_fee_rate', 'storage_fee_after_days', 'storage_fee_basis', 'storage_fee_mode'];
 
     /** Changing any of these re-assesses every open job's storage fee. */
-    private const STORAGE_KEYS = ['storage_fee_rate', 'storage_fee_after_days', 'storage_fee_basis'];
+    private const STORAGE_KEYS = ['storage_fee_rate', 'storage_fee_after_days', 'storage_fee_basis', 'storage_fee_mode'];
 
     /**
      * @param array<string,mixed> $input
@@ -130,6 +130,12 @@ final class SettingsService
             $errors['storage_fee_basis'] = 'Choose where the waiting time is counted from.';
         }
         $values['storage_fee_basis'] = $basis;
+
+        $mode = is_string($input['storage_fee_mode'] ?? null) ? trim($input['storage_fee_mode']) : '';
+        if (!isset(StorageFeeService::MODES[$mode])) {
+            $errors['storage_fee_mode'] = 'Choose whether the fee is charged every month or once.';
+        }
+        $values['storage_fee_mode'] = $mode;
 
         return ['values' => $values, 'errors' => $errors];
     }

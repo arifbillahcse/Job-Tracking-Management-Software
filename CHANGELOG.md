@@ -2,6 +2,14 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.1.5 - storage fee counted from the pickup date, charged every month (roadmap phase 3)
+
+* **Storage fee = A-CF x rate x months** (client sheet: "A-CF @0.6 after 30 days from the pick up date and times whatever months stay, no prorating"). Month 1 starts on day 31 after the **pickup date**; each further 30 days adds one more month; part of a month counts as a whole month. Example: A-CF 1000 x 0.6 = 600 for days 31-60, 1200 for days 61-90.
+* New setting **Charged: every month / once** (default every month). *Once* is the earlier behaviour (a single CF x rate).
+* **Counted from** now offers the pickup date (default for new installs; a job with no pickup date uses its 1st available date), the 1st available date, or the loaded date.
+* A fee typed by hand on a job (override) is **never** recalculated. A delivered job keeps the months and rate it had on its delivery day.
+* **Upgrade:** upload the new files, then `php cli/seed.php` (adds the new setting, default every month) and `php cli/doctor.php`. No migration. **Seeding turns on monthly charging**, so open jobs older than 60 days will show a larger fee after the next daily refresh. If you installed an earlier version, open **Settings** and set *Counted from* to **Pickup date** (a saved setting is never overwritten by seeding).
+
 ## 1.1.4 - the client's sheet fields on a job (roadmap phase 2)
 
 * New job fields from the client's spreadsheet: **E-CF** (estimated cubic feet), **E-Total**, **Deposit**, **Grand total**, **BH total**, **Paid**, **Foreman**, **Job lot** and **Color**. The existing CF is now labelled **A-CF** (actual CF); the storage fee is calculated from it.

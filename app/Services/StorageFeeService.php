@@ -9,9 +9,13 @@ use App\Core\Database;
 use App\Repositories\SettingsRepository;
 
 /**
- * Automatic storage fee: CF x rate, charged (once, not per day) when a job has waited more than N days.
+ * Automatic storage fee: A-CF x rate once a job has waited more than N days, then once more for every further month.
  *
- *  - "Waited" is counted from the 1st available date (default) or from the loaded date (Settings).
+ *  - Mode "monthly" (default, the client's sheet: "times whatever months stay, no prorating"): fee = CF x rate x months, where
+ *    month 1 starts on day N+1 and each further month is 30 days later (day 31-60 = 1 month, 61-90 = 2 months, ...). Part of a
+ *    month counts as a whole month. Mode "once": CF x rate is charged a single time (the earlier behaviour).
+ *  - "Waited" is counted from the pickup date (default; the 1st available date when a job has no pickup date),
+ *    the 1st available date, or the loaded date (Settings).
  *  - A job whose clock has not started, or that has no CF, owes nothing.
  *  - Open jobs (booked, in transit, on hold) are re-assessed as days pass and whenever the rate or the rules change.
  *  - A delivered job is frozen: it keeps the fee assessed on its delivery date, at the rate used then.
@@ -23,7 +27,10 @@ use App\Repositories\SettingsRepository;
  */
 final class StorageFeeService
 {
-    public const BASIS = ['first_available' => '1st available date', 'loaded' => 'loaded date'];
+    public const BASIS = ['pickup' => 'pickup date', 'first_available' => '1st available date', 'loaded' => 'loaded date'];
+    public const MODES = ['monthly' => 'every month (CF × rate × months)', 'once' => 'once (CF × rate, one time)'];
+    /** Length of one storage month, in days (assumption N2). */
+    public const MONTH_DAYS = 30;
     private const OPEN = ['booked', 'in_transit', 'on_hold'];
 
     public static function rate(): string
@@ -40,8 +47,29 @@ final class StorageFeeService
 
     public static function basis(): string
     {
-        $basis = (string) SettingsService::get('storage_fee_basis', 'first_available');
-        return isset(self::BASIS[$basis]) ? $basis : 'first_available';
+        $basis = (string) SettingsService::get('storage_fee_basis', 'pickup');
+        return isset(self::BASIS[$basis]) ? $basis : 'pickup';
+    }
+
+    public static function mode(): string
+    {
+        $mode = (string) SettingsService::get('storage_fee_mode', 'monthly');
+        return isset(self::MODES[$mode]) ? $mode : 'monthly';
+    }
+
+    /**
+     * How many charges a job has accumulated as of a date: 0 before the fee starts, then 1, plus one per further 30 days
+     * (always 1 in "once" mode).
+     */
+    public static function months(string $startsOn, string $asOf): int
+    {
+        if ($asOf < $startsOn) {
+            return 0;
+        }
+        if (self::mode() === 'once') {
+            return 1;
+        }
+        return 1 + intdiv(Clock::daysBetween($startsOn, $asOf), self::MONTH_DAYS);
     }
 
     /**
@@ -51,7 +79,11 @@ final class StorageFeeService
      */
     public static function baseDate(array $job): ?string
     {
-        $date = self::basis() === 'loaded' ? ($job['loaded_date'] ?? null) : ($job['first_available_date'] ?? null);
+        $date = match (self::basis()) {
+            'loaded' => $job['loaded_date'] ?? null,
+            'pickup' => ($job['pickup_date'] ?? null) !== null && $job['pickup_date'] !== '' ? $job['pickup_date'] : ($job['first_available_date'] ?? null),
+            default => $job['first_available_date'] ?? null,
+        };
         return $date === null || $date === '' ? null : substr((string) $date, 0, 10);
     }
 
@@ -69,8 +101,8 @@ final class StorageFeeService
     /**
      * What this job owes, as of today (open jobs) or its delivery date (delivered jobs).
      *
-     * @param array<string,mixed> $job any row with status, cf, first_available_date, loaded_date, delivery_date, storage_rate, storage_fee_override
-     * @return array{fee:string,rate:?string,manual:bool}
+     * @param array<string,mixed> $job any row with status, cf, pickup_date, first_available_date, loaded_date, delivery_date, storage_rate, storage_fee_override
+     * @return array{fee:string,rate:?string,manual:bool,months?:int}
      */
     public static function assess(array $job, ?string $today = null): array
     {
@@ -96,7 +128,8 @@ final class StorageFeeService
 
         // A delivered job keeps the rate it was charged at, so changing the rate later never rewrites history.
         $rate = $delivered && ($job['storage_rate'] ?? null) !== null && $job['storage_rate'] !== '' ? (string) $job['storage_rate'] : self::rate();
-        return ['fee' => number_format(round((float) $job['cf'] * (float) $rate, 2), 2, '.', ''), 'rate' => $rate, 'manual' => false];
+        $months = self::months($start, $asOf);
+        return ['fee' => number_format(round((float) $job['cf'] * (float) $rate * $months, 2), 2, '.', ''), 'rate' => $rate, 'manual' => false, 'months' => $months];
     }
 
     /** Re-assess one job and store the result. Returns the fee. */

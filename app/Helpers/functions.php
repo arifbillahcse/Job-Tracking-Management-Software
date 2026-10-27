@@ -278,7 +278,9 @@ function storage_fee_note(array $job): string
         return 'No storage fee on a cancelled job';
     }
     if ((float) $result['fee'] > 0) {
-        return 'Automatic: CF ' . fmt_number($job['cf']) . ' × rate ' . (string) (float) $result['rate'] . ' (after ' . \App\Services\StorageFeeService::days() . ' days)';
+        $months = (int) ($result['months'] ?? 1);
+        return 'Automatic: A-CF ' . fmt_number($job['cf']) . ' × rate ' . (string) (float) $result['rate']
+            . ($months > 1 ? ' × ' . $months . ' months' : '') . ' (after ' . \App\Services\StorageFeeService::days() . ' days)';
     }
     if (($job['cf'] ?? null) === null || (float) $job['cf'] <= 0) {
         return 'Automatic: needs a CF to be calculated';

@@ -54,6 +54,7 @@ Sign in as **Admin** unless a scenario says otherwise. Replace `TEST-1` etc. wit
 | C8 | Delete a job. Open **Trash**, restore it. | It disappears from the lists, appears in Trash, and comes back when restored. | ☐ | |
 | C9 | **Storage fee**: add a job with **CF 100** and a 1st available date **45 days ago**. Open it. | **Storage fee $60.00** and a note "Automatic: CF 100 × rate 0.6". A job with the same CF whose date was 10 days ago shows $0.00 and says when the fee starts. | ☐ | |
 | C10 | As Admin open **Settings**, change the storage fee rate to 1 and save. Look at the first job again. | Its fee is now $100.00 at once. Delivered jobs keep their old fee. Change the rate back to 0.6. | ☐ | |
+| C11 | Create a job with A-CF 1000 and a pickup date 45 days ago, then another 75 days ago. Open **More Than 30 Days** or Job Details. | 45 days: fee 600.00 (1 month). 75 days: 1,200.00 (2 months). The note on Job Details says "× 2 months". | ☐ | |
 | C11 | On a job you moved by mistake late, open **Edit** and correct the **Loaded date**. | It saves; a date in the future is refused; the change is in the Audit Log. | ☐ | |
 
 ## D. Dashboard
@@ -104,7 +105,7 @@ These are assumptions we made so the demo could be built. Please confirm or corr
 2. Which statuses do you really use? We have Booked, In Transit, Delivered, On Hold, Cancelled.
 3. Should a **delivered job** ever go back? (We allow it only for people with the "reopen" permission.)
 4. Who may see **balances and storage fees**? (Managers and Admins; not Staff.)
-5. **Storage fee:** is it counted from the job's **1st available date** (our assumption) or from the **loaded date**? Is it charged **once** (our assumption) or per day/month? Is the rate **0.6 per CF**, and does "30 days" mean the fee starts on day 31?
+5. **Storage fee:** is it counted from the **pickup date** (our assumption, from the client's sheet) and charged **every month** (month = 30 days, a part month counts as a full month)? Is the rate **0.6 per CF** on the **A-CF**, and does "30 days" mean the fee starts on day 31?
 6. Do you need customer **e-mail or address**, **invoices**, **documents/photos**, **e-mail or SMS notifications**? (Not built.)
 7. How long must we **keep records**, especially the audit log? (Now: forever.)
 8. Is **US date order (month/day/year)** right for the sheets you import?

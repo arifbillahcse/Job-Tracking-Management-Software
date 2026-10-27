@@ -53,7 +53,7 @@ check(StorageFeeService::rate() === '0.6' && StorageFeeService::days() === 30 &&
 $base = ['status' => 'booked', 'cf' => '100', 'first_available_date' => '2026-09-23', 'loaded_date' => null, 'delivery_date' => null, 'storage_rate' => null, 'storage_fee_override' => null];
 check(StorageFeeService::assess($base, '2026-10-23')['fee'] === '0.00', 'exactly 30 days waited: nothing is charged yet');
 check(StorageFeeService::startsOn($base) === '2026-10-24', 'the fee starts on day 31');
-check(StorageFeeService::assess($base, '2026-10-24') === ['fee' => '60.00', 'rate' => '0.6', 'manual' => false], 'day 31: CF 100 x 0.6 = 60.00 (the client\'s example)');
+check(StorageFeeService::assess($base, '2026-10-24') === ['fee' => '60.00', 'rate' => '0.6', 'manual' => false, 'months' => 1], 'day 31: CF 100 x 0.6 = 60.00 (the client\'s example)');
 check(StorageFeeService::assess($base, '2027-03-01')['fee'] === '60.00', '...and it is charged once, not per day');
 foreach ([['12.5', '7.50'], ['33.33', '20.00'], ['0.01', '0.01'], ['999999.99', '599999.99'], ['0', '0.00'], [null, '0.00'], ['-5', '0.00']] as [$cf, $fee]) {
     check(StorageFeeService::assess(['cf' => $cf] + $base, '2026-12-01')['fee'] === $fee, 'CF ' . var_export($cf, true) . ' -> ' . $fee);

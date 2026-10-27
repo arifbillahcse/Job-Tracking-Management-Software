@@ -2,7 +2,7 @@
 
 Custom job tracking software built with **Core PHP 8.1+, MySQL/MariaDB, Bootstrap 5.3, HTML, CSS and JavaScript** - no PHP framework.
 
-Status: **Version 1.1.4** (client change request: one-click In Transit / Delivered, automatic storage fee, customer phone) on top of the nine completed phases. Deployment and handover pack (`docs/deployment.md`, `docs/operations.md`, `docs/admin-guide.md`, `docs/user-guide.md`, `docs/handover.md`) on top of the Phase 8 - tests, scale check and user acceptance pack (`docs/test-plan.md`, `docs/uat-checklist.md`, `docs/requirements-traceability.md`) on top of audit log, settings and hardening (`docs/security-review.md`), UI polish (`docs/ui-guide.md`), CSV / Excel import and export, user and role management, user management, role management and a permission matrix on top of the dashboard, the five job sections and status workflow (Phase 3), job CRUD (Phase 2) and the security core (Phase 1). All nine phases are done; what is untested and not built is listed in `docs/handover.md`. See `docs/assumptions.md` for the demo business rules and `docs/permission-matrix.md` for what each role can do.
+Status: **Version 1.1.5** (client change request: one-click In Transit / Delivered, automatic storage fee, customer phone) on top of the nine completed phases. Deployment and handover pack (`docs/deployment.md`, `docs/operations.md`, `docs/admin-guide.md`, `docs/user-guide.md`, `docs/handover.md`) on top of the Phase 8 - tests, scale check and user acceptance pack (`docs/test-plan.md`, `docs/uat-checklist.md`, `docs/requirements-traceability.md`) on top of audit log, settings and hardening (`docs/security-review.md`), UI polish (`docs/ui-guide.md`), CSV / Excel import and export, user and role management, user management, role management and a permission matrix on top of the dashboard, the five job sections and status workflow (Phase 3), job CRUD (Phase 2) and the security core (Phase 1). All nine phases are done; what is untested and not built is listed in `docs/handover.md`. See `docs/assumptions.md` for the demo business rules and `docs/permission-matrix.md` for what each role can do.
 
 ## Quick start (local)
 
@@ -32,7 +32,7 @@ Point the document root at **`public/`** only. `public/.htaccess` handles Apache
 ## Tests
 ```bash
 tests/all.sh [--perf] [--e2e]               # EVERYTHING below on a throw-away database (recommended)
-php tests/run.php                                   # 1644 unit/integration checks (SQLite in memory)
+php tests/run.php                                   # 1664 unit/integration checks (SQLite in memory)
 tests/smoke.sh http://localhost:8000 USERNAME PASSWORD # Phase 1 end-to-end over HTTP (changes then restores that account's password)
 tests/smoke-jobs.sh http://localhost:8000 ADMIN_USER ADMIN_PASS STAFF_USER STAFF_PASS       # job CRUD as Admin and Staff (leaves soft-deleted SMOKE-* jobs)
 tests/smoke-workflow.sh http://localhost:8000 ADMIN_USER ADMIN_PASS STAFF_USER STAFF_PASS   # sections, dashboard and workflow (leaves soft-deleted WF-* jobs; needs GNU date)

@@ -123,7 +123,7 @@ actually works.** The "Where to change" column shows how cheap each change is.
 
 | # | Decision | Where |
 |---|---|---|
-| J1 | **Automatic storage fee = CF × rate**, default rate **0.6** (CF 100 → 60.00). It is charged **once, not per day**. Rounded to 2 decimals. Rate, days and counting basis are on the **Settings** page; changing any of them re-assesses every open job at once. | `StorageFeeService` |
+| J1 | **Automatic storage fee = CF × rate**, default rate **0.6** (CF 100 → 60.00). It was charged **once, not per day** (**superseded in version 1.1.5**: now charged every month, see N2; *once* is still selectable). Rounded to 2 decimals. Rate, days and counting basis are on the **Settings** page; changing any of them re-assesses every open job at once. | `StorageFeeService` |
 | J2 | **When does the fee start?** The brief says "after 30 days" without saying 30 days *from what*. **Assumption (please confirm):** from the job's **1st available date**, so a job still waiting more than 30 days after the date the customer could take delivery owes the fee from **day 31** (day 30 is free, like the 30-day limit of the Ready list). Settings can count from the **loaded date** instead. | `settings.storage_fee_basis`, `storage_fee_after_days` |
 | J3 | **Frozen at delivery:** a delivered job keeps the fee it had on its delivery date, at the rate used then (a later rate change never rewrites history). Cancelled jobs owe nothing. Reopening a delivered job makes it an open job again. A job with no CF owes nothing. A fee typed on the job (**Storage fee override**, needs `jobs.edit_financials`, 0 = waived) always wins and is never recalculated; an old manually entered fee became an override when the database was upgraded. | `JobService`, migration 008 |
 | J4 | **Move to In Transit is one click** (no dialog): status In Transit and **Loaded date = today** in the business time zone (Settings). Carrier, driver and driver phone are now **optional** and can be added under Edit while the job is in transit. A confirmation ("Today (date) will be saved as the loaded date") guards against stray clicks. | `JobWorkflowService`, `views/jobs/_quick_move.php` |
@@ -158,6 +158,14 @@ The generated role x route matrix is in `docs/permission-matrix.md` (`php cli/pe
 | M3 | The sheet's separate **Balance Due** and **Balance** columns are not both stored: `balance` is the one field. Importing a file that has both columns is refused with a "more than one column matches" message until one is removed. Balance Due = Balance + storage fee on the More Than 30 Days sheet is not applied. | `jobs.balance` |
 | M4 | **Foreman** on a job is plain text for now. The foreman and trip module (later phase) will link jobs to foremen. | `jobs.foreman_name` |
 | M5 | The money fields follow the existing financial permissions: `jobs.view_financials` to see, `jobs.edit_financials` to change/import. Staff cannot see or write them. | `JobService`, `JobFields` |
+
+## Storage fee from the pickup date, every month (version 1.1.5)
+
+| # | Assumption | Where |
+|---|------------|-------|
+| N1 | **Counted from the pickup date** (client sheet: "after 30 days from the pick up date"). A job with no pickup date uses its 1st available date. Day 30 is free; the fee starts on day 31. This supersedes J2 for new installs; the 1st available date and loaded date stay selectable. | `StorageFeeService::baseDate()` |
+| N2 | **Charged every month** (client sheet: "times whatever months stay, no prorating or at rate we decide"). Fee = A-CF x rate x months. Provisional month length: **30 days** (day 31-60 = 1 month, 61-90 = 2, ...), and a part month counts as a whole month. The sheet does not say how a month is counted; this is our reading and the length is one constant (`MONTH_DAYS`). Setting *Charged = once* restores the single charge (J1). The sheet's "at rate we decide" is the configurable rate (cents accepted, e.g. `60c`). | `StorageFeeService::months()` |
+| N3 | Automatic fees are re-assessed every day. Turning on monthly charging therefore raises the fee on open jobs older than 60 days at the next refresh. Fees typed by hand (override) and the fee of delivered jobs are never changed. | `StorageFeeService::refresh()` |
 
 ## Security defaults (can be tuned in `app/Config/app.php` / `.env`)
 

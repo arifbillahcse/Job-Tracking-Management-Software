@@ -31,7 +31,7 @@ Type part of a **job number, customer name, city or route** in the search box an
 
 **All Jobs -> New job.** Required: job number (letters, numbers and `- _ / .`, must be unique), customer first and last name, from, to, and the **1st available date** (the first day the customer can accept delivery). Optional: the **customer's phone number** (on a phone it becomes a tap-to-call link), pickup date, job location, CF (cubic feet), notes, and, if you may see money, balance and storage fee.
 
-**Storage fee is automatic:** CF × rate (default 0.6, so CF 100 → 60.00), charged once when a job has waited more than 30 days. You never type it; a manager can type an *override* if a job needs a different amount. The Job Details page explains how the fee was worked out.
+**Storage fee is automatic:** A-CF × rate (default 0.6, so A-CF 1000 → 600.00) for each month, starting when a job has waited more than 30 days since its **pickup date** (days 31-60 = 1 month, 61-90 = 2 months, and so on; a part month counts as a full month). You never type it; a manager can type an *override* if a job needs a different amount. The Job Details page explains how the fee was worked out.
 
 Amounts are plain numbers: `1200` or `1200.50`. No `$`, no commas, at most two decimals.
 

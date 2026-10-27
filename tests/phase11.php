@@ -14,6 +14,8 @@ use App\Repositories\JobRepository;
 use App\Services\ExportService;
 use App\Services\ImportService;
 use App\Services\JobCriteria;
+use App\Services\SettingsService;
+use App\Services\StorageFeeService;
 
 /** Numeric columns come back as numbers on SQLite and as strings on MariaDB; compare them as floats. */
 function n(mixed $v): ?float
@@ -127,4 +129,56 @@ $st = $svc->stage(upload_of($file, 'nomoney.csv'), (int) $staff['id']);
 $svc->commit((int) $st['batch'], (int) $staff['id']);
 $im = Database::fetchOne("SELECT deposit, foreman_name FROM jobs WHERE job_number = 'IMP-S2'");
 check($im !== false && $im['deposit'] === null && $im['foreman_name'] === 'Zed', 'without the financial permission an imported Deposit is ignored, a Foreman is kept');
+Clock::fake(null);
+
+// ================================================================ roadmap phase 3: pickup basis and monthly fee
+
+section('Storage fee: counted from the pickup date, charged every month (assumptions N1, N2)');
+fresh_db();
+fresh_session();
+Clock::fake('2026-10-23');
+$defaults = require BASE_PATH . '/app/Config/settings.php';
+check($defaults['storage_fee_basis'] === 'pickup' && $defaults['storage_fee_mode'] === 'monthly' && $defaults['storage_fee_rate'] === '0.6' && $defaults['storage_fee_after_days'] === '30', 'shipped defaults: from the pickup date, every month, rate 0.6, after 30 days');
+p10_set(['storage_fee_basis' => 'pickup', 'storage_fee_mode' => 'monthly']);
+check(StorageFeeService::basis() === 'pickup' && StorageFeeService::mode() === 'monthly', 'the settings take effect');
+$b = ['status' => 'booked', 'cf' => '1000', 'pickup_date' => '2026-09-23', 'first_available_date' => '2026-12-31', 'loaded_date' => null, 'delivery_date' => null, 'storage_rate' => null, 'storage_fee_override' => null];
+check(StorageFeeService::startsOn($b) === '2026-10-24', 'the fee starts 30 days after the pickup date, not after the 1st available date');
+check(StorageFeeService::assess($b, '2026-10-23')['fee'] === '0.00', 'day 30 after pickup: nothing yet');
+check(StorageFeeService::assess($b, '2026-10-24')['fee'] === '600.00', 'day 31: A-CF 1000 x 0.6 = 600.00 (the sheet\'s example)');
+check(StorageFeeService::assess($b, '2026-11-22')['fee'] === '600.00' && StorageFeeService::assess($b, '2026-11-23')['fee'] === '1200.00', 'still one month on day 60, the second month starts on day 61');
+check(StorageFeeService::assess($b, '2027-01-21')['fee'] === '1800.00' && StorageFeeService::assess($b, '2027-01-22')['fee'] === '2400.00', 'and so on: 90 days = 3 months, 91 days = 4 months');
+check(StorageFeeService::assess($b, '2026-11-30')['fee'] === '1200.00', 'no prorating: a part month counts as a whole month');
+check(StorageFeeService::months('2026-10-24', '2026-10-23') === 0 && StorageFeeService::months('2026-10-24', '2026-10-24') === 1 && StorageFeeService::months('2026-10-24', '2026-11-22') === 1 && StorageFeeService::months('2026-10-24', '2026-11-23') === 2, 'months(): 0 before, 1 from the first day, 2 after 30 more days');
+$np = ['pickup_date' => null] + $b;
+check(StorageFeeService::startsOn($np) === '2027-01-31', 'a job with no pickup date is counted from its 1st available date');
+p10_set(['storage_fee_mode' => 'once']);
+check(StorageFeeService::assess($b, '2027-06-01')['fee'] === '600.00', 'mode "once" charges CF x rate a single time, as before');
+p10_set(['storage_fee_mode' => 'monthly', 'storage_fee_basis' => 'first_available']);
+check(StorageFeeService::startsOn($b) === '2027-01-31', 'the 1st available date can still be chosen');
+p10_set(['storage_fee_basis' => 'pickup']);
+
+// delivered job: frozen at the months it had on delivery day, at the rate then
+$d = $b + [];
+$d['status'] = 'delivered';
+$d['delivery_date'] = '2026-11-25';
+check(StorageFeeService::assess($d, '2030-01-01')['fee'] === '1200.00', 'a delivered job keeps the months it had on its delivery date (2 months)');
+$d['storage_rate'] = '0.5';
+check(StorageFeeService::assess($d, '2030-01-01')['fee'] === '1000.00', '...at the rate it was charged then (0.5 x 1000 x 2)');
+
+// stored fees follow the mode and never touch a manual override
+$j1 = p10_job(['job_number' => 'N-AUTO', 'cf' => '1000', 'pickup_date' => '2026-07-25', 'first_available_date' => '2026-12-01']);   // 90 days ago
+$j2 = p10_job(['job_number' => 'N-MAN', 'cf' => '1000', 'pickup_date' => '2026-07-25', 'first_available_date' => '2026-12-01', 'storage_fee_override' => '77.00', 'storage_fee' => '77.00']);
+StorageFeeService::refresh();
+check(p10_fee((int) $j1['id']) === '1200.00', 'refresh stores the monthly fee on an open job (90 days after pickup = 2 months = 1200)');
+check(p10_fee((int) $j2['id']) === '77.00', 'a manually entered fee is not touched');
+p10_set(['storage_fee_mode' => 'once']);
+check(p10_fee((int) $j1['id']) === '600.00' && p10_fee((int) $j2['id']) === '77.00', 'switching the mode re-assesses automatic fees at once; the manual one stays');
+p10_set(['storage_fee_mode' => 'monthly']);
+$f = (new \App\Repositories\JobRepository())->find((int) $j1['id']);
+check(str_contains(storage_fee_note($f), 'A-CF 1,000') && preg_match('/× \d months/', storage_fee_note($f)) === 1, 'the note on the job explains the months');
+
+check(isset(SettingsService::validate(['storage_fee_mode' => 'weekly'] + SettingsService::editable())['errors']['storage_fee_mode']) && !isset(SettingsService::validate(['storage_fee_mode' => 'once'] + SettingsService::editable())['errors']['storage_fee_mode']), 'the mode must be monthly or once');
+sign_in(make_user('Admin', 'n-admin@example.com'));
+$page = plain(call('GET', '/settings')->body());
+check(str_contains(call('GET', '/settings')->body(), 'name="storage_fee_mode"') && str_contains($page, 'pickup date') && str_contains($page, 'with no prorating'), 'the settings page offers the mode and the pickup date, and explains no prorating');
 Clock::fake(null);

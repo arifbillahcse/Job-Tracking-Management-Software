@@ -87,6 +87,8 @@ function fresh_db(): void
     (new Seeder())->run();
     // Most tests were written for the original section rule; the pickup-date rule (assumption L1) has its own tests.
     (new \App\Repositories\SettingsRepository())->set('section_basis', 'first_available');
+    (new \App\Repositories\SettingsRepository())->set('storage_fee_basis', 'first_available');
+    (new \App\Repositories\SettingsRepository())->set('storage_fee_mode', 'once');
     PermissionService::flush();
     \App\Services\SettingsService::flush();
     Auth::reset();
