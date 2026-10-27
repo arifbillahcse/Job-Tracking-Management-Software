@@ -142,6 +142,13 @@ The generated role x route matrix is in `docs/permission-matrix.md` (`php cli/pe
 | K1 | **To be confirmed with the client.** The note "any jobs that more than 30 days needs to be moved to More Than 30 Days by default" is read as: a booked job whose 1st available date is more than N days (default 30) in the past is shown in **More Than 30 Days**, and Ready for Delivery covers N days either side of today. This supersedes the "overdue jobs stay in Ready" part of A2/A3. These jobs are also the ones carrying the storage fee. Overdue jobs of any age still appear in the dashboard Overdue panel. If the client meant something else (for example counting from the date the job was created), only `JobBucket` needs to change. | `JobBucket::condition()` |
 | K2 | The storage rate can be entered as dollars per CF (`0.6`) or cents (`60c`, `60 cents`, `60¢`); it is stored in dollars. | `SettingsService::validate()` |
 
+## Sections counted from the Pickup Date (version 1.1.2)
+
+| # | Assumption | Where |
+|---|------------|-------|
+| L1 | The client asked for the 30-day period to run from the **Pickup Date**. Default rule (setting *Count the days from* = Pickup date): a booked job is in **More Than 30 Days** when its pickup date is more than N days (default 30) before today, otherwise in **Ready for Delivery**. A job whose pickup is still in the future counts as Ready. A job **without a pickup date** uses its 1st available date instead (the list shows a "no pickup date" note). Exactly 30 days ago is still Ready; 31 days ago is More Than 30 Days. This replaces K1 for installs using the default; K1 still describes the *1st available date* choice. Not yet confirmed with the client. | `JobBucket`, `settings.section_basis` |
+| L2 | The **storage fee** still counts from the 1st available date (J1) until the next roadmap phase moves it to the pickup date, so for a short time the fee and the section can disagree. | `StorageFeeService` |
+
 ## Security defaults (can be tuned in `app/Config/app.php` / `.env`)
 
 * Sessions end after **30 minutes idle** or **8 hours** in total.

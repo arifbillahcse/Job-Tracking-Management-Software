@@ -11,6 +11,10 @@ use App\Core\Clock;
  * WHERE clause from condition(), so they cannot disagree. A job's section is never stored; it is
  * computed from status and 1st available date every time, so changing either moves the job automatically.
  *
+ *   With the default basis "pickup" (assumption L1, settings.section_basis) the date is the pickup date (the 1st available date
+ *   when a job has none): Ready = that date is no older than N days; More Than N Days = older than N days. With basis
+ *   "first_available" the original rule below applies.
+ *
  *   Ready for Delivery  status = booked AND available date from today - N days to today + N days   (assumptions A2, K1)
  *   More Than 30 Days   status = booked AND available date more than N days away, in the future OR in the past
  *                       (jobs that have already waited more than N days are the ones that carry the storage fee)
@@ -62,6 +66,41 @@ final class JobBucket
         return is_numeric($value) ? max(0, min(3650, (int) $value)) : 30;
     }
 
+    public const BASES = ['pickup' => 'Pickup date', 'first_available' => '1st available date'];
+
+    /**
+     * Which date the sections are counted from (settings.section_basis, assumption L1):
+     * "pickup" = the pickup date, or the 1st available date when a job has no pickup date; "first_available" = the original rule.
+     */
+    public static function basis(): string
+    {
+        $basis = (string) SettingsService::get('section_basis', 'pickup');
+        return isset(self::BASES[$basis]) ? $basis : 'pickup';
+    }
+
+    /** SQL expression for the date a booked job's age is counted from. */
+    public static function dateSql(string $alias = 'j'): string
+    {
+        return self::basis() === 'pickup' ? "COALESCE({$alias}.pickup_date, {$alias}.first_available_date)" : "{$alias}.first_available_date";
+    }
+
+    /**
+     * The date this job's age is counted from (PHP twin of dateSql()).
+     *
+     * @param array<string,mixed> $job
+     */
+    public static function dateOf(array $job): string
+    {
+        $pickup = (string) ($job['pickup_date'] ?? '');
+        return self::basis() === 'pickup' && $pickup !== '' ? substr($pickup, 0, 10) : substr((string) $job['first_available_date'], 0, 10);
+    }
+
+    /** True when the pickup basis is active but this job has no pickup date, so its 1st available date is used instead. */
+    public static function usesFallback(array $job): bool
+    {
+        return self::basis() === 'pickup' && (string) ($job['pickup_date'] ?? '') === '';
+    }
+
     /** Oldest available date that is still "ready": today - threshold (older jobs have waited too long and move to More Than N Days). */
     public static function pastCutoff(): string
     {
@@ -82,6 +121,14 @@ final class JobBucket
     public static function condition(string $bucket, string $alias = 'j'): array
     {
         $base = "{$alias}.deleted_at IS NULL";
+        $d = self::dateSql($alias);
+
+        if (self::basis() === 'pickup' && in_array($bucket, [self::READY, self::LATER], true)) {
+            // Age rule: picked up within the last N days (or not yet picked up) is Ready; older than N days is More Than N Days.
+            return $bucket === self::READY
+                ? ["{$base} AND {$alias}.status = ? AND {$d} >= ?", ['booked', self::pastCutoff()]]
+                : ["{$base} AND {$alias}.status = ? AND {$d} < ?", ['booked', self::pastCutoff()]];
+        }
 
         return match ($bucket) {
             self::READY => ["{$base} AND {$alias}.status = ? AND {$alias}.first_available_date <= ? AND {$alias}.first_available_date >= ?", ['booked', self::cutoff(), self::pastCutoff()]],
@@ -101,7 +148,9 @@ final class JobBucket
     public static function of(array $job): ?string
     {
         return match ((string) $job['status']) {
-            'booked' => (string) $job['first_available_date'] <= self::cutoff() && (string) $job['first_available_date'] >= self::pastCutoff() ? self::READY : self::LATER,
+            'booked' => self::basis() === 'pickup'
+                ? (self::dateOf($job) >= self::pastCutoff() ? self::READY : self::LATER)
+                : ((string) $job['first_available_date'] <= self::cutoff() && (string) $job['first_available_date'] >= self::pastCutoff() ? self::READY : self::LATER),
             'in_transit' => self::TRANSIT,
             'delivered' => self::DELIVERED,
             default => null,

@@ -2,6 +2,13 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.1.2 - sections count from the Pickup Date (roadmap phase 1)
+
+* **More Than 30 Days is now counted from the Pickup Date.** A booked job picked up more than 30 days ago is in More Than 30 Days; picked up within 30 days (or not picked up yet) is Ready for Delivery. A job with no pickup date uses its 1st available date, and the list says so. Assumption L1.
+* New setting **Count the days from** (Pickup date, default / 1st available date). Choosing the 1st available date restores the earlier rule with no data change; switching back and forth only changes how jobs are sorted into sections.
+* The storage fee calculation is **not changed in this release** (still counted from the 1st available date by default); it moves to the pickup date in the next phase.
+* **Upgrade:** upload the new files, then `php cli/seed.php` (adds the new setting, default Pickup date) and `php cli/doctor.php`. No migration.
+
 ## 1.1.1 - overdue jobs go to More Than 30 Days; storage rate in cents
 
 * A booked job whose 1st available date is **more than 30 days in the past** now shows in **More Than 30 Days** (not Ready for Delivery). These are the jobs that carry the automatic storage fee (CF × 0.6 by default). Ready for Delivery = within 30 days either side of today. The dashboard Overdue panel still lists every overdue job. *Interpretation of the client's note, to be confirmed (assumption K1).*

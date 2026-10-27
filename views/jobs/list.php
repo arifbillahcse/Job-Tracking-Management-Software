@@ -43,8 +43,12 @@ $columns = array_values(array_filter(
 
 $descriptions = [
     JobBucket::ALL => 'Every job, including those on hold or cancelled.',
-    JobBucket::READY => "Booked jobs whose 1st available date is within {$threshold} days of today (including up to {$threshold} days overdue).",
-    JobBucket::LATER => "Booked jobs whose 1st available date is more than {$threshold} days away, or that have already waited more than {$threshold} days past it (the storage fee applies to those). Jobs ahead of time move to Ready for Delivery by themselves as the date approaches.",
+    JobBucket::READY => JobBucket::basis() === 'pickup'
+        ? "Booked jobs picked up within the last {$threshold} days, or not picked up yet. Jobs with no pickup date are counted from their 1st available date."
+        : "Booked jobs whose 1st available date is within {$threshold} days of today (including up to {$threshold} days overdue).",
+    JobBucket::LATER => JobBucket::basis() === 'pickup'
+        ? "Booked jobs picked up more than {$threshold} days ago (the storage fee applies to those). Jobs with no pickup date are counted from their 1st available date."
+        : "Booked jobs whose 1st available date is more than {$threshold} days away, or that have already waited more than {$threshold} days past it (the storage fee applies to those). Jobs ahead of time move to Ready for Delivery by themselves as the date approaches.",
     JobBucket::TRANSIT => 'Jobs on the road, with the loaded date, carrier and driver. Use Mark as Delivered when a job arrives.',
     JobBucket::DELIVERED => 'Completed deliveries.',
 ];
@@ -157,11 +161,12 @@ $sortHeader = static function (string $label, ?string $sortKey) use ($criteria, 
                                         <?php break;
                                     case 'pickup': ?>
                                         <?= e(fmt_date($job['pickup_date']) ?: '—') ?>
+                                        <?php if ($bucket === JobBucket::LATER || $bucket === JobBucket::READY): if (JobBucket::usesFallback($job)): ?><div class="jt-subtle">no pickup date: using 1st available</div><?php endif; endif; ?>
                                         <?php break;
                                     case 'available': ?>
                                         <span class="jt-date"><?= e(fmt_date($job['first_available_date'])) ?></span>
                                         <?= availability_chip($job) ?>
-                                        <?php if ($bucket === JobBucket::LATER && (string) $job['first_available_date'] > JobBucket::cutoff()): ?>
+                                        <?php if ($bucket === JobBucket::LATER && JobBucket::basis() === 'first_available' && (string) $job['first_available_date'] > JobBucket::cutoff()): ?>
                                             <div class="jt-subtle">Moves to Ready on <?= e(fmt_date(JobBucket::movesToReadyOn((string) $job['first_available_date']))) ?></div>
                                         <?php elseif ($bucket === JobBucket::LATER): ?>
                                             <div class="jt-subtle">Waiting more than <?= e($threshold) ?> days</div>

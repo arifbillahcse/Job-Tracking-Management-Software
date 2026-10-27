@@ -36,7 +36,7 @@ final class SettingsController extends Controller
         if ($changes['new'] === []) {
             $this->flash('info', 'Nothing changed.');
         } else {
-            $this->flash('success', 'Settings saved. ' . (isset($changes['new']['ready_threshold_days']) ? 'Jobs have been re-sorted into their sections using the new day limit.' : ''));
+            $this->flash('success', 'Settings saved. ' . ((isset($changes['new']['ready_threshold_days']) || isset($changes['new']['section_basis'])) ? 'Jobs have been re-sorted into their sections using the new rule.' : ''));
         }
         return $this->redirect('/settings');
     }

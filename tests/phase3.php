@@ -725,3 +725,67 @@ check(str_contains(call('GET', '/jobs/more-than-30')->body(), 'More Than 45 Days
 set_setting('ready_threshold_days', '30');
 
 Clock::fake(null);
+
+// ================================================================ PHASE 1 (v1.2): sections count from the pickup date
+
+section('Sections: the pickup date is the default basis (assumption L1)');
+fresh_db();
+fresh_session();
+Clock::fake('2026-10-23');
+set_setting('section_basis', 'pickup');
+sign_in(make_user('Manager', 'l1@example.com'));
+check(JobBucket::basis() === 'pickup', 'pickup is the basis when the setting says so');
+foreach ([
+    'P-today' => ['2026-10-23', '2027-01-01'],   // picked up today, 1st available far away
+    'P-30' => ['2026-09-23', '2026-09-01'],      // exactly 30 days ago
+    'P-31' => ['2026-09-22', '2026-10-30'],      // 31 days ago, 1st available soon
+    'P-future' => ['2026-12-01', '2026-10-01'],  // pickup still ahead
+    'P-none-old' => [null, '2026-08-01'],        // no pickup date, 1st available long ago
+    'P-none-new' => [null, '2026-10-30'],        // no pickup date, 1st available soon
+] as $number => [$pickup, $available]) {
+    mk_job(['job_number' => $number, 'pickup_date' => $pickup, 'first_available_date' => $available]);
+}
+mk_job(['job_number' => 'P-transit', 'status' => 'in_transit', 'pickup_date' => '2026-01-01', 'first_available_date' => '2026-01-01']);
+check(numbers('ready') === ['P-30', 'P-future', 'P-none-new', 'P-today'], 'Ready = picked up within the last 30 days or not picked up yet (no pickup date: the 1st available date is used)');
+check(numbers('later') === ['P-31', 'P-none-old'], 'More Than 30 Days = picked up more than 30 days ago');
+check(numbers('transit') === ['P-transit'], 'In Transit still depends on status only');
+
+$disagree = [];
+foreach ((new JobRepository())->fetch(JobCriteria::forBucket('all'), 100, 0) as $row) {
+    $mine = JobBucket::of($row);
+    foreach (['ready', 'later', 'transit'] as $b) {
+        if (in_array($row['job_number'], numbers($b), true) !== ($mine === $b)) {
+            $disagree[] = $row['job_number'] . '/' . $b;
+        }
+    }
+}
+check($disagree === [], 'the PHP and SQL definitions agree under the pickup basis');
+
+$before = ['ready' => numbers('ready'), 'later' => numbers('later')];
+set_setting('ready_threshold_days', '60');
+check(in_array('P-31', numbers('ready'), true) && numbers('later') === ['P-none-old'], 'the day limit applies to the pickup age (60 days brings P-31 back to Ready)');
+set_setting('ready_threshold_days', '30');
+set_setting('section_basis', 'first_available');
+check(JobBucket::basis() === 'first_available' && numbers('later') === ['P-30', 'P-none-old', 'P-today'], 'switching to the 1st available date restores the original rule with no data change');
+set_setting('section_basis', 'pickup');
+check(numbers('ready') === $before['ready'] && numbers('later') === $before['later'], '...and switching back returns the same sections');
+set_setting('section_basis', 'nonsense');
+check(JobBucket::basis() === 'pickup', 'an unknown basis value falls back to pickup');
+set_setting('section_basis', 'pickup');
+
+// Editing a pickup date moves the job.
+$id = (int) Database::fetchValue("SELECT id FROM jobs WHERE job_number = 'P-today'");
+Database::execute("UPDATE jobs SET pickup_date = '2026-06-01' WHERE id = ?", [$id]);
+check(in_array('P-today', numbers('later'), true), 'editing the pickup date to an old date moves the job to More Than 30 Days at once');
+Database::execute("UPDATE jobs SET pickup_date = NULL WHERE id = ?", [$id]);
+check(in_array('P-today', numbers('ready'), true), 'clearing it falls back to the 1st available date (far ahead = Ready)');
+
+$page = call('GET', '/jobs/more-than-30');
+check(str_contains(plain(call('GET', '/jobs/ready')->body()), 'picked up within the last 30 days') && str_contains(plain($page->body()), 'picked up more than 30 days ago'), 'the list descriptions explain the pickup rule');
+$page = plain(call('GET', '/jobs/more-than-30')->body());
+check(str_contains($page, 'no pickup date: using 1st available'), 'a row without a pickup date says which date is being used');
+check(str_contains(plain(call('GET', '/dashboard')->body()), 'picked up over 30 days ago'), 'the dashboard card hint follows the rule');
+sign_in(make_user('Admin', 'l1-admin@example.com'));
+check(str_contains(plain(call('GET', '/settings')->body()), 'Count the days from'), 'the settings page offers the choice');
+check(isset(SettingsService::validate(['section_basis' => 'x'] + SettingsService::editable())['errors']['section_basis']), 'an invalid basis is refused');
+Clock::fake(null);

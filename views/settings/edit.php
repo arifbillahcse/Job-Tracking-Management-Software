@@ -18,8 +18,19 @@ $val = static fn (string $key): string => old_or($key, $values[$key] ?? '');
                 <div class="mb-3">
                     <label for="ready_threshold_days" class="form-label">Ready-for-delivery limit (days) <span class="text-danger" aria-hidden="true">*</span></label>
                     <input type="number" class="form-control<?= has_error('ready_threshold_days') ? ' is-invalid' : '' ?>" id="ready_threshold_days" name="ready_threshold_days" value="<?= e($val('ready_threshold_days')) ?>" min="1" max="365" step="1" required inputmode="numeric" aria-describedby="ready_threshold_days-help">
-                    <div class="form-text" id="ready_threshold_days-help">A booked job whose 1st available date is within this many days of today is <strong>Ready for Delivery</strong>. Jobs further away than that, <strong>or that have already waited longer than that</strong>, are in <strong>More Than <?= e($val('ready_threshold_days')) ?> Days</strong>. Jobs move between sections automatically and immediately when this changes.</div>
+                    <div class="form-text" id="ready_threshold_days-help">The number of days for the rule below. With the pickup rule, a booked job picked up longer ago than this is in <strong>More Than <?= e($val('ready_threshold_days')) ?> Days</strong>, otherwise <strong>Ready for Delivery</strong>. With the 1st-available-date rule, a job whose date is within this many days of today is Ready, and jobs further away, <strong>or that have already waited longer</strong>, are in <strong>More Than <?= e($val('ready_threshold_days')) ?> Days</strong>. Jobs move between sections automatically and immediately when this changes.</div>
                     <?= error_text('ready_threshold_days') ?>
+                </div>
+
+                <div class="mb-3">
+                    <label for="section_basis" class="form-label">Count the days from <span class="text-danger" aria-hidden="true">*</span></label>
+                    <select class="form-select<?= has_error('section_basis') ? ' is-invalid' : '' ?>" id="section_basis" name="section_basis" required aria-describedby="section_basis-help">
+                        <?php foreach (\App\Services\JobBucket::BASES as $key => $label): ?>
+                            <option value="<?= e($key) ?>"<?= $val('section_basis') === $key ? ' selected' : '' ?>><?= e($label) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <div class="form-text" id="section_basis-help"><strong>Pickup date</strong>: a booked job picked up more than the limit ago moves to More Than <?= e($val('ready_threshold_days')) ?> Days; jobs with no pickup date use their 1st available date. <strong>1st available date</strong>: the original rule (see above).</div>
+                    <?= error_text('section_basis') ?>
                 </div>
 
                 <div class="row g-3 mb-3">

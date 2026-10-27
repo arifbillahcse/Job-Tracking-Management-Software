@@ -37,6 +37,7 @@ async function createJob(page, number, availableOffset, extra = {}) {
     await page.fill('#from_location', 'Austin, TX');
     await page.fill('#to_location', 'Denver, CO');
     await page.fill('#first_available_date', day(availableOffset));
+    if (extra.pickup !== undefined) await page.fill('#pickup_date', day(extra.pickup));
     if (extra.balance) await page.fill('#balance', extra.balance);
     if (extra.cf) await page.fill('#cf', extra.cf);
     if (extra.phone) await page.fill('#customer_phone', extra.phone);
@@ -77,16 +78,16 @@ async function createJob(page, number, availableOffset, extra = {}) {
         await page.goto(BASE + '/jobs/more-than-30?q=' + RUN + '-A');
         must(!(await page.textContent('main')).includes(RUN + '-A'), 'also in More Than 30');
     });
-    await step('a job available in 45 days appears under More Than 30 Days only', async () => {
-        await createJob(page, RUN + '-B', 45);
+    await step('a job picked up 45 days ago appears under More Than 30 Days only', async () => {
+        await createJob(page, RUN + '-B', 5, { pickup: -45 });
         await page.goto(BASE + '/jobs/more-than-30?q=' + RUN + '-B');
         must((await page.textContent('main')).includes(RUN + '-B'), 'not in More Than 30');
         await page.goto(BASE + '/jobs/ready?q=' + RUN + '-B');
         must(!(await page.textContent('main')).includes(RUN + '-B'), 'also in Ready');
     });
-    await step('day 30 is Ready and day 31 is More Than 30 Days', async () => {
-        await createJob(page, RUN + '-C30', 30);
-        await createJob(page, RUN + '-C31', 31);
+    await step('picked up 30 days ago is Ready and 31 days ago is More Than 30 Days', async () => {
+        await createJob(page, RUN + '-C30', 5, { pickup: -30 });
+        await createJob(page, RUN + '-C31', 5, { pickup: -31 });
         await page.goto(BASE + '/jobs/ready?q=' + RUN + '-C');
         const ready = await page.textContent('main');
         must(ready.includes(RUN + '-C30') && !ready.includes(RUN + '-C31'), 'wrong side of the boundary in Ready');
