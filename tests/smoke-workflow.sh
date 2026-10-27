@@ -8,7 +8,7 @@ BASE="${1:?base url}"; A_USER="${2:?admin username}"; A_PASS="${3:?admin passwor
 AJ="$(mktemp)"; SJ="$(mktemp)"; PASSED=0; FAILED=0; MADE=()
 trap 'rm -f "$AJ" "$SJ"' EXIT
 RUN="WF-$(date +%s)"
-TODAY="$(date -u +%F)"; D5="$(date -u -d '+5 days' +%F)"; D10="$(date -u -d '+10 days' +%F)"; D90="$(date -u -d '+90 days' +%F)"; P90="$(date -u -d '-90 days' +%F)"; P5="$(date -u -d '-5 days' +%F)"; FUTURE="$(date -u -d '+3 days' +%F)"
+TODAY="$(date -u +%F)"; D5="$(date -u -d '+5 days' +%F)"; D10="$(date -u -d '+10 days' +%F)"; D90="$(date -u -d '+90 days' +%F)"; FUTURE="$(date -u -d '+3 days' +%F)"
 TODAY_FMT="$(date -u +'%b %-d, %Y')"
 
 ok()   { PASSED=$((PASSED+1)); echo "  ok   $1"; }
@@ -58,20 +58,20 @@ check "signed-out visitors cannot see any section" 'for p in /dashboard /jobs/re
 
 echo "== Dates decide the section automatically"
 R=$(post_job "$AJ" "$RUN-R" "Rita" "$D5"); RID=$(job_id "$R"); MADE+=("$RID")
-L=$(post_job "$AJ" "$RUN-L" "Leo" "$D90" --data-urlencode "pickup_date=$P90"); LID=$(job_id "$L"); MADE+=("$LID")
+L=$(post_job "$AJ" "$RUN-L" "Leo" "$D90"); LID=$(job_id "$L"); MADE+=("$LID")
 check "both jobs were created" '[[ -n "$RID" && -n "$LID" ]]'
 check "job due in 5 days is in Ready, not More Than 30 Days" 'in_list /jobs/ready "$RUN-R" && ! in_list /jobs/more-than-30 "$RUN-R"'
-check "job picked up 90 days ago is in More Than 30 Days, not Ready" 'in_list /jobs/more-than-30 "$RUN-L" && ! in_list /jobs/ready "$RUN-L"'
+check "job due in 90 days is in More Than 30 Days, not Ready" 'in_list /jobs/more-than-30 "$RUN-L" && ! in_list /jobs/ready "$RUN-L"'
 check "dashboard: Ready +1, More Than 30 +1, Total +2" '[[ $(card "Ready for delivery") == $((R0+1)) && $(card "More than 30 days") == $((L0+1)) && $(card "Total jobs") == $((ALL0+2)) ]]'
 check "the Ready row shows a countdown" 'get "$AJ" /jobs/ready | flat | grep -q "in 5 days"'
-check "the later row says it is counted from the pickup date" 'get "$AJ" /jobs/more-than-30 | flat | grep -q "picked up more than 30 days ago"'
+check "the later row shows when it moves to Ready" 'get "$AJ" /jobs/more-than-30 | flat | grep -q "Moves to Ready on"'
 
 E=$(get "$AJ" "/jobs/$LID/edit"); LOADED=$(loaded_at <<<"$E"); sleep 1
 curl -s -o /dev/null -b "$AJ" -c "$AJ" --data-urlencode "_csrf=$(tok "$AJ")" --data-urlencode "loaded_at=$LOADED" \
   --data-urlencode "job_number=$RUN-L" --data-urlencode "customer_first_name=Leo" --data-urlencode "customer_last_name=Workflow" \
-  --data-urlencode "first_available_date=$D10" --data-urlencode "pickup_date=$P5" --data-urlencode "from_location=Austin, TX" --data-urlencode "to_location=Denver, CO" \
+  --data-urlencode "first_available_date=$D10" --data-urlencode "from_location=Austin, TX" --data-urlencode "to_location=Denver, CO" \
   --data-urlencode "balance=100" --data-urlencode "storage_fee=0" "$BASE/jobs/$LID"
-check "changing the pickup date to 5 days ago moves the job into Ready by itself" 'in_list /jobs/ready "$RUN-L" && ! in_list /jobs/more-than-30 "$RUN-L"'
+check "changing the date to +10 days moves the job into Ready by itself" 'in_list /jobs/ready "$RUN-L" && ! in_list /jobs/more-than-30 "$RUN-L"'
 check "dashboard: Ready +2, More Than 30 back to start" '[[ $(card "Ready for delivery") == $((R0+2)) && $(card "More than 30 days") == "$L0" ]]'
 
 echo "== Move to In Transit (one click)"

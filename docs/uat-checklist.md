@@ -26,8 +26,8 @@ Sign in as **Admin** unless a scenario says otherwise. Replace `TEST-1` etc. wit
 |---|---|---|---|---|
 | B1 | **All Jobs → New job**. Fill in job number, customer, from, to, and a **1st available date 10 days from today**. Save. | "Job created". The job opens. | ☐ | |
 | B2 | Open **Ready for Delivery**. | The new job is there, with a note like "in 10 days". | ☐ | |
-| B3 | Create `TEST-2` with a **pickup date 45 days ago**. Open **More Than 30 Days**. | `TEST-2` is there and is **not** in Ready for Delivery. | ☐ | |
-| B4 | Create jobs with a pickup date exactly **30** and exactly **31** days ago. | 30 days → Ready for Delivery. 31 days → More Than 30 Days. | ☐ | |
+| B3 | Create `TEST-2` with a 1st available date **45 days from today**. Open **More Than 30 Days**. | `TEST-2` is there and is **not** in Ready for Delivery. | ☐ | |
+| B4 | Create jobs with a date exactly **30** and exactly **31** days from today. | 30 days → Ready for Delivery. 31 days → More Than 30 Days. | ☐ | |
 | B5 | Create a job whose 1st available date was **last week**. | It is in Ready for Delivery and marked **Overdue**. | ☐ | |
 | B6 | Create a job whose 1st available date was **45 days ago** (or use the demo data). | It is in **More Than 30 Days** (not Ready), and shows a storage fee of CF × 0.6. A job 30 days ago is still in Ready. *(assumption K1: client to confirm)* | ☐ | |
 | B7 | Settings: type the storage rate as `60c` and save. | Accepted; shown as 0.6 dollars per CF (60 cents). | ☐ | |

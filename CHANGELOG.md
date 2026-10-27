@@ -2,6 +2,12 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.1.3 - section rule default set back to the 1st available date
+
+* The client's sheet says a job is ready for delivery when its **1st available date** is within 30 days, and that the **storage fee** counts 30 days from the **pickup date**. So the default of *Count the days from* is the **1st available date** again; the Pickup date choice stays available in Settings.
+* **If you already ran 1.1.2:** open Settings, set *Count the days from* to **1st available date**, Save. (Seeding never overwrites a saved setting.)
+* The storage fee moving to the pickup date, charged per month, comes in the next phase. No migration.
+
 ## 1.1.2 - sections count from the Pickup Date (roadmap phase 1)
 
 * **More Than 30 Days is now counted from the Pickup Date.** A booked job picked up more than 30 days ago is in More Than 30 Days; picked up within 30 days (or not picked up yet) is Ready for Delivery. A job with no pickup date uses its 1st available date, and the list says so. Assumption L1.
