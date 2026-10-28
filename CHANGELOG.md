@@ -2,6 +2,12 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.3.5 - `php cli/verify.php`: a read-only check of a real deployment (client follow-up, phase 5)
+
+* **New command `php cli/verify.php`.** It runs every job, trip and foreman query the application uses (all five job lists, the new Foreman and Trip filters and sorting, the dashboard, trip list and search, trip pick lists, the foreman report, the trip export, the foremen page) against the real database, and checks the tables and columns the newer features need. This proves the queries work on the real database engine (MariaDB on cPanel); the automated tests only run on SQLite. It also reports the code version and commit, the database version, the settings that decide what people see (counting the 30 days from the pickup date, monthly storage fee), the storage fee rate, the data counts and any inconsistency (a job assigned to a deleted trip, a foreman that does not match the trip's, booked jobs with no pickup date).
+* It never writes anything (tested: no job, trip, audit entry or timestamp changes). Exit code 1 only when something is broken; a warning is a hint.
+* **Upgrade:** `git pull origin main`, then `php cli/verify.php`. No migration.
+
 ## 1.3.4 - customer phone on trips; phone-width checks (client follow-up, phase 4)
 
 * **The customer's phone number now shows on the trip page** (tap-to-call, under the customer's name) and is a **Customer Phone** column in the trip CSV export, for people who may see jobs (`jobs.view`). It is the job's current number, so a correction shows on the trip at once. Without `jobs.view` the number is removed before any page or export sees it.

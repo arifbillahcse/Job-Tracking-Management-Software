@@ -352,3 +352,47 @@ check(!str_contains($csvNj, 'Customer Phone') && !str_contains($csvNj, '010-9999
 $svcNj = (new TripService())->find($tid);
 check(!array_key_exists('customer_phone', $svcNj['rows'][0]), '...the service removes it before any template sees it');
 Clock::fake(null);
+
+// ================================================================ phase 5: the deployment check
+
+section('Deployment check (php cli/verify.php)');
+fresh_db();
+fresh_session();
+Clock::fake('2026-10-23');
+$fr = new ForemanRepository();
+$joe = $fr->create(['name' => 'Joe', 'phone' => null]);
+$j1 = mk_job(['job_number' => 'D-1', 'pickup_date' => null, 'status' => 'booked']);
+$repo = new TripRepository();
+$t = $repo->create(['trip_number' => 'D-T', 'foreman_id' => $joe, 'begins_on' => '2026-10-01', 'ends_on' => null, 'collected_by' => null, 'notes' => null], [[
+    'job_id' => $j1, 'job_number' => 'D-1', 'customer_name' => 'X', 'job_date' => null, 'from_location' => 'GA', 'bh' => null, 'diesel' => '1', 'hotels' => null, 'helper' => null, 'misc' => null, 'commission' => null, 'extra' => null, 'remark' => null]], null);
+Database::execute('UPDATE jobs SET trip_id = ?, foreman_id = ? WHERE id = ?', [$t, $joe, $j1]);
+$rows = \App\Services\DeployCheck::run();
+$by = static function (array $rows, string $needle): array {
+    return array_values(array_filter($rows, static fn (array $r): bool => str_contains($r['label'], $needle)));
+};
+check(array_values(array_filter($rows, static fn (array $r): bool => $r['level'] === 'fail')) === [], 'on a healthy database every query runs and nothing fails');
+check(count($rows) >= 35 && $by($rows, 'Job list: ready') !== [] && $by($rows, 'Foreman report') !== [] && $by($rows, 'Trip pick list') !== [] && $by($rows, 'Trip export lines') !== [], 'it covers every list, the filters, the dashboard, the trip queries and the export (' . count($rows) . ' lines)');
+check(str_contains($by($rows, 'Database')[0]['detail'], 'sqlite') && str_contains($by($rows, 'Code')[0]['detail'], 'version ' . app_version()), 'it reports the code version and the database engine and version');
+check(array_column($by($rows, 'Setting section_basis'), 'level') === ['ok'] || array_column($by($rows, 'Setting section_basis'), 'level') === ['warn'], 'it reports the settings that decide what people see');
+$w = $by($rows, 'no pickup date');
+check($w !== [] && $w[0]['level'] === 'warn' && str_contains($w[0]['detail'], '1 job'), 'it points out booked jobs without a pickup date');
+$before = [(int) Database::fetchValue('SELECT COUNT(*) FROM jobs'), (int) Database::fetchValue('SELECT COUNT(*) FROM trips'), (int) Database::fetchValue('SELECT COUNT(*) FROM audit_logs'), (string) Database::fetchValue('SELECT MAX(updated_at) FROM jobs')];
+\App\Services\DeployCheck::run();
+check($before === [(int) Database::fetchValue('SELECT COUNT(*) FROM jobs'), (int) Database::fetchValue('SELECT COUNT(*) FROM trips'), (int) Database::fetchValue('SELECT COUNT(*) FROM audit_logs'), (string) Database::fetchValue('SELECT MAX(updated_at) FROM jobs')], 'it is read-only: no job, trip, audit entry or timestamp changes');
+
+// inconsistent data is reported
+Database::execute('UPDATE trips SET deleted_at = ? WHERE id = ?', ['2026-10-02 00:00:00', $t]);
+$w = $by(\App\Services\DeployCheck::run(), 'deleted or missing');
+check($w !== [] && $w[0]['level'] === 'warn', 'a job assigned to a deleted trip is reported');
+Database::execute('UPDATE trips SET deleted_at = NULL WHERE id = ?', [$t]);
+Database::execute('DELETE FROM trip_jobs WHERE trip_id = ?', [$t]);
+check($by(\App\Services\DeployCheck::run(), 'has no row for them') === [] || $by(\App\Services\DeployCheck::run(), 'no row for them')[0]['level'] === 'warn', 'a job on a trip that has no row for it is reported');
+Database::execute('UPDATE jobs SET foreman_id = ? WHERE id = ?', [$fr->create(['name' => 'Other', 'phone' => null]), $j1]);
+check($by(\App\Services\DeployCheck::run(), 'differs from their trip')[0]['level'] === 'warn', 'a job whose foreman is not its trip\'s foreman is reported');
+
+// a broken schema is a failure with a readable reason
+Database::connect()->exec('DROP TABLE trip_jobs');
+$broken = \App\Services\DeployCheck::run();
+$fails = array_values(array_filter($broken, static fn (array $r): bool => $r['level'] === 'fail'));
+check(count($fails) >= 3 && str_contains(implode(' ', array_column($fails, 'label')), 'trip_jobs') && str_contains(implode(' ', array_column($fails, 'detail')), 'trip_jobs'), 'a missing table fails the schema check and every query that needs it, with the database\'s own message');
+Clock::fake(null);

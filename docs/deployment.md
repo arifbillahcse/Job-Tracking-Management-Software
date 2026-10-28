@@ -163,3 +163,17 @@ For both:
 | Everyone shares one IP and gets throttled | Behind a proxy: set `TRUST_PROXY=true` only if the proxy overwrites `X-Forwarded-For` |
 | Times are off by hours | Settings -> Business time zone |
 | Database error on first run | Check `DB_*` in `.env`; `mysql -u job_tracker -p job_tracker` should connect; the user needs the grants in step 2 |
+
+
+## After every upgrade: prove it
+
+```bash
+git pull origin main && cat VERSION      # the version you expect
+php cli/migrate.php
+php cli/seed.php
+php cli/sync-roles.php                    # --apply when it lists permissions a default role is missing
+php cli/doctor.php                        # must say Ready
+php cli/verify.php                        # every line [ ok ] or [info]; read any [warn]
+```
+
+Then open the site as each kind of user (Admin, Manager, Staff) and check the footer shows the version you expect. If someone says "I don't see the update", compare their role's menu with the permission matrix first: a role created before a feature existed does not have its permissions until `sync-roles --apply` (or an administrator ticks them under Roles & Permissions).
