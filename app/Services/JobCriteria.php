@@ -37,6 +37,8 @@ final class JobCriteria
         'created'    => [['j.id'], false],
         'balance'    => [['j.balance'], true],
         'storage'    => [['j.storage_fee'], true],
+        'foreman'    => [['af.name'], false],
+        'trip'       => [['atr.trip_number'], false],
     ];
 
     /** Default ordering per section. */

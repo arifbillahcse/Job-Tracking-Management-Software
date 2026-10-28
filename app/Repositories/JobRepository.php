@@ -14,8 +14,13 @@ use App\Services\JobCriteria;
  */
 final class JobRepository
 {
-    private const DETAIL_SELECT = 'SELECT j.*, cu.name AS created_by_name, uu.name AS updated_by_name
+    /** Assigned foreman and trip number, read through the references so a renamed foreman or trip shows everywhere at once. */
+    private const ASSIGN_JOIN = ' LEFT JOIN foremen af ON af.id = j.foreman_id LEFT JOIN trips atr ON atr.id = j.trip_id AND atr.deleted_at IS NULL';
+
+    private const DETAIL_SELECT = 'SELECT j.*, af.name AS foreman, atr.trip_number AS trip_number, cu.name AS created_by_name, uu.name AS updated_by_name
         FROM jobs j
+        LEFT JOIN foremen af ON af.id = j.foreman_id
+        LEFT JOIN trips atr ON atr.id = j.trip_id AND atr.deleted_at IS NULL
         LEFT JOIN users cu ON cu.id = j.created_by
         LEFT JOIN users uu ON uu.id = j.updated_by';
 
@@ -87,7 +92,7 @@ final class JobRepository
     public function count(?JobCriteria $criteria = null): int
     {
         [$where, $params] = $this->where($criteria ?? JobCriteria::forBucket(JobBucket::ALL));
-        return (int) Database::fetchValue("SELECT COUNT(*) FROM jobs j WHERE {$where}", $params);
+        return (int) Database::fetchValue('SELECT COUNT(*) FROM jobs j' . self::ASSIGN_JOIN . " WHERE {$where}", $params);
     }
 
     /**
@@ -99,7 +104,7 @@ final class JobRepository
     {
         [$where, $params] = $this->where($criteria);
         return Database::fetchAll(
-            "SELECT j.* FROM jobs j WHERE {$where} {$criteria->orderBySql()} LIMIT ? OFFSET ?",
+            'SELECT j.*, af.name AS foreman, atr.trip_number AS trip_number FROM jobs j' . self::ASSIGN_JOIN . " WHERE {$where} {$criteria->orderBySql()} LIMIT ? OFFSET ?",
             [...$params, $limit, $offset]
         );
     }
@@ -119,7 +124,7 @@ final class JobRepository
 
         if ($c->q !== '') {
             $fields = ['j.job_number', 'j.customer_first_name', 'j.customer_last_name', 'j.from_location', 'j.to_location',
-                'j.job_location', 'j.carrier_name', 'j.driver_name', 'j.driver_phone', 'j.customer_phone', 'j.foreman_name', 'j.job_lot'];
+                'j.job_location', 'j.carrier_name', 'j.driver_name', 'j.driver_phone', 'j.customer_phone', 'af.name', 'atr.trip_number', 'j.job_lot'];
             // Every word must match somewhere, so "ada smith" finds first name Ada + last name Smith.
             foreach (array_slice(preg_split('/\s+/', $c->q, -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 5) as $word) {
                 $sql .= ' AND (' . implode(' OR ', array_map(static fn (string $f): string => "{$f} LIKE ? ESCAPE '!'", $fields)) . ')';

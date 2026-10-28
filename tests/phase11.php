@@ -51,36 +51,39 @@ Clock::fake('2026-10-23');
 $admin = make_user('Admin', 'p11-admin@example.com');
 $staff = make_user('Staff', 'p11-staff@example.com');
 $mgr = make_user('Manager', 'p11-mgr@example.com');
+$fr = new \App\Repositories\ForemanRepository();
+$joeId = $fr->create(['name' => 'Joe', 'phone' => null]);
+$samId = $fr->create(['name' => 'Sam', 'phone' => null]);
 sign_in($admin);
 $form = call('GET', '/jobs/create')->content();
 $all = true;
-foreach (['estimated_cf', 'cf', 'estimated_total', 'deposit', 'grand_total', 'bh_total', 'paid', 'balance', 'foreman_name', 'job_lot', 'color'] as $f) {
+foreach (['estimated_cf', 'cf', 'estimated_total', 'deposit', 'grand_total', 'bh_total', 'paid', 'balance', 'foreman_id', 'trip_id', 'job_lot', 'color'] as $f) {
     $all = $all && str_contains($form, 'name="' . $f . '"');
 }
 check($all, 'Add Job has E-CF, A-CF, E-Total, Deposit, Grand total, BH total, Paid, Balance, Foreman, Job lot and Color');
 check(str_contains($form, 'A-CF (actual cubic feet)') && str_contains($form, 'E-CF (estimated cubic feet)'), '...with the sheet\'s labels');
 $sample = ['job_number' => 'S-11', 'customer_first_name' => 'John', 'customer_last_name' => 'smith', 'pickup_date' => '2026-10-24', 'first_available_date' => '2026-10-29',
     'from_location' => 'GA', 'to_location' => 'CA', 'estimated_cf' => '1000', 'estimated_total' => '3000', 'deposit' => '1000', 'cf' => '1200', 'grand_total' => '3500',
-    'bh_total' => '2500', 'paid' => '1250', 'balance' => '1250', 'foreman_name' => 'Joe', 'job_lot' => 'L-7', 'color' => 'Blue', 'storage_fee_override' => ''];
+    'bh_total' => '2500', 'paid' => '1250', 'balance' => '1250', 'foreman_id' => (string) $joeId, 'job_lot' => 'L-7', 'color' => 'Blue', 'storage_fee_override' => ''];
 $r = call('POST', '/jobs', job_input($sample));
 $id = (int) Database::fetchValue("SELECT id FROM jobs WHERE job_number = 'S-11'");
 $row = (new JobRepository())->find($id);
 check($r->status() === 302 && n($row['estimated_cf']) === 1000.0 && n($row['estimated_total']) === 3000.0 && n($row['deposit']) === 1000.0 && n($row['grand_total']) === 3500.0 && n($row['bh_total']) === 2500.0 && n($row['paid']) === 1250.0 && n($row['balance']) === 1250.0 && n($row['cf']) === 1200.0, 'the sheet\'s sample row is saved exactly as typed');
-check($row['foreman_name'] === 'Joe' && $row['job_lot'] === 'L-7' && $row['color'] === 'Blue', 'foreman, job lot and color are saved');
+check($row['foreman'] === 'Joe' && $row['job_lot'] === 'L-7' && $row['color'] === 'Blue', 'foreman, job lot and color are saved');
 check(n($row['grand_total']) === 3500.0 && n($row['bh_total']) === 2500.0, 'no formula is applied: Grand total and BH total are stored as typed, not derived');
 $page = plain(call('GET', "/jobs/{$id}")->body());
 check(str_contains($page, 'E-CF 1,000') && str_contains($page, 'A-CF 1,200') && str_contains($page, 'Deposit $1,000.00') && str_contains($page, 'Grand total $3,500.00') && str_contains($page, 'BH total $2,500.00') && str_contains($page, 'Paid $1,250.00') && str_contains($page, 'Foreman Joe') && str_contains($page, 'Job lot L-7') && str_contains($page, 'Color Blue'), 'Job Details shows every new field');
 $edit = call('GET', "/jobs/{$id}/edit")->content();
 check(preg_match('/name="paid"[^>]*value="1250(\.00)?"/', $edit) === 1, 'Edit Job shows the saved money');
-call('POST', "/jobs/{$id}", array_merge(job_input($sample), ['paid' => '2000', 'foreman_name' => 'Sam', 'loaded_at' => (string) $row['updated_at']]));
+call('POST', "/jobs/{$id}", array_merge(job_input($sample), ['paid' => '2000', 'foreman_id' => (string) $samId, 'loaded_at' => (string) $row['updated_at']]));
 $row = (new JobRepository())->find($id);
-check(n($row['paid']) === 2000.0 && $row['foreman_name'] === 'Sam', 'they can be edited');
+check(n($row['paid']) === 2000.0 && $row['foreman'] === 'Sam', 'they can be edited');
 $audit = (string) Database::fetchValue("SELECT new_values FROM audit_logs WHERE action = 'job_updated' AND entity_id = ? ORDER BY id DESC LIMIT 1", [$id]);
-check(str_contains($audit, '"paid":"2000.00"') && str_contains($audit, '"foreman_name":"Sam"'), 'the change is audited with the new values');
-call('POST', '/jobs', job_input(['job_number' => 'S-EMPTY', 'estimated_cf' => '', 'deposit' => '', 'paid' => '', 'foreman_name' => '  ', 'job_lot' => '', 'color' => '']));
+check(str_contains($audit, '"paid":"2000.00"') && str_contains($audit, '"foreman_id":"' . $samId . '"'), 'the change is audited with the new values');
+call('POST', '/jobs', job_input(['job_number' => 'S-EMPTY', 'estimated_cf' => '', 'deposit' => '', 'paid' => '', 'foreman_id' => '', 'job_lot' => '', 'color' => '']));
 $e = Database::fetchOne("SELECT * FROM jobs WHERE job_number = 'S-EMPTY'");
-check($e['estimated_cf'] === null && $e['deposit'] === null && $e['paid'] === null && $e['foreman_name'] === null && $e['job_lot'] === null && $e['color'] === null, 'empty fields are stored as NULL, not as 0');
-foreach (['deposit' => '-5', 'paid' => 'abc', 'grand_total' => '12.345', 'estimated_cf' => '-1', 'color' => str_repeat('x', 61), 'foreman_name' => str_repeat('x', 151)] as $field => $bad) {
+check($e['estimated_cf'] === null && $e['deposit'] === null && $e['paid'] === null && $e['foreman_id'] === null && $e['job_lot'] === null && $e['color'] === null, 'empty fields are stored as NULL, not as 0');
+foreach (['deposit' => '-5', 'paid' => 'abc', 'grand_total' => '12.345', 'estimated_cf' => '-1', 'color' => str_repeat('x', 61), 'foreman_id' => '999999'] as $field => $bad) {
     call('POST', '/jobs', job_input(['job_number' => 'S-BAD', $field => $bad]));
     check(Database::fetchValue("SELECT COUNT(*) FROM jobs WHERE job_number = 'S-BAD'") == 0 && isset($_SESSION['_flash_next']['errors'][$field]), "{$field} = " . json_encode(substr($bad, 0, 12)) . ' is refused');
 }
@@ -89,13 +92,13 @@ section('Sheet fields: who can see and change the money');
 fresh_session();
 sign_in($staff);
 $form = call('GET', '/jobs/create')->content();
-check(str_contains($form, 'name="estimated_cf"') && str_contains($form, 'name="foreman_name"') && !str_contains($form, 'name="deposit"') && !str_contains($form, 'name="paid"') && !str_contains($form, 'name="grand_total"'), 'Staff sees E-CF and Foreman but none of the money fields');
+check(str_contains($form, 'name="estimated_cf"') && !str_contains($form, 'name="foreman_id"') && !str_contains($form, 'name="deposit"') && !str_contains($form, 'name="paid"') && !str_contains($form, 'name="grand_total"'), 'Staff sees E-CF but none of the money fields, and no Foreman or Trip choice (that needs trips.manage)');
 check(!str_contains(plain(call('GET', "/jobs/{$id}")->body()), 'Grand total') && !str_contains(call('GET', "/jobs/{$id}")->body(), '3,500.00'), 'Job Details hides the money from Staff');
 call('POST', '/jobs', job_input(['job_number' => 'S-STAFF', 'deposit' => '999', 'paid' => '999', 'grand_total' => '999', 'estimated_total' => '999', 'bh_total' => '999']));
 $s = Database::fetchOne("SELECT * FROM jobs WHERE job_number = 'S-STAFF'");
 check($s !== null && $s['deposit'] === null && $s['paid'] === null && $s['grand_total'] === null && $s['estimated_total'] === null && $s['bh_total'] === null, 'a forged request cannot make Staff write money fields');
 $viewed = (new \App\Services\JobService())->find($id);
-check($viewed !== null && array_intersect(['estimated_total', 'deposit', 'grand_total', 'bh_total', 'paid', 'balance', 'storage_fee'], array_keys($viewed)) === [] && isset($viewed['estimated_cf'], $viewed['foreman_name']), 'the service strips the money fields for Staff before any template sees them (E-CF and Foreman stay)');
+check($viewed !== null && array_intersect(['estimated_total', 'deposit', 'grand_total', 'bh_total', 'paid', 'balance', 'storage_fee'], array_keys($viewed)) === [] && isset($viewed['estimated_cf']), 'the service strips the money fields for Staff before any template sees them (E-CF stays)');
 $body = call('GET', '/jobs')->body();
 check(!str_contains($body, '3,500') && !str_contains($body, '2,500.00'), 'the lists do not leak the money either');
 $staffCsv = (new ExportService())->csv(JobCriteria::forBucket('all'), false)->content();
@@ -107,7 +110,7 @@ check(str_contains(plain(call('GET', "/jobs/{$id}")->body()), 'Grand total $3,50
 section('Sheet fields: search, import and export');
 check(str_contains(call('GET', '/jobs', [], ['q' => 'Sam'])->body(), 'S-11') && str_contains(call('GET', '/jobs', [], ['q' => 'L-7'])->body(), 'S-11'), 'search finds a job by foreman or job lot');
 $csv = (new ExportService())->csv(JobCriteria::forBucket('all'), true)->content();
-foreach (['E-CF', 'A-CF', 'E-Total', 'Deposit', 'Grand Total', 'BH Total', 'Paid', 'Foreman', 'Job Lot', 'Color'] as $h) {
+foreach (['E-CF', 'A-CF', 'E-Total', 'Deposit', 'Grand Total', 'BH Total', 'Paid', 'Foreman', 'Trip Number', 'Job Lot', 'Color'] as $h) {
     check(str_contains($csv, $h), "the All Jobs export has a {$h} column");
 }
 check(str_contains($csv, '2000.00') && str_contains($csv, 'Sam'), '...with the values');
@@ -121,14 +124,14 @@ $b = Database::fetchOne('SELECT valid_rows, invalid_rows FROM import_batches WHE
 check((int) $b['valid_rows'] === 1 && (int) $b['invalid_rows'] === 0, 'a file with the client\'s own headings (Forman, A-CF, E-Total, ...) is read');
 $svc->commit((int) $st['batch'], (int) $mgr['id']);
 $im = Database::fetchOne("SELECT * FROM jobs WHERE job_number = 'IMP-S1'");
-check(n($im['estimated_cf']) === 1000.0 && n($im['cf']) === 1200.0 && n($im['estimated_total']) === 3000.0 && n($im['deposit']) === 1000.0 && n($im['grand_total']) === 3500.0 && n($im['bh_total']) === 2500.0 && n($im['paid']) === 1250.0 && $im['foreman_name'] === 'Joe' && $im['job_lot'] === 'A1' && $im['color'] === 'Red', '...and every column is saved');
+check(n($im['estimated_cf']) === 1000.0 && n($im['cf']) === 1200.0 && n($im['estimated_total']) === 3000.0 && n($im['deposit']) === 1000.0 && n($im['grand_total']) === 3500.0 && n($im['bh_total']) === 2500.0 && n($im['paid']) === 1250.0 && (int) $im['foreman_id'] === $joeId && $im['job_lot'] === 'A1' && $im['color'] === 'Red', '...and every column is saved');
 fresh_session();
 sign_in($staff);
 $file = tmp_file(csv_text([['Job #', 'Customer First Name', 'Customer Last Name', '1st Available Date', 'From', 'To', 'Deposit', 'Foreman'], ['IMP-S2', 'A', 'B', '2026-12-01', 'X', 'Y', '500', 'Zed']]));
 $st = $svc->stage(upload_of($file, 'nomoney.csv'), (int) $staff['id']);
 $svc->commit((int) $st['batch'], (int) $staff['id']);
-$im = Database::fetchOne("SELECT deposit, foreman_name FROM jobs WHERE job_number = 'IMP-S2'");
-check($im !== false && $im['deposit'] === null && $im['foreman_name'] === 'Zed', 'without the financial permission an imported Deposit is ignored, a Foreman is kept');
+$im = Database::fetchOne("SELECT deposit, foreman_id FROM jobs WHERE job_number = 'IMP-S2'");
+check($im !== false && $im['deposit'] === null && $im['foreman_id'] === null, 'without the permissions, an imported Deposit and an imported Foreman are ignored (the job is still created)');
 Clock::fake(null);
 
 // ================================================================ roadmap phase 3: pickup basis and monthly fee

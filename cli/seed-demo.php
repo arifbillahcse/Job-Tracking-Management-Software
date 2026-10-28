@@ -161,7 +161,9 @@ if ((int) \App\Core\Database::fetchValue('SELECT COUNT(*) FROM trips') === 0) {
             continue;
         }
         $begin = gmdate('Y-m-d', strtotime("-{$daysAgo} days"));
-        $trips->create(['trip_number' => $number, 'foreman_id' => $ids[$who], 'begins_on' => $begin, 'ends_on' => gmdate('Y-m-d', strtotime($begin . ' +3 days')), 'collected_by' => 'BH Office', 'notes' => null], $rows, $userId);
+        $newTrip = $trips->create(['trip_number' => $number, 'foreman_id' => $ids[$who], 'begins_on' => $begin, 'ends_on' => gmdate('Y-m-d', strtotime($begin . ' +3 days')), 'collected_by' => 'BH Office', 'notes' => null], $rows, $userId);
+        // The jobs on the trip are assigned to it and to its foreman.
+        \App\Core\Database::execute('UPDATE jobs SET trip_id = ?, foreman_id = ? WHERE id IN (' . implode(',', array_map('intval', array_column($rows, 'job_id'))) . ')', [$newTrip, $ids[$who]]);
         $tripsCreated++;
     }
     echo "Created 2 demo foremen and {$tripsCreated} demo trip(s).\n";

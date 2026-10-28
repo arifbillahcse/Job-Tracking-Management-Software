@@ -202,6 +202,18 @@ The generated role x route matrix is in `docs/permission-matrix.md` (`php cli/pe
 | V2 | The dashboard card counts trips whose **begin date is in the last 30 days** (a trip with no begin date is not counted). Same plain sums as everywhere else (assumption T1). | `TripRepository::recentFigures()` |
 | V3 | A job can be on several trips, never twice on the same trip. Deleting a job (soft delete) leaves its trip rows in place. | `TripService`, `trip_jobs` |
 
+## A foreman and a trip on every job (version 1.3.2)
+
+| # | Assumption | Where |
+|---|------------|-------|
+| W1 | A job has **one foreman and one current trip** (the sheet has one Forman and one Trip per job row). A job can still be on several trips over time (its rows stay on each); the assigned trip is the current one. | `jobs.foreman_id`, `jobs.trip_id` |
+| W2 | **A trip brings its foreman.** If a trip is chosen, the job's foreman is the trip's foreman, whatever else was chosen (the screen says so). Without a trip, any active foreman can be chosen. If a trip's foreman changes, the jobs still on it follow. | `TripService::resolveAssignment()` |
+| W3 | **Latest assignment wins, but only when a job is newly put on a trip.** Re-saving an older trip never takes a job away from the trip it is assigned to now. Taking a job off a trip clears the assignment only if it pointed at that trip. | `TripService::syncJobs()` |
+| W4 | **Nothing is deleted:** clearing or changing a job's trip leaves the job's rows on the old trips, with their expenses. Deleting a trip clears the trip on its jobs but not their foreman. | `TripService` |
+| W5 | Assigning needs **`trips.manage`**. Seeing the foreman and trip number needs nothing beyond viewing the job. The import has the same limit: without the permission its Foreman and Trip Number columns are ignored. | `JobService::canAssign()` |
+| W6 | The foreman typed as free text in version 1.1.4 was **converted by migration 012** into entries on the Foremen page (trimmed, one per distinct name). The old column stays in the database but is no longer used. | migration 012 |
+| W7 | The Trip choice on the job form lists the newest 200 live trips plus the job's current one. A job with an older trip is assigned by editing the trip, or by the import. | `TripRepository::choices()` |
+
 ## Security defaults (can be tuned in `app/Config/app.php` / `.env`)
 
 * Sessions end after **30 minutes idle** or **8 hours** in total.

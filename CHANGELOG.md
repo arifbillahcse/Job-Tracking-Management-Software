@@ -2,6 +2,16 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.3.2 - a foreman and a trip number on every job (client follow-up, phase 2)
+
+* **Every job can be assigned to a Foreman and a Trip.** Add/Edit Job has a *Trip* and a *Foreman* choice; Job Details shows both (the trip number links to the trip). A job assigned to a trip appears on that trip, and a trip brings its own foreman.
+* **Kept in step with the trip pages:** a job added to a trip (trip form, "Add to a trip", import) is assigned to it; a job taken off a trip loses the assignment; changing a trip's foreman updates the jobs on it; deleting a trip clears the trip on its jobs (they keep their foreman). A job already assigned to a newer trip is never taken over by re-saving an older one. Rows on a trip, and their expenses, are never deleted by any of this.
+* **Search and export:** the job list search finds a job by its foreman or trip number; every export and the import template have *Foreman* and *Trip Number* columns. The import checks them: the foreman must be on the Foremen page, the trip must exist, and a Foreman that is not the trip's foreman is refused.
+* **Permission:** assigning needs `trips.manage` (Admin; Manager by default). Everyone who can see jobs sees the foreman and trip number; people without `trips.manage` see them as text, and a forged value in their request is ignored.
+* **Existing data:** migration 012 turns every foreman name typed on a job (version 1.1.4) into a foreman on the Foremen page and links the job to it; a job already on a trip gets its newest live trip and that trip's foreman. The old text column is kept untouched. No trip row or expense changes.
+* List columns and filters for Foreman and Trip come in the next phase.
+* **Upgrade:** `git pull origin main`, `php cli/migrate.php` (012), `php cli/seed.php`, `php cli/doctor.php`.
+
 ## 1.3.1 - the updates are visible: version in the footer, defaults, role sync
 
 * **The footer shows the version** of the code that is running (and, to administrators, the commit it was deployed from). `php cli/doctor.php` prints the same, so it is easy to see what a server is really running.

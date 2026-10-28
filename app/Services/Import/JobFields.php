@@ -22,7 +22,7 @@ final class JobFields
     public const PHONE = 'phone';
 
     /**
-     * @var array<string,array{label:string,pattern:string,type:string,required:bool,financial:bool,workflow:bool,example:string,help:string}>
+     * @var array<string,array{label:string,pattern:string,type:string,required:bool,financial:bool,workflow:bool,example:string,help:string,assign?:bool}>
      */
     private const FIELDS = [
         'job_number' => ['label' => 'Job #', 'pattern' => '/^job(no|num|number|id)?$/', 'type' => self::TEXT, 'required' => true, 'financial' => false, 'workflow' => false,
@@ -59,8 +59,10 @@ final class JobFields
             'example' => '1200.50', 'help' => 'Amount the customer still owes. Needs permission to edit financials.'],
         'job_location' => ['label' => 'Job Location', 'pattern' => '/^(joblocation|location)$/', 'type' => self::TEXT, 'required' => false, 'financial' => false, 'workflow' => false,
             'example' => 'Main warehouse', 'help' => ''],
-        'foreman_name' => ['label' => 'Foreman', 'pattern' => '/^(foreman|forman)$/', 'type' => self::TEXT, 'required' => false, 'financial' => false, 'workflow' => false,
-            'example' => 'Joe', 'help' => 'The foreman who handles the job.'],
+        'foreman' => ['label' => 'Foreman', 'pattern' => '/^(foreman|forman)$/', 'type' => self::TEXT, 'required' => false, 'financial' => false, 'workflow' => false, 'assign' => true,
+            'example' => 'Joe', 'help' => 'Must be a foreman already on the Foremen page. Needs permission to manage trips.'],
+        'trip_number' => ['label' => 'Trip Number', 'pattern' => '/^(trip|tripno|tripnumber|tripnum)$/', 'type' => self::TEXT, 'required' => false, 'financial' => false, 'workflow' => false, 'assign' => true,
+            'example' => 'TRIP-1', 'help' => 'Must be a trip that already exists; the job is added to it and gets its foreman. Needs permission to manage trips.'],
         'job_lot' => ['label' => 'Job Lot', 'pattern' => '/^(joblot|lot)$/', 'type' => self::TEXT, 'required' => false, 'financial' => false, 'workflow' => false,
             'example' => 'A-12', 'help' => ''],
         'color' => ['label' => 'Color', 'pattern' => '/^colou?r$/', 'type' => self::TEXT, 'required' => false, 'financial' => false, 'workflow' => false,

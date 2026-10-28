@@ -73,7 +73,8 @@ $dl = static function (string $label, string $valueHtml): string {
                     <?php endif; ?>
                     <?= $dl('E-CF', e(fmt_number($job['estimated_cf'] ?? null) ?: '—')) ?>
                     <?= $dl('A-CF', e(fmt_number($job['cf']) ?: '—')) ?>
-                    <?= $dl('Foreman', e($job['foreman_name'] ?? '') ?: '—') ?>
+                    <?= $dl('Foreman', e($job['foreman'] ?? '') ?: '—') ?>
+                    <?= $dl('Trip', empty($job['trip_id']) || empty($job['trip_number']) ? '—' : (can('trips.view') ? '<a class="jt-jobno" href="' . e(url('/trips/' . $job['trip_id'])) . '">' . e($job['trip_number']) . '</a>' : e($job['trip_number']))) ?>
                     <?= $dl('Job lot', e($job['job_lot'] ?? '') ?: '—') ?>
                     <?= $dl('Color', e($job['color'] ?? '') ?: '—') ?>
                     <?php if ($showFinancials): ?>

@@ -36,7 +36,36 @@ $input = static function (string $name, string $label, array $opts = []) use ($v
                         <div class="col-12 col-md-4"><?= $input('job_number', 'Job #', ['required' => true, 'maxlength' => 40, 'help' => 'Letters, numbers and - _ / . only. Must be unique.']) ?></div>
                         <div class="col-12 col-md-4"><?= $input('customer_first_name', 'Customer first name', ['required' => true, 'maxlength' => 100]) ?></div>
                         <div class="col-12 col-md-4"><?= $input('customer_last_name', 'Customer last name', ['required' => true, 'maxlength' => 100]) ?></div>
-                        <div class="col-12 col-md-4"><?= $input('foreman_name', 'Foreman', ['maxlength' => 150]) ?></div>
+                        <?php if (!empty($canAssign)): ?>
+                            <div class="col-12 col-md-4">
+                                <label for="trip_id" class="form-label">Trip</label>
+                                <select class="form-select<?= has_error('trip_id') ? ' is-invalid' : '' ?>" id="trip_id" name="trip_id" aria-describedby="trip_id-help">
+                                    <option value="">No trip</option>
+                                    <?php foreach ($trips as $t): ?>
+                                        <option value="<?= e($t['id']) ?>"<?= $val('trip_id') === (string) $t['id'] ? ' selected' : '' ?>><?= e($t['trip_number']) ?> &middot; <?= e($t['foreman_name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <div class="form-text" id="trip_id-help">The job is added to the trip and gets its foreman.</div>
+                                <?= error_text('trip_id') ?>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label for="foreman_id" class="form-label">Foreman</label>
+                                <select class="form-select<?= has_error('foreman_id') ? ' is-invalid' : '' ?>" id="foreman_id" name="foreman_id" aria-describedby="foreman_id-help">
+                                    <option value="">No foreman</option>
+                                    <?php foreach ($foremen as $f): ?>
+                                        <option value="<?= e($f['id']) ?>"<?= $val('foreman_id') === (string) $f['id'] ? ' selected' : '' ?>><?= e($f['name']) ?><?= (int) $f['active'] === 1 ? '' : ' (inactive)' ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <div class="form-text" id="foreman_id-help">If a trip is chosen, its foreman is used.</div>
+                                <?= error_text('foreman_id') ?>
+                            </div>
+                        <?php elseif ($job !== null && (!empty($job['foreman']) || !empty($job['trip_number']))): ?>
+                            <div class="col-12 col-md-8">
+                                <div class="form-label">Foreman and trip</div>
+                                <div class="form-control-plaintext"><?= e(trim(($job['foreman'] ?? '') . (!empty($job['trip_number']) ? ' · trip ' . $job['trip_number'] : ''))) ?></div>
+                                <div class="form-text">Changed under Trips (you are not allowed to manage trips).</div>
+                            </div>
+                        <?php endif; ?>
                         <div class="col-12 col-md-4"><?= $input('job_lot', 'Job lot', ['maxlength' => 60]) ?></div>
                         <div class="col-12 col-md-4"><?= $input('color', 'Color', ['maxlength' => 60]) ?></div>
                         <div class="col-12 col-md-4"><?= $input('customer_phone', 'Customer phone number', ['type' => 'tel', 'maxlength' => 30, 'inputmode' => 'tel', 'placeholder' => '(555) 010-2231', 'help' => 'Shown as a tap-to-call link on phones.']) ?></div>

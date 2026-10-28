@@ -50,6 +50,17 @@ final class TripRepository
         );
     }
 
+    /** @return array<int,array<string,mixed>> the newest live trips for a pick list, plus $includeId even if it is older */
+    public function choices(?int $includeId = null, int $limit = 200): array
+    {
+        return Database::fetchAll(
+            'SELECT t.id, t.trip_number, t.begins_on, f.name AS foreman_name FROM trips t JOIN foremen f ON f.id = t.foreman_id
+             WHERE t.deleted_at IS NULL AND (t.id = ? OR t.id IN (SELECT id FROM (SELECT id FROM trips WHERE deleted_at IS NULL ORDER BY begins_on DESC, id DESC LIMIT ' . (int) $limit . ') recent))
+             ORDER BY t.begins_on DESC, t.id DESC',
+            [$includeId ?? 0]
+        );
+    }
+
     /** @return array<int,array<string,mixed>> the newest live trips that do not carry this job yet (for "add to a trip") */
     public function choicesForJob(int $jobId, int $limit = 50): array
     {

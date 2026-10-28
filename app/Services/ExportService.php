@@ -58,7 +58,7 @@ final class ExportService
         return [
             array_map([JobFields::class, 'label'], $columns),
             // The example is a Booked job, so the dispatch / delivery columns stay empty (they apply to jobs that have moved on).
-            array_map(static fn (string $c): string => in_array($c, ['carrier_name', 'driver_name', 'driver_phone', 'loaded_date', 'delivered_on'], true) ? '' : JobFields::all()[$c]['example'], $columns),
+            array_map(static fn (string $c): string => in_array($c, ['carrier_name', 'driver_name', 'driver_phone', 'loaded_date', 'delivered_on', 'foreman', 'trip_number'], true) ? '' : JobFields::all()[$c]['example'], $columns),
         ];
     }
 

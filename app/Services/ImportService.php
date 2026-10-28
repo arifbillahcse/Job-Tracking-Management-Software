@@ -195,6 +195,9 @@ final class ImportService
                         }
                         throw $e;
                     }
+                    if (!empty($row['job']['trip_id'])) {
+                        (new TripService())->ensureRow($id, (int) $row['job']['trip_id']);
+                    }
                     if ($row['job']['status'] !== 'booked') {
                         $this->history->insert($id, 'booked', $row['job']['status'], 'Imported from ' . $batch['original_name'], $row['history'], $userId);
                     }
@@ -258,7 +261,7 @@ final class ImportService
      */
     public function analyse(string $path, string $format): array
     {
-        $context = ['financials' => Auth::can('jobs.edit_financials'), 'workflow' => Auth::can('jobs.status')];
+        $context = ['financials' => Auth::can('jobs.edit_financials'), 'workflow' => Auth::can('jobs.status'), 'assign' => Auth::can('trips.manage')];
         $spreadsheet = $format === 'xlsx';
 
         $data = $spreadsheet
@@ -288,8 +291,9 @@ final class ImportService
         $mapping = $map['mapping'];
         foreach ($mapping as $index => $field) {
             $spec = JobFields::all()[$field];
-            if (($spec['financial'] && !$context['financials']) || ($spec['workflow'] && !$context['workflow'])) {
-                $warnings[] = $spec['label'] . ' column ignored: you do not have permission to import ' . ($spec['financial'] ? 'financial figures' : 'status, carrier or delivery details') . '.';
+            $assign = !empty($spec['assign']);
+            if (($spec['financial'] && !$context['financials']) || ($spec['workflow'] && !$context['workflow']) || ($assign && !$context['assign'])) {
+                $warnings[] = $spec['label'] . ' column ignored: you do not have permission to import ' . ($spec['financial'] ? 'financial figures' : ($assign ? 'foremen and trips' : 'status, carrier or delivery details')) . '.';
                 unset($mapping[$index]);
             }
         }
@@ -367,7 +371,7 @@ final class ImportService
      * Normalise and validate one row with the same rules as the job form.
      *
      * @param array<string,string> $values field => raw text, for the columns present in the file
-     * @param array{financials:bool,workflow:bool} $context
+     * @param array{financials:bool,workflow:bool,assign:bool} $context
      * @return array{0:array<string,mixed>,1:array<int,string>,2:array<string,string>} job row (for the database), error messages, display values
      */
     private function validateRow(array $values, array $context, bool $spreadsheet): array
@@ -428,6 +432,9 @@ final class ImportService
             $errors[] = 'Delivered Date: cannot be in the future.';
         }
 
+        [$foremanId, $tripId, $assignErrors] = $this->resolveAssignment($clean['foreman'] ?? null, $clean['trip_number'] ?? null);
+        array_push($errors, ...$assignErrors);
+
         $decimal = static fn (mixed $v): ?string => ($v === null || $v === '') ? null : number_format((float) $v, 2, '.', '');
         $dispatched = in_array($status, ['in_transit', 'delivered'], true);
 
@@ -448,7 +455,8 @@ final class ImportService
             'grand_total' => $decimal($clean['grand_total'] ?? null),
             'bh_total' => $decimal($clean['bh_total'] ?? null),
             'paid' => $decimal($clean['paid'] ?? null),
-            'foreman_name' => $clean['foreman_name'] ?? null,
+            'foreman_id' => $foremanId,
+            'trip_id' => $tripId,
             'job_lot' => $clean['job_lot'] ?? null,
             'color' => $clean['color'] ?? null,
             'balance' => $decimal($clean['balance'] ?? null) ?? '0.00',
@@ -527,5 +535,60 @@ final class ImportService
     private static function megabytes(int $bytes): string
     {
         return round($bytes / 1024 / 1024, 1) . ' MB';
+    }
+
+    /** @var array<string,?array<string,mixed>> */
+    private array $foremanByName = [];
+    /** @var array<string,?array<string,mixed>> */
+    private array $tripByNumber = [];
+
+    /**
+     * Foreman (by name) and trip (by number) of an imported row, which must already exist. A trip brings its foreman, so a
+     * Foreman column that names someone else is refused rather than silently overridden.
+     *
+     * @return array{0:?int,1:?int,2:array<int,string>} foreman id, trip id, error messages
+     */
+    private function resolveAssignment(mixed $foreman, mixed $tripNumber): array
+    {
+        $errors = [];
+        $foremanId = null;
+        $tripId = null;
+        $foremanName = ($foreman === null || trim((string) $foreman) === '') ? null : trim((string) $foreman);
+        $number = ($tripNumber === null || trim((string) $tripNumber) === '') ? null : trim((string) $tripNumber);
+
+        $found = null;
+        if ($foremanName !== null) {
+            $key = mb_strtolower($foremanName);
+            $this->foremanByName[$key] ??= Database::fetchOne('SELECT id, name, active FROM foremen WHERE ' . (Database::driver() === 'sqlite' ? 'name COLLATE NOCASE' : 'name') . ' = ?', [$foremanName]);
+            $found = $this->foremanByName[$key];
+            if ($found === null) {
+                $errors[] = 'Foreman: "' . $foremanName . '" is not on the Foremen page. Add the foreman first.';
+            } elseif ((int) $found['active'] !== 1) {
+                $errors[] = 'Foreman: "' . $found['name'] . '" is inactive.';
+                $found = null;
+            }
+        }
+        if ($number !== null) {
+            $key = mb_strtolower($number);
+            $this->tripByNumber[$key] ??= Database::fetchOne(
+                'SELECT t.id, t.trip_number, t.foreman_id, f.name AS foreman_name FROM trips t JOIN foremen f ON f.id = t.foreman_id WHERE t.deleted_at IS NULL AND '
+                . (Database::driver() === 'sqlite' ? 't.trip_number COLLATE NOCASE' : 't.trip_number') . ' = ?',
+                [$number]
+            );
+            $trip = $this->tripByNumber[$key];
+            if ($trip === null) {
+                $errors[] = 'Trip Number: "' . $number . '" is not an existing trip. Create the trip first.';
+            } else {
+                $tripId = (int) $trip['id'];
+                $foremanId = (int) $trip['foreman_id'];
+                if ($found !== null && (int) $found['id'] !== $foremanId) {
+                    $errors[] = 'Foreman: "' . $found['name'] . '" is not the foreman of trip ' . $trip['trip_number'] . ' (' . $trip['foreman_name'] . '). Leave Foreman empty or use ' . $trip['foreman_name'] . '.';
+                }
+            }
+        } elseif ($found !== null) {
+            $foremanId = (int) $found['id'];
+        }
+
+        return [$foremanId, $tripId, $errors];
     }
 }

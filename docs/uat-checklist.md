@@ -103,6 +103,9 @@ Sign in as **Admin** unless a scenario says otherwise. Replace `TEST-1` etc. wit
 | H8 | Delete a trip. | It disappears from the list; the jobs on it are not affected. | ☐ | |
 | H9 | Open **Trips -> By foreman**. Pick a period. | One line per foreman with trips, jobs, each expense column and Total expenses, and a Total line. The numbers match the trip pages. | ☐ | |
 | H10 | Click **Export CSV** on the trip list (after a search) and on the report. Open the files in Excel. | One line per job with the trip details repeated; only the trips you searched for; amounts as numbers. | ☐ | |
+| H12 | Add a job and choose a **Trip**. Open the job, then the trip. | The job shows the trip number (a link) and the trip's foreman, and appears on the trip with no expenses. | ☐ | |
+| H13 | Edit the job and choose another trip, then none. | The job moves; the row on the old trip and its expenses are still there. | ☐ | |
+| H14 | Search the job list for a trip number and for a foreman name. | The jobs assigned to them. | ☐ | |
 | H11 | Open a job that is on a trip, then a job that is on none and use **Add to a trip**; also try **New trip with this job**. Look at the dashboard. | The first job lists its trips. The second is added to the chosen trip (no amounts yet) or opens a new trip form with its number filled in. The dashboard has a "Foreman trips" card (last 30 days). | ☐ | |
 
 ## G. Phone and tablet

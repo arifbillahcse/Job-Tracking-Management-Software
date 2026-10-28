@@ -11,6 +11,7 @@ use App\Core\Response;
 use App\Core\Session;
 use App\Services\JobService;
 use App\Services\JobWorkflowService;
+use App\Services\TripService;
 use App\Validation\JobRules;
 use PDOException;
 
@@ -66,19 +67,29 @@ final class JobController extends Controller
             'cancelTo' => '/jobs',
             'submitLabel' => 'Create job',
             'editFinancials' => $this->jobs->canEditFinancials(),
-        ]);
+        ] + $this->assignmentChoices(null));
     }
 
     public function store(Request $request): Response
     {
         $data = $this->validate(
             $request,
-            JobRules::rules(null, $this->jobs->canEditFinancials()),
+            JobRules::rules(null, $this->jobs->canEditFinancials(), false, true, $this->jobs->canAssign()),
             '/jobs/create',
             JobRules::labels()
         );
         if ($data instanceof Response) {
             return $data;
+        }
+        $note = null;
+        if ($this->jobs->canAssign()) {
+            $assignment = (new TripService())->resolveAssignment($data['foreman_id'] ?? null, $data['trip_id'] ?? null);
+            if ($assignment['errors'] !== []) {
+                return $this->redirectWithErrors($request, $assignment['errors'], '/jobs/create');
+            }
+            $data['foreman_id'] = $assignment['foreman_id'];
+            $data['trip_id'] = $assignment['trip_id'];
+            $note = $assignment['note'];
         }
 
         try {
@@ -90,7 +101,7 @@ final class JobController extends Controller
             throw $e;
         }
 
-        $this->flash('success', 'Job ' . $data['job_number'] . ' was created.');
+        $this->flash('success', 'Job ' . $data['job_number'] . ' was created.' . ($note !== null ? ' ' . $note : ''));
         return $this->redirect('/jobs/' . $id);
     }
 
@@ -108,7 +119,7 @@ final class JobController extends Controller
             'cancelTo' => '/jobs/' . $id,
             'submitLabel' => 'Save changes',
             'editFinancials' => $this->jobs->canEditFinancials(),
-        ]);
+        ] + $this->assignmentChoices($job));
     }
 
     public function update(Request $request, int $id): Response
@@ -121,12 +132,22 @@ final class JobController extends Controller
         $editUrl = '/jobs/' . $id . '/edit';
         $data = $this->validate(
             $request,
-            JobRules::rules($id, $this->jobs->canEditFinancials(), $job['status'] === 'in_transit') + JobRules::dateRules((string) $job['status']),
+            JobRules::rules($id, $this->jobs->canEditFinancials(), $job['status'] === 'in_transit', true, $this->jobs->canAssign()) + JobRules::dateRules((string) $job['status']),
             $editUrl,
             JobRules::labels()
         );
         if ($data instanceof Response) {
             return $data;
+        }
+        $note = null;
+        if ($this->jobs->canAssign()) {
+            $assignment = (new TripService())->resolveAssignment($data['foreman_id'] ?? null, $data['trip_id'] ?? null, $job);
+            if ($assignment['errors'] !== []) {
+                return $this->redirectWithErrors($request, $assignment['errors'], $editUrl);
+            }
+            $data['foreman_id'] = $assignment['foreman_id'];
+            $data['trip_id'] = $assignment['trip_id'];
+            $note = $assignment['note'];
         }
         if (($problems = JobRules::dateProblems($data)) !== []) {
             return $this->redirectWithErrors($request, $problems, $editUrl);
@@ -153,7 +174,7 @@ final class JobController extends Controller
             return ErrorPages::response(404);
         }
 
-        $this->flash('success', $result['changed'] === [] ? 'No changes were made.' : 'Job ' . $data['job_number'] . ' was updated.');
+        $this->flash('success', $result['changed'] === [] ? 'No changes were made.' : 'Job ' . $data['job_number'] . ' was updated.' . ($note !== null ? ' ' . $note : ''));
         return $this->redirect('/jobs/' . $id);
     }
 
@@ -226,5 +247,24 @@ final class JobController extends Controller
     private function duplicateMessage(): string
     {
         return 'That job number is already in use (it may belong to a deleted job).';
+    }
+
+    /**
+     * What the job form needs to offer the Foreman and Trip choices (only for people who may manage trips).
+     *
+     * @param array<string,mixed>|null $job
+     * @return array{canAssign:bool,foremen:array<int,array<string,mixed>>,trips:array<int,array<string,mixed>>}
+     */
+    private function assignmentChoices(?array $job): array
+    {
+        if (!$this->jobs->canAssign()) {
+            return ['canAssign' => false, 'foremen' => [], 'trips' => []];
+        }
+        $trips = new TripService();
+        return [
+            'canAssign' => true,
+            'foremen' => $trips->foremanOptions(isset($job['foreman_id']) ? (int) $job['foreman_id'] : null),
+            'trips' => $trips->tripOptions(isset($job['trip_id']) ? (int) $job['trip_id'] : null),
+        ];
     }
 }

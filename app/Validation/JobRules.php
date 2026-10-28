@@ -16,7 +16,7 @@ final class JobRules
      * @param bool $checkUnique false for bulk imports, which check duplicates themselves in one query
      * @return array<string,string>
      */
-    public static function rules(?int $ignoreId = null, bool $withFinancials = false, bool $withCarrier = false, bool $checkUnique = true): array
+    public static function rules(?int $ignoreId = null, bool $withFinancials = false, bool $withCarrier = false, bool $checkUnique = true, bool $withAssignment = false): array
     {
         $unique = $checkUnique ? '|unique:jobs,job_number' . ($ignoreId !== null ? ',' . $ignoreId : '') : '';
 
@@ -32,7 +32,6 @@ final class JobRules
             'job_location' => 'nullable|max:190',
             'cf' => 'nullable|money|min_value:0|max_value:99999999.99',
             'estimated_cf' => 'nullable|money|min_value:0|max_value:99999999.99',
-            'foreman_name' => 'nullable|max:150',
             'job_lot' => 'nullable|max:60',
             'color' => 'nullable|max:60',
             'notes' => 'nullable|max:5000',
@@ -45,6 +44,11 @@ final class JobRules
                 $rules[$field] = 'nullable|money|min_value:0|max_value:9999999999.99';
             }
             $rules['storage_fee_override'] = 'nullable|money|min_value:0|max_value:9999999999.99';
+        }
+
+        if ($withAssignment) {
+            $rules['foreman_id'] = 'nullable|integer|exists:foremen,id';
+            $rules['trip_id'] = 'nullable|integer|exists:trips,id';
         }
 
         if ($withCarrier) {
@@ -124,7 +128,10 @@ final class JobRules
             'grand_total' => 'Grand total',
             'bh_total' => 'BH total',
             'paid' => 'Paid',
-            'foreman_name' => 'Foreman',
+            'foreman_id' => 'Foreman',
+            'trip_id' => 'Trip',
+            'foreman' => 'Foreman',
+            'trip_number' => 'Trip Number',
             'job_lot' => 'Job lot',
             'color' => 'Color',
             'balance' => 'Balance',

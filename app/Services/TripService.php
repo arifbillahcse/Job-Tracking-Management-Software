@@ -88,6 +88,64 @@ final class TripService
         return ['rows' => $rows, 'totals' => $totals, 'money' => $money];
     }
 
+    /** @return array<int,array<string,mixed>> foremen to choose from on a job form (the active ones plus the current one) */
+    public function foremanOptions(?int $currentId = null): array
+    {
+        return (new \App\Repositories\ForemanRepository())->options($currentId);
+    }
+
+    /** @return array<int,array<string,mixed>> the newest live trips to choose from on a job form (plus the current one) */
+    public function tripOptions(?int $currentId = null): array
+    {
+        return $this->trips->choices($currentId);
+    }
+
+    /**
+     * Decide a job's foreman and trip from what was chosen on the job form. A trip brings its own foreman (a job cannot be
+     * on one foreman's trip and belong to another); without a trip the chosen foreman is used.
+     *
+     * @param array<string,mixed>|null $current the job as stored (edit), or null (new job)
+     * @return array{foreman_id:?string,trip_id:?string,errors:array<string,array<int,string>>,note:?string}
+     */
+    public function resolveAssignment(mixed $foremanId, mixed $tripId, ?array $current = null): array
+    {
+        $int = static fn (mixed $v): ?int => ($v === null || $v === '' || !ctype_digit((string) $v) || (int) $v < 1) ? null : (int) $v;
+        $foremanId = $int($foremanId);
+        $tripId = $int($tripId);
+        $errors = [];
+        $note = null;
+
+        if ($tripId !== null) {
+            $trip = $this->trips->find($tripId);
+            if ($trip === null) {
+                $errors['trip_id'][] = 'That trip does not exist (or was deleted).';
+            } else {
+                if ($foremanId !== null && $foremanId !== (int) $trip['foreman_id']) {
+                    $note = 'The foreman was set to ' . $trip['foreman_name'] . ', the foreman of trip ' . $trip['trip_number'] . '.';
+                }
+                $foremanId = (int) $trip['foreman_id'];
+            }
+        } elseif ($foremanId !== null) {
+            $foreman = (new \App\Repositories\ForemanRepository())->find($foremanId);
+            if ($foreman === null) {
+                $errors['foreman_id'][] = 'That foreman does not exist.';
+            } elseif ((int) $foreman['active'] !== 1 && (int) ($current['foreman_id'] ?? 0) !== $foremanId) {
+                $errors['foreman_id'][] = 'Foreman ' . $foreman['name'] . ' is inactive. Choose an active foreman.';
+            }
+        }
+
+        return ['foreman_id' => $foremanId === null ? null : (string) $foremanId, 'trip_id' => $tripId === null ? null : (string) $tripId, 'errors' => $errors, 'note' => $note];
+    }
+
+    /**
+     * Makes sure the trip has a row for this job (a job assigned to a trip appears on the trip), without touching the job.
+     * Never removes or changes a row, so expenses already entered stay.
+     */
+    public function ensureRow(int $jobId, int $tripId): void
+    {
+        $this->addJobRow($tripId, $jobId);
+    }
+
     /** @return array<int,array<string,mixed>> the live trips a job is on (for the Job Details page) */
     public function forJob(int $jobId): array
     {
@@ -107,6 +165,17 @@ final class TripService
      * @return string 'ok', 'no_trip', 'no_job' or 'already'
      */
     public function addJob(int $tripId, int $jobId): string
+    {
+        $result = $this->addJobRow($tripId, $jobId);
+        if ($result === 'ok') {
+            // The job is now assigned to this trip, and to its foreman.
+            \App\Core\Database::execute('UPDATE jobs SET trip_id = ?, foreman_id = ? WHERE id = ?', [$tripId, (int) $this->trips->find($tripId)['foreman_id'], $jobId]);
+        }
+        return $result;
+    }
+
+    /** @return string 'ok', 'no_trip', 'no_job' or 'already' */
+    private function addJobRow(int $tripId, int $jobId): string
     {
         $trip = $this->trips->find($tripId);
         if ($trip === null) {
@@ -260,6 +329,7 @@ final class TripService
     public function create(array $header, array $rows): int
     {
         $id = $this->trips->create($header, $rows, Auth::id());
+        $this->syncJobs($id, (int) $header['foreman_id'], [], array_column($rows, 'job_id'));
         AuditService::record('trip_created', 'trip', $id, null, ['trip_number' => $header['trip_number'], 'foreman_id' => $header['foreman_id'], 'jobs' => array_column($rows, 'job_number')]);
         return $id;
     }
@@ -307,6 +377,7 @@ final class TripService
         }
 
         $this->trips->update($id, $header, $rows, Auth::id());
+        $this->syncJobs($id, (int) $header['foreman_id'], array_map('intval', array_column($oldRows, 'job_id')), array_map('intval', array_column($rows, 'job_id')));
         AuditService::record('trip_updated', 'trip', $id, $old, $new);
         return ['ok' => true, 'conflict' => false, 'changed' => true];
     }
@@ -317,8 +388,39 @@ final class TripService
         if ($trip === null || !$this->trips->softDelete($id, Auth::id())) {
             return null;
         }
+        \App\Core\Database::execute('UPDATE jobs SET trip_id = NULL WHERE trip_id = ?', [$id]); // the jobs keep their foreman
         AuditService::record('trip_deleted', 'trip', $id, ['trip_number' => $trip['trip_number'], 'jobs' => (int) $trip['job_count']]);
         return (string) $trip['trip_number'];
+    }
+
+    /**
+     * Keeps the jobs' own assignment in step with a saved trip: a job newly on the trip is assigned to it (and to its foreman);
+     * a job that stays on it follows a change of foreman; a job taken off it loses the assignment. A job that is on this trip
+     * but currently assigned to a different one is left on that other trip.
+     *
+     * @param array<int,int|string> $oldIds
+     * @param array<int,int|string> $newIds
+     */
+    private function syncJobs(int $tripId, int $foremanId, array $oldIds, array $newIds): void
+    {
+        $old = array_map('intval', $oldIds);
+        $new = array_map('intval', $newIds);
+        $in = static fn (array $ids): string => implode(',', array_map('intval', $ids));
+        $added = array_values(array_diff($new, $old));
+        $kept = array_values(array_intersect($new, $old));
+        $removed = array_values(array_diff($old, $new));
+
+        \App\Core\Database::transaction(static function () use ($tripId, $foremanId, $added, $kept, $removed, $in): void {
+            if ($added !== []) {
+                \App\Core\Database::execute('UPDATE jobs SET trip_id = ?, foreman_id = ? WHERE id IN (' . $in($added) . ')', [$tripId, $foremanId]);
+            }
+            if ($kept !== []) {
+                \App\Core\Database::execute('UPDATE jobs SET foreman_id = ? WHERE trip_id = ? AND id IN (' . $in($kept) . ')', [$foremanId, $tripId]);
+            }
+            if ($removed !== []) {
+                \App\Core\Database::execute('UPDATE jobs SET trip_id = NULL WHERE trip_id = ? AND id IN (' . $in($removed) . ')', [$tripId]);
+            }
+        });
     }
 
     /**

@@ -18,7 +18,7 @@ final class JobService
     private const EDITABLE = [
         'job_number', 'customer_first_name', 'customer_last_name', 'pickup_date', 'first_available_date',
         'from_location', 'to_location', 'job_location', 'cf', 'estimated_cf', 'notes', 'customer_phone',
-        'foreman_name', 'job_lot', 'color',
+        'job_lot', 'color',
     ];
 
     /** Columns only users with jobs.edit_financials may write. */
@@ -37,6 +37,12 @@ final class JobService
     public function canSeeFinancials(): bool
     {
         return Auth::can('jobs.view_financials') || Auth::can('jobs.edit_financials');
+    }
+
+    /** Assigning a foreman or a trip changes trips, so it needs the permission to manage them. */
+    public function canAssign(): bool
+    {
+        return Auth::can('trips.manage');
     }
 
     public function canEditFinancials(): bool
@@ -115,10 +121,16 @@ final class JobService
         if ($this->canEditFinancials()) {
             $row += $this->financialRow($input); // an empty storage fee override means automatic
         }
+        if ($this->canAssign()) {
+            $row += $this->assignmentRow($input);
+        }
 
         $id = $this->jobs->create($row, Auth::id());
         AuditService::record('job_created', 'job', $id, null, $row);
         StorageFeeService::settle($id);
+        if (($row['trip_id'] ?? null) !== null) {
+            (new TripService())->ensureRow($id, (int) $row['trip_id']);
+        }
         return $id;
     }
 
@@ -142,6 +154,9 @@ final class JobService
         $row = $this->writable($input);
         if ($this->canEditFinancials()) {
             $row += $this->financialRow($input);
+        }
+        if ($this->canAssign()) {
+            $row += $this->assignmentRow($input);
         }
         if ((string) $current['status'] === 'in_transit') {
             foreach (self::CARRIER as $column) {
@@ -176,6 +191,9 @@ final class JobService
         $this->jobs->update($id, $new, Auth::id());
         AuditService::record('job_updated', 'job', $id, $old, $new);
         StorageFeeService::settle($id); // CF, dates or an override may have changed the fee
+        if (isset($new['trip_id']) && $new['trip_id'] !== null) {
+            (new TripService())->ensureRow($id, (int) $new['trip_id']);
+        }
 
         return ['ok' => true, 'conflict' => false, 'changed' => array_keys($new)];
     }
@@ -229,6 +247,18 @@ final class JobService
         }
         $row['balance'] ??= '0.00';
         return $row;
+    }
+
+    /**
+     * The job's foreman and trip (already resolved and checked by TripService::resolveAssignment()).
+     *
+     * @param array<string,mixed> $input
+     * @return array{foreman_id:?string,trip_id:?string}
+     */
+    private function assignmentRow(array $input): array
+    {
+        $id = static fn (mixed $v): ?string => ($v === null || $v === '' || !ctype_digit((string) $v) || (int) $v < 1) ? null : (string) (int) $v;
+        return ['foreman_id' => $id($input['foreman_id'] ?? null), 'trip_id' => $id($input['trip_id'] ?? null)];
     }
 
     private function normalize(string $column, mixed $value): ?string

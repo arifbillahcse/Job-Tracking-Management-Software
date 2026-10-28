@@ -554,7 +554,7 @@ fresh_session();
 sign_in($mgr);
 $tmpl = call('GET', '/jobs/import/template/csv');
 $tt = str_getcsv(explode("\n", substr($tmpl->content(), 3))[0]);
-check(in_array('Balance', $tt, true) && in_array('Storage Fee', $tt, true) && count($tt) === 28, 'template for a Manager has all 28 columns incl. money');
+check(in_array('Balance', $tt, true) && in_array('Storage Fee', $tt, true) && count($tt) === 29, 'template for a Manager has all 29 columns incl. money');
 check(call('GET', '/jobs/import/template/pdf')->status() === 404, 'unknown template format -> 404');
 $x = tmp_file(call('GET', '/jobs/import/template/xlsx')->content(), 'xlsx');
 $xr = XlsxReader::read($x, 10, 30);
@@ -651,7 +651,7 @@ foreach ([['ready', ['Job #', 'Customer First Name', 'Customer Last Name', 'Cust
 [$text, $rows] = $csvOf('all');
 check(str_starts_with($text, "\xEF\xBB\xBF") && $rows[0] === array_map([JobFields::class, 'label'], array_keys(JobFields::all())), 'All Jobs: BOM first (Excel reads UTF-8), then every importable column in template order');
 [, $rows] = $csvOf('all', [], false);
-check(!in_array('Balance', $rows[0], true) && !in_array('Storage Fee', $rows[0], true) && count($rows[0]) === 21, 'without access to money the Balance and Storage Fee columns are not even in the file');
+check(!in_array('Balance', $rows[0], true) && !in_array('Storage Fee', $rows[0], true) && count($rows[0]) === 22, 'without access to money the Balance and Storage Fee columns are not even in the file');
 check(!str_contains(implode(',', array_merge(...$csvOf('all', [], false)[1])), '120.50') && !str_contains($csvOf('later', [], false)[0], '45.00'), '...and none of the amounts appear anywhere in it');
 
 [, $rows] = $csvOf('ready');
