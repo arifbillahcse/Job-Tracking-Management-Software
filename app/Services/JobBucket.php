@@ -13,7 +13,7 @@ use App\Core\Clock;
  *
  *   With the default basis "pickup" (assumption L1, settings.section_basis) the date is the pickup date (the 1st available date
  *   when a job has none): Ready = that date is no older than N days; More Than N Days = older than N days. With basis
- *   "first_available" (the default) the original rule below applies.
+ *   "first_available" the original rule below applies.
  *
  *   Ready for Delivery  status = booked AND available date from today - N days to today + N days   (assumptions A2, K1)
  *   More Than 30 Days   status = booked AND available date more than N days away, in the future OR in the past
@@ -74,8 +74,8 @@ final class JobBucket
      */
     public static function basis(): string
     {
-        $basis = (string) SettingsService::get('section_basis', 'first_available');
-        return isset(self::BASES[$basis]) ? $basis : 'first_available';
+        $basis = (string) SettingsService::get('section_basis', 'pickup');
+        return isset(self::BASES[$basis]) ? $basis : 'pickup';
     }
 
     /** SQL expression for the date a booked job's age is counted from. */

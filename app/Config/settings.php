@@ -10,8 +10,8 @@ return [
     'company_name' => 'Job Tracker',
     // A job is "ready for delivery" when its 1st available date is within this many days (assumption A2).
     'ready_threshold_days' => '30',
-    // Which date the Ready / More Than 30 Days rule counts from: 'first_available' (default, matches the client's sheet) or 'pickup' (falls back to the 1st available date). Assumption L1.
-    'section_basis' => 'first_available',
+    // Which date the Ready / More Than 30 Days rule counts from: 'first_available' or 'pickup' (default since 1.3.1: the client asked for the 30-day rule to count from the Pickup Date; a job without one uses its 1st available date). Assumption L1.
+    'section_basis' => 'pickup',
     'currency_symbol' => '$',
     'timezone' => 'UTC',
     'page_size' => '25',

@@ -32,6 +32,7 @@ Everything the client's team needs to own, run, and extend this software.
 | `backup`, `cleanup` | Database backup; housekeeping (dry run unless `--apply`) |
 | `doctor`, `route-audit` | Environment self-check; access-rule check of every route |
 | `permission-report` | Regenerates `docs/permission-matrix.md` from the live system |
+| `sync-roles` | Show (`--apply`: grant) default permissions that Manager/Staff are missing after an upgrade; `doctor` warns about it |
 | `storage-fees` | Re-assess the automatic storage fee of open jobs (the app also does this once a day by itself) |
 | `seed-demo`, `fetch-assets` | Demo data (never in production); bundle Bootstrap locally |
 

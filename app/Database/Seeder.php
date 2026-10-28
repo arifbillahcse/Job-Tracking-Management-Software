@@ -103,4 +103,59 @@ final class Seeder
             return $summary;
         });
     }
+
+    /**
+     * The default permissions (permissions.php) that an existing default role (Manager, Staff) does not hold yet.
+     * Roles are created once with their defaults and never overwritten afterwards, so permissions added by a later
+     * version never reach them by themselves; this lists exactly what is missing.
+     *
+     * @return array<string,array<int,string>> role name => permission keys
+     */
+    public function missingDefaults(): array
+    {
+        $missing = [];
+        foreach ((array) Config::get('permissions.roles', []) as $roleName => $definition) {
+            if ($definition['permissions'] === '*') {
+                continue; // Admin is re-synced by every seed run
+            }
+            $role = Database::fetchOne('SELECT id FROM roles WHERE name = ?', [$roleName]);
+            if ($role === null) {
+                continue;
+            }
+            $held = array_column(Database::fetchAll(
+                'SELECT p.name FROM role_permissions rp JOIN permissions p ON p.id = rp.permission_id WHERE rp.role_id = ?',
+                [$role['id']]
+            ), 'name');
+            $lacking = array_values(array_diff((array) $definition['permissions'], $held));
+            // Only permissions that exist in the database can be granted.
+            $lacking = array_values(array_filter($lacking, static fn (string $k): bool => Database::fetchOne('SELECT id FROM permissions WHERE name = ?', [$k]) !== null));
+            if ($lacking !== []) {
+                $missing[$roleName] = $lacking;
+            }
+        }
+        return $missing;
+    }
+
+    /**
+     * Grants the missing default permissions (see missingDefaults()). Never removes a permission, so an administrator's
+     * deliberate un-ticking of a box is respected only for permissions that were already there; new ones are added.
+     *
+     * @return array<string,array<int,string>> what was granted, role name => permission keys
+     */
+    public function syncDefaultRoles(): array
+    {
+        $granted = $this->missingDefaults();
+        Database::transaction(static function () use ($granted): void {
+            foreach ($granted as $roleName => $keys) {
+                $roleId = (int) Database::fetchValue('SELECT id FROM roles WHERE name = ?', [$roleName]);
+                foreach ($keys as $key) {
+                    Database::execute(
+                        'INSERT INTO role_permissions (role_id, permission_id) SELECT ?, id FROM permissions WHERE name = ?',
+                        [$roleId, $key]
+                    );
+                }
+            }
+        });
+        return $granted;
+    }
 }

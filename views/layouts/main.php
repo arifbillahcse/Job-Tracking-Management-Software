@@ -17,7 +17,7 @@
             <?= \App\Core\View::partial('partials/flash') ?>
             <?= $content ?>
         </main>
-        <footer class="jt-footer">&copy; <?= e(gmdate('Y')) ?> <?= e(app_name()) ?></footer>
+        <footer class="jt-footer">&copy; <?= e(gmdate('Y')) ?> <?= e(app_name()) ?> &middot; version <?= e(app_version()) ?><?= can('settings.manage') && app_build() !== null ? ' &middot; build ' . e(app_build()) : '' ?></footer>
     </div>
 </div>
 <?= \App\Core\View::partial('partials/foot-scripts') ?>

@@ -120,6 +120,40 @@ function app_version(): string
     return $version ??= (is_file(BASE_PATH . '/VERSION') ? trim((string) file_get_contents(BASE_PATH . '/VERSION')) : 'dev');
 }
 
+/**
+ * Short commit id of the code that is deployed, read from the .git folder without running git (null when the code was not
+ * deployed from a clone). It lets an administrator see at a glance which commit a server is running.
+ */
+function app_build(): ?string
+{
+    static $build = false;
+    if ($build !== false) {
+        return $build;
+    }
+    $build = null;
+    $head = BASE_PATH . '/.git/HEAD';
+    if (is_file($head)) {
+        $ref = trim((string) file_get_contents($head));
+        if (str_starts_with($ref, 'ref: ')) {
+            $name = substr($ref, 5);
+            $file = BASE_PATH . '/.git/' . $name;
+            $id = is_file($file) ? trim((string) file_get_contents($file)) : '';
+            if ($id === '' && is_file(BASE_PATH . '/.git/packed-refs')) {
+                foreach (file(BASE_PATH . '/.git/packed-refs', FILE_IGNORE_NEW_LINES) ?: [] as $line) {
+                    if (str_ends_with($line, ' ' . $name)) {
+                        $id = substr($line, 0, 40);
+                        break;
+                    }
+                }
+            }
+        } else {
+            $id = $ref;
+        }
+        $build = preg_match('/^[0-9a-f]{40}$/', $id) === 1 ? substr($id, 0, 7) : null;
+    }
+    return $build;
+}
+
 function app_name(): string
 {
     return setting('company_name', (string) Config::get('app.name', 'Job Tracker')) ?? 'Job Tracker';

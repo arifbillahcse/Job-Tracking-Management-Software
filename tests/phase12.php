@@ -12,6 +12,7 @@ use App\Core\Database;
 use App\Database\Migrator;
 use App\Repositories\JobRepository;
 use App\Repositories\TripRepository;
+use App\Services\EnvironmentCheck;
 use App\Services\TripCriteria;
 use App\Services\TripService;
 use App\Services\TripTotals;
@@ -510,4 +511,69 @@ $longs = (new TripService())->prepare(['trip_number' => str_repeat('A', 41), 'fo
 check(isset($longs['errors']['trip_number']) && isset($longs['errors']['notes']) && isset($longs['errors']['rows.0.job_number']), 'over-long values are refused');
 $utf = (new TripService())->prepare(['trip_number' => 'UTF-1', 'foreman_id' => (string) $foreman, 'collected_by' => 'Zoë 北京 😀', 'rows' => [['job_number' => 'S-1', 'remark' => 'ça va 😀']]]);
 check($utf['errors'] === [] && $utf['header']['collected_by'] === 'Zoë 北京 😀', 'unicode text is accepted and kept');
+Clock::fake(null);
+
+// ================================================================ version 1.3.1: visible deployment, defaults, role sync
+
+section('Deployment: version in the footer, client defaults migration, default role sync');
+$dir = sys_get_temp_dir() . '/jt-mig11-' . bin2hex(random_bytes(4));
+mkdir($dir);
+foreach (glob(BASE_PATH . '/database/migrations/0{0[1-9],10}_*.sql', GLOB_BRACE) as $f) {
+    copy($f, $dir . '/' . basename($f));
+}
+$pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
+Database::setConnection($pdo);
+(new Migrator($dir))->migrate();
+$now = '2026-01-01 00:00:00';
+foreach ([['section_basis', 'first_available'], ['storage_fee_basis', 'first_available'], ['storage_fee_mode', 'once'], ['ready_threshold_days', '45']] as [$k, $v]) {
+    $pdo->exec("INSERT INTO settings (setting_key, setting_value, updated_at) VALUES ('{$k}', '{$v}', '{$now}')");
+}
+$pdo->exec("INSERT INTO jobs (job_number, customer_first_name, customer_last_name, first_available_date, from_location, to_location, status, cf, balance, storage_fee, storage_fee_override, created_at, updated_at) VALUES ('M11', 'A', 'B', '2026-01-01', 'X', 'Y', 'booked', 900, 50, 12.5, 12.5, '{$now}', '{$now}')");
+copy(BASE_PATH . '/database/migrations/011_client_defaults_pickup_monthly.sql', $dir . '/011_client_defaults_pickup_monthly.sql');
+check((new Migrator($dir))->migrate() === ['011_client_defaults_pickup_monthly.sql'], 'only migration 011 runs');
+$set = array_column($pdo->query('SELECT setting_key, setting_value FROM settings')->fetchAll(), 'setting_value', 'setting_key');
+check($set['section_basis'] === 'pickup' && $set['storage_fee_basis'] === 'pickup' && $set['storage_fee_mode'] === 'monthly', 'settings that held the old defaults move to the pickup date and monthly charging');
+check($set['ready_threshold_days'] === '45', 'other settings are untouched');
+$job = $pdo->query("SELECT * FROM jobs WHERE job_number = 'M11'")->fetch();
+check((float) $job['storage_fee_override'] === 12.5 && (float) $job['storage_fee'] === 12.5 && (float) $job['balance'] === 50.0, 'no job and no manually entered fee is touched');
+$pdo->exec("UPDATE settings SET setting_value = 'loaded' WHERE setting_key = 'storage_fee_basis'");
+$pdo->exec("DELETE FROM migrations WHERE filename = '011_client_defaults_pickup_monthly.sql'");
+(new Migrator($dir))->migrate();
+check($pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'storage_fee_basis'")->fetchColumn() === 'loaded', 'a value an administrator chose on purpose (loaded date) is left alone');
+check($pdo->query("SELECT COUNT(*) FROM settings WHERE setting_key = 'nonexistent'")->fetchColumn() == 0 && (int) $pdo->query('SELECT COUNT(*) FROM settings')->fetchColumn() === 4, 'no setting row is created (seeding does that)');
+Database::setConnection(null);
+array_map('unlink', glob($dir . '/*'));
+rmdir($dir);
+
+fresh_db();
+fresh_session();
+Clock::fake('2026-10-23');
+$admin = make_user('Admin', 'v-admin@example.com');
+$mgr = make_user('Manager', 'v-mgr@example.com');
+sign_in($admin);
+$foot = plain(call('GET', '/dashboard')->body());
+check(str_contains($foot, 'version ' . app_version()), 'the footer shows the version of the code that is running');
+check(app_build() === null || preg_match('/^[0-9a-f]{7}$/', (string) app_build()) === 1, 'the build id is a short commit id, or nothing when not deployed from a clone');
+fresh_session();
+sign_in($mgr);
+check(!str_contains(plain(call('GET', '/dashboard')->body()), ' build '), 'only an administrator is shown the build id');
+
+$seeder = new \App\Database\Seeder();
+check($seeder->missingDefaults() === [], 'a fresh install: every default role holds its defaults');
+$mgrId = (int) Database::fetchValue("SELECT id FROM roles WHERE name = 'Manager'");
+$staffId = (int) Database::fetchValue("SELECT id FROM roles WHERE name = 'Staff'");
+foreach (['trips.view', 'trips.export', 'settings.storage_fee'] as $k) {
+    Database::execute('DELETE FROM role_permissions WHERE role_id = ? AND permission_id = (SELECT id FROM permissions WHERE name = ?)', [$mgrId, $k]);
+}
+Database::execute('INSERT INTO role_permissions (role_id, permission_id) SELECT ?, id FROM permissions WHERE name = ?', [$staffId, 'users.manage']);
+Database::execute('DELETE FROM role_permissions WHERE role_id = ? AND permission_id = (SELECT id FROM permissions WHERE name = ?)', [$mgrId, 'jobs.import']);
+$missing = $seeder->missingDefaults();
+check(array_keys($missing) === ['Manager'] && in_array('trips.view', $missing['Manager'], true) && in_array('trips.export', $missing['Manager'], true) && in_array('settings.storage_fee', $missing['Manager'], true), 'a Manager created before newer permissions existed is reported as lacking them');
+$rows = EnvironmentCheck::run();
+$warn = array_values(array_filter($rows, static fn (array $r): bool => str_contains($r['label'], 'Default roles')));
+check($warn !== [] && $warn[0]['level'] === 'warn' && str_contains($warn[0]['detail'], 'sync-roles'), 'php cli/doctor.php warns and says which command fixes it');
+$granted = $seeder->syncDefaultRoles();
+check(count($granted['Manager']) === 4 && $seeder->missingDefaults() === [] && count($seeder->syncDefaultRoles()) === 0, 'syncing grants exactly the missing defaults, and running it again changes nothing');
+check((int) Database::fetchValue('SELECT COUNT(*) FROM role_permissions rp JOIN permissions p ON p.id = rp.permission_id WHERE rp.role_id = ? AND p.name = ?', [$staffId, 'users.manage']) === 1, 'it never removes anything: an extra permission ticked on Staff stays');
+check((int) Database::fetchValue('SELECT COUNT(*) FROM role_permissions rp JOIN permissions p ON p.id = rp.permission_id WHERE rp.role_id = ? AND p.name = ?', [$staffId, 'trips.view']) === 0, '...and Staff does not get Manager\'s permissions');
 Clock::fake(null);

@@ -2,6 +2,13 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.3.1 - the updates are visible: version in the footer, defaults, role sync
+
+* **The footer shows the version** of the code that is running (and, to administrators, the commit it was deployed from). `php cli/doctor.php` prints the same, so it is easy to see what a server is really running.
+* **Default roles now get permissions added by newer versions.** Roles were created once and never changed afterwards, so a Manager created before the trip module could not see Trips, Foremen, the storage fee page or the CSV export, which looks exactly like "the update is missing". `php cli/doctor.php` now warns when a default role lacks permissions, and `php cli/sync-roles.php --apply` grants exactly the missing defaults (it only adds, never removes).
+* **The client's two rules are now the default:** the 30-day rule counts from the **Pickup Date** (a job without one uses its 1st available date) and the storage fee is charged **every month**. Migration 011 moves settings that still hold the old defaults (1st available date / once); a value chosen on purpose (for example the loaded date) is kept. Nothing on any job changes.
+* **Upgrade:** `git pull origin main`, `php cli/migrate.php` (011), `php cli/seed.php`, `php cli/sync-roles.php` (look) then `php cli/sync-roles.php --apply`, `php cli/doctor.php`.
+
 ## 1.3.0 - final pass for the client's change request (roadmap phase 9)
 
 * **Limits for the trip form:** a trip holds at most **60 job rows** (a bigger form would be silently cut off by PHP's default `max_input_vars` of 1000, so it is refused with a message instead), and a request carrying more than 120 rows is refused before any row is checked.

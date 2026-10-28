@@ -770,8 +770,8 @@ check(JobBucket::basis() === 'first_available' && numbers('later') === ['P-30', 
 set_setting('section_basis', 'pickup');
 check(numbers('ready') === $before['ready'] && numbers('later') === $before['later'], '...and switching back returns the same sections');
 set_setting('section_basis', 'nonsense');
-check(JobBucket::basis() === 'first_available', 'an unknown basis value falls back to the 1st available date');
-check((require __DIR__ . '/../app/Config/settings.php')['section_basis'] === 'first_available', 'the shipped default is the 1st available date (client sheet: available within 30 days = ready)');
+check(JobBucket::basis() === 'pickup', 'an unknown basis value falls back to the pickup date');
+check((require __DIR__ . '/../app/Config/settings.php')['section_basis'] === 'pickup', 'the shipped default counts the 30 days from the pickup date (the client\'s request)');
 set_setting('section_basis', 'pickup');
 
 // Editing a pickup date moves the job.

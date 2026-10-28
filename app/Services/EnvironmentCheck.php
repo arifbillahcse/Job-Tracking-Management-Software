@@ -76,6 +76,17 @@ final class EnvironmentCheck
             $pending = array_filter((new Migrator())->status(), static fn (array $m): bool => !$m['applied']);
             $pending === [] ? $add('ok', 'All migrations applied') : $add('fail', count($pending) . ' migration(s) pending', 'run php cli/migrate.php');
 
+            $lacking = (new \App\Database\Seeder())->missingDefaults();
+            if ($lacking === []) {
+                $add('ok', 'Default roles hold their default permissions');
+            } else {
+                $detail = [];
+                foreach ($lacking as $role => $keys) {
+                    $detail[] = $role . ' lacks ' . count($keys);
+                }
+                $add('warn', 'Default roles are missing permissions added by newer versions (they will not see those features)', implode(', ', $detail) . '; run php cli/sync-roles.php --apply');
+            }
+
             $admins = (int) Database::fetchValue('SELECT COUNT(*) FROM users u JOIN roles r ON r.id = u.role_id WHERE u.is_active = 1 AND u.deleted_at IS NULL AND r.name = ?', ['Admin']);
             $admins > 0 ? $add('ok', 'An active administrator exists') : $add('fail', 'No active administrator', 'run php cli/create-admin.php');
 
