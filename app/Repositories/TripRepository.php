@@ -32,7 +32,7 @@ final class TripRepository
     public function rows(int $tripId): array
     {
         $rows = Database::fetchAll(
-            'SELECT tj.*, CASE WHEN j.deleted_at IS NULL THEN 0 ELSE 1 END AS job_deleted
+            'SELECT tj.*, j.customer_phone, CASE WHEN j.deleted_at IS NULL THEN 0 ELSE 1 END AS job_deleted
              FROM trip_jobs tj LEFT JOIN jobs j ON j.id = tj.job_id WHERE tj.trip_id = ? ORDER BY tj.sort_order ASC, tj.id ASC',
             [$tripId]
         );
@@ -140,8 +140,8 @@ final class TripRepository
     {
         [$where, $params] = $this->where($c);
         return Database::fetchAll(
-            "SELECT t.trip_number, f.name AS foreman_name, t.begins_on, t.ends_on, t.collected_by, tj.*
-             FROM trip_jobs tj JOIN trips t ON t.id = tj.trip_id JOIN foremen f ON f.id = t.foreman_id
+            "SELECT t.trip_number, f.name AS foreman_name, t.begins_on, t.ends_on, t.collected_by, tj.*, j.customer_phone
+             FROM trip_jobs tj JOIN trips t ON t.id = tj.trip_id JOIN foremen f ON f.id = t.foreman_id LEFT JOIN jobs j ON j.id = tj.job_id
              WHERE {$where} ORDER BY t.begins_on DESC, t.id DESC, tj.sort_order ASC, tj.id ASC LIMIT ? OFFSET ?",
             [...$params, $limit, $offset]
         );

@@ -26,12 +26,15 @@ final class TripExportService
     }
 
     /** @return array<string,string> column key => heading, in file order */
-    public static function columns(bool $money): array
+    public static function columns(bool $money, bool $phone = false): array
     {
         $columns = [
             'trip_number' => 'Trip Number', 'foreman_name' => 'Foreman', 'begins_on' => 'Trip Begins', 'ends_on' => 'Trip Ends', 'collected_by' => 'Collected By',
-            'job_number' => 'Job #', 'customer_name' => 'Customer Name', 'job_date' => 'Date', 'from_location' => 'From', 'bh' => 'BH',
+            'job_number' => 'Job #', 'customer_name' => 'Customer Name', 'customer_phone' => 'Customer Phone', 'job_date' => 'Date', 'from_location' => 'From', 'bh' => 'BH',
         ];
+        if (!$phone) {
+            unset($columns['customer_phone']);
+        }
         if ($money) {
             $columns += self::MONEY_LABELS;
         }
@@ -45,7 +48,7 @@ final class TripExportService
 
     public function csv(TripCriteria $criteria, bool $money): Response
     {
-        $columns = self::columns($money);
+        $columns = self::columns($money, \App\Core\Auth::can('jobs.view'));
         $count = min($this->trips->countJobRows($criteria), self::MAX_ROWS);
         AuditService::record('trips_exported', 'trip', null, null, ['format' => 'csv', 'rows' => $count, 'filters' => $criteria->linkParams()]);
 

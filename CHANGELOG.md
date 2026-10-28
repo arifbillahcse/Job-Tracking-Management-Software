@@ -2,6 +2,12 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.3.4 - customer phone on trips; phone-width checks (client follow-up, phase 4)
+
+* **The customer's phone number now shows on the trip page** (tap-to-call, under the customer's name) and is a **Customer Phone** column in the trip CSV export, for people who may see jobs (`jobs.view`). It is the job's current number, so a correction shows on the trip at once. Without `jobs.view` the number is removed before any page or export sees it.
+* **Phone-width test:** a new browser check opens 17 pages (dashboard, all five job lists, job form and details, trip list, form, details and report, foremen, storage fee settings) at 375 px and fails if any scrolls sideways, if the row buttons do not fit, or if a trip table is not inside its scroll container.
+* Nothing needs migrating: **upload the code and run `php cli/doctor.php`**.
+
 ## 1.3.3 - Foreman / trip on the job lists (client follow-up, phase 3)
 
 * **All five job lists have a "Foreman / trip" column** (the foreman's name and, under it, the trip number, linked to the trip for people who may view trips). Click the heading to sort.

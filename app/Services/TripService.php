@@ -441,6 +441,9 @@ final class TripService
      */
     private function rowForViewer(array $row): array
     {
+        if (!Auth::can('jobs.view')) {
+            unset($row['customer_phone']); // a customer's phone number goes with seeing jobs
+        }
         if (!$this->canSeeFinancials()) {
             foreach (TripRepository::MONEY as $field) {
                 unset($row[$field]);

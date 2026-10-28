@@ -320,6 +320,32 @@ async function createJob(page, number, availableOffset, extra = {}) {
         const width = page.viewportSize().width;
         must(box !== null && box.x >= 0 && box.x + box.width <= width + 1, 'the row buttons are outside the screen: ' + JSON.stringify(box));
     });
+    await step('on a phone (375 px) no job, trip, report, foreman or settings page scrolls sideways, and the row buttons fit', async () => {
+        const phone = await browser.newContext({ viewport: { width: 375, height: 720 }, hasTouch: true, isMobile: true });
+        const p = await phone.newPage();
+        await signIn(p, ADMIN, ADMIN_PASS);
+        await p.goto(BASE + '/jobs?q=' + RUN + '-A');
+        const jobHref = await p.getAttribute('a.jt-jobno[href^="/jobs/"]', 'href');
+        await p.goto(BASE + '/trips?q=' + RUN + '-TR');
+        const tripHref = await p.getAttribute('a.jt-jobno[href^="/trips/"]', 'href');
+        const pages = ['/dashboard', '/jobs', '/jobs/ready', '/jobs/more-than-30', '/jobs/in-transit', '/jobs/delivered', '/jobs/create', jobHref, jobHref + '/edit',
+            '/trips', '/trips/create', tripHref, tripHref + '/edit', '/trips/report', '/foremen', '/foremen/create', '/settings/storage-fee'];
+        const wide = [];
+        for (const url of pages) {
+            const r = await p.goto(BASE + url);
+            if (r.status() !== 200) { wide.push(url + ' HTTP ' + r.status()); continue; }
+            const overflow = await p.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+            if (overflow > 1) wide.push(url + ' (+' + overflow + 'px)');
+        }
+        must(wide.length === 0, 'pages that scroll sideways or fail: ' + wide.join(', '));
+        await p.goto(BASE + '/jobs?q=' + RUN + '-B');
+        const box = await p.locator('td.jt-actions').first().locator('a.btn').first().boundingBox({ timeout: 5000 });
+        must(box !== null && box.x >= 0 && box.x + box.width <= 376, 'the row buttons do not fit on a phone: ' + JSON.stringify(box));
+        await p.goto(BASE + tripHref);
+        must(await p.evaluate(() => [...document.querySelectorAll('table')].every((t) => t.closest('.table-responsive') !== null)), 'a trip table is not inside a scroll container');
+        if (shots) await p.screenshot({ path: path.join(shots, '07-phone-trip.png') });
+        await phone.close();
+    });
     await step('a trip can be deleted', async () => {
         await page.goto(BASE + '/trips?q=' + RUN + '-TR');
         await page.click('a.jt-jobno[href^="/trips/"]');
