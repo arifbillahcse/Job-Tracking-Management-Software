@@ -65,6 +65,9 @@ return static function (Router $router): void {
     $router->get('/trips', [TripController::class, 'index'])->can('trips.view')->name('trips');
     $router->get('/trips/create', [TripController::class, 'create'])->can('trips.manage')->name('trips.create');
     $router->post('/trips', [TripController::class, 'store'])->can('trips.manage')->name('trips.store');
+    $router->get('/trips/report', [TripController::class, 'report'])->can('trips.view')->name('trips.report');
+    $router->get('/trips/report/export', [TripController::class, 'exportReport'])->can('trips.export')->name('trips.report.export');
+    $router->get('/trips/export', [TripController::class, 'export'])->can('trips.export')->name('trips.export');
     $router->get('/trips/{id:int}', [TripController::class, 'show'])->can('trips.view')->name('trips.show');
     $router->get('/trips/{id:int}/edit', [TripController::class, 'edit'])->can('trips.manage')->name('trips.edit');
     $router->post('/trips/{id:int}', [TripController::class, 'update'])->can('trips.manage')->name('trips.update');

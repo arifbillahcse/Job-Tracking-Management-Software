@@ -2,6 +2,13 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.2.1 - foreman report and CSV export of trips (roadmap phase 7)
+
+* **Trips by foreman** report (Trips -> By foreman): one line per foreman with trips, jobs, each of the six expense columns and Total expenses, plus a grand total, for trips beginning in a chosen period (and optionally one foreman). Counts only for users without `trips.financials`.
+* **Export CSV** of the trip list you are looking at (same search and filters): one line per job row with the trip details repeated, the client sheet's columns (Trip Number, Foreman, Trip Begins/Ends, Collected By, Job #, Customer Name, Date, From, BH, Diesel ... Extra, Remark). The report exports to CSV too. UTF-8 with BOM for Excel; cells that look like formulas are neutralised; expense columns only for users with `trips.financials`; every export is audited. Up to 50,000 lines.
+* New permission **`trips.export`** ("Export trips and the foreman report to CSV"): Admin has it; Manager on a new install. Seeing the report needs only `trips.view`.
+* **Upgrade:** upload the new files, then `php cli/seed.php` (adds the permission to Admin) and `php cli/doctor.php`. No migration. On an existing install tick **Export trips and the foreman report to CSV** for Manager under Roles & Permissions.
+
 ## 1.2.0 - foreman trips and expenses (roadmap phases 5 and 6)
 
 * **New module: Foremen & Trips.** Add foremen, then record each trip: trip number, foreman, trip begins/ends, collected by, notes, and the **jobs picked up on it**. For each job row: date, BH, **Diesel, Hotels, Helper, Misc, Commission, Extra** and a remark (the sheet's columns). Job rows are matched to real jobs by job number; the customer name and "from" are filled in from the job.

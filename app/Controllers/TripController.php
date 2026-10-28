@@ -12,6 +12,7 @@ use App\Core\Session;
 use App\Helpers\Paginator;
 use App\Repositories\ForemanRepository;
 use App\Services\TripCriteria;
+use App\Services\TripExportService;
 use App\Services\TripService;
 
 /**
@@ -41,6 +42,43 @@ final class TripController extends Controller
             'foremen' => (new ForemanRepository())->options(),
             'showMoney' => $this->trips->canSeeFinancials(),
         ]);
+    }
+
+    /** The foreman-wise report: totals per foreman for trips beginning in a date range. */
+    public function report(Request $request): Response
+    {
+        $criteria = TripCriteria::fromRequest($request);
+        return $this->view('trips/report', [
+            'title' => 'Trips by foreman',
+            'report' => $this->trips->foremanReport($criteria),
+            'criteria' => $criteria,
+            'foremen' => (new ForemanRepository())->options($criteria->foremanId > 0 ? $criteria->foremanId : null),
+        ]);
+    }
+
+    /** CSV of the trip list the user is looking at (same search and filters). */
+    public function export(Request $request): Response
+    {
+        if (!can('trips.view')) {
+            return ErrorPages::response(403);
+        }
+        $criteria = TripCriteria::fromRequest($request);
+        $service = new TripExportService();
+        if ($service->tooLarge($criteria)) {
+            $this->flash('danger', 'That is too many rows to export in one file. Narrow the list with a search or filters and try again.');
+            $params = array_filter($criteria->linkParams(), static fn (mixed $v): bool => $v !== '' && $v !== null);
+            return $this->redirect('/trips' . ($params === [] ? '' : '?' . http_build_query($params)));
+        }
+        return $service->csv($criteria, $this->trips->canSeeFinancials());
+    }
+
+    public function exportReport(Request $request): Response
+    {
+        if (!can('trips.view')) {
+            return ErrorPages::response(403);
+        }
+        $criteria = TripCriteria::fromRequest($request);
+        return (new TripExportService())->reportCsv($this->trips->foremanReport($criteria), $criteria);
     }
 
     public function show(Request $request, int $id): Response

@@ -66,7 +66,7 @@ On any list press **Export -> CSV** or **Excel**. You get exactly the jobs match
 
 ## Foreman trips (managers)
 
-**Foremen** lists the people who pick jobs up; **Trips -> New trip** records one trip: trip number, foreman, when it began and ended, who collected, and a row for every job picked up. Type the job number and the customer and "from" are filled in for you. Fill in the expense amounts (Diesel, Hotels, Helper, Misc, Commission, Extra) exactly as they are; the trip page adds up each column and shows **Total expenses**. Spare rows may stay empty. Search finds a trip by number, foreman, collected by, job number or customer. If you may not see expenses, those columns are simply not there. Deleting a trip never deletes its jobs; a foreman who left is deactivated, not deleted.
+**Foremen** lists the people who pick jobs up; **Trips -> New trip** records one trip: trip number, foreman, when it began and ended, who collected, and a row for every job picked up. Type the job number and the customer and "from" are filled in for you. Fill in the expense amounts (Diesel, Hotels, Helper, Misc, Commission, Extra) exactly as they are; the trip page adds up each column and shows **Total expenses**. Spare rows may stay empty. Search finds a trip by number, foreman, collected by, job number or customer. If you may not see expenses, those columns are simply not there. **Trips -> By foreman** adds the expenses up per foreman for a period, and **Export CSV** (on the trip list and on the report) downloads exactly what you are looking at for Excel. Deleting a trip never deletes its jobs; a foreman who left is deactivated, not deleted.
 
 ## Questions
 

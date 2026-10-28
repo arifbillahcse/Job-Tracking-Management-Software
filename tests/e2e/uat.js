@@ -278,6 +278,16 @@ async function createJob(page, number, availableOffset, extra = {}) {
         await Promise.all([page.waitForNavigation(), page.click('main form button[type=submit]')]);
         must(page.url().includes('/trips/create') && /was not found/.test(await page.textContent('main')), 'no message for an unknown job');
     });
+    await step('the foreman report adds up and the trip list exports to CSV', async () => {
+        await page.goto(BASE + '/trips/report');
+        const text = await page.textContent('main');
+        must(text.includes(RUN + ' Foreman') && text.includes('$200.10'), 'report does not show the foreman and $200.10');
+        await page.goto(BASE + '/trips?q=' + RUN + '-TR');
+        const [download] = await Promise.all([page.waitForEvent('download'), page.click('a:has-text("Export CSV")')]);
+        const file = await download.path();
+        const csv = fs.readFileSync(file, 'utf8');
+        must(csv.includes('Trip Number') && csv.includes(RUN + '-TR') && csv.includes('120.10') && csv.includes('80.00'), 'CSV is missing the trip or its amounts');
+    });
     await step('a trip can be deleted', async () => {
         await page.goto(BASE + '/trips?q=' + RUN + '-TR');
         await page.click('a.jt-jobno[href^="/trips/"]');

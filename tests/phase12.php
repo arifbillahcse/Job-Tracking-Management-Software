@@ -252,8 +252,101 @@ fresh_session();
 sign_in($stf);
 $nav = plain((string) preg_replace('#.*<aside(.*?)</aside>.*#s', '$1', call('GET', '/account')->body()));
 check(!str_contains($nav, 'Trips') && !str_contains($nav, 'Foremen'), 'Staff does not');
-foreach (['trips.view', 'trips.manage', 'trips.financials', 'foremen.manage'] as $perm) {
+foreach (['trips.view', 'trips.manage', 'trips.financials', 'trips.export', 'foremen.manage'] as $perm) {
     $has = static fn (string $role): bool => (int) Database::fetchValue('SELECT COUNT(*) FROM role_permissions rp JOIN permissions p ON p.id = rp.permission_id JOIN roles r ON r.id = rp.role_id WHERE r.name = ? AND p.name = ?', [$role, $perm]) === 1;
     check($has('Admin') && $has('Manager') && !$has('Staff'), "{$perm}: Admin and Manager have it, Staff does not");
 }
+Clock::fake(null);
+
+// ================================================================ roadmap phase 7: foreman report and CSV export
+
+section('Trip report by foreman and CSV export');
+fresh_db();
+fresh_session();
+Clock::fake('2026-10-23');
+$mgr = make_user('Manager', 'r-mgr@example.com');
+$stf = make_user('Staff', 'r-stf@example.com');
+$fr = new \App\Repositories\ForemanRepository();
+$joe = $fr->create(['name' => 'Joe', 'phone' => null]);
+$sam = $fr->create(['name' => 'Sam', 'phone' => null]);
+$idle = $fr->create(['name' => 'Idle', 'phone' => null]);
+$ja = mk_job(['job_number' => 'R-1', 'customer_first_name' => 'John', 'customer_last_name' => 'smith', 'from_location' => 'GA']);
+$jb = mk_job(['job_number' => 'R-2', 'customer_first_name' => 'Mia', 'customer_last_name' => 'Lee', 'from_location' => 'FL']);
+$repo = new TripRepository();
+$mkRow = static function (int $jobId, string $num, string $cust, array $over = []): array {
+    return $over + ['job_id' => $jobId, 'job_number' => $num, 'customer_name' => $cust, 'job_date' => '2026-10-02', 'from_location' => 'GA', 'bh' => null,
+        'diesel' => null, 'hotels' => null, 'helper' => null, 'misc' => null, 'commission' => null, 'extra' => null, 'remark' => null];
+};
+$hdr = static fn (string $n, int $f, ?string $b): array => ['trip_number' => $n, 'foreman_id' => $f, 'begins_on' => $b, 'ends_on' => null, 'collected_by' => 'Col', 'notes' => null];
+$repo->create($hdr('RP-1', $joe, '2026-10-01'), [$mkRow($ja, 'R-1', 'John smith', ['diesel' => '0.29', 'hotels' => '10', 'remark' => '=HYPERLINK("x")']), $mkRow($jb, 'R-2', 'Mia Lee', ['diesel' => '0.57', 'commission' => '100'])], null);
+$repo->create($hdr('RP-2', $joe, '2026-10-15'), [$mkRow($ja, 'R-1', 'John smith', ['diesel' => '5', 'extra' => '1.15'])], null);
+$repo->create($hdr('RP-3', $sam, '2026-09-10'), [$mkRow($jb, 'R-2', 'Mia Lee', ['misc' => '7.50', 'helper' => '2.30'])], null);
+$repo->create($hdr('RP-4', $sam, null), [$mkRow($ja, 'R-1', 'John smith', ['diesel' => '1000'])], null);
+$dead = $repo->create($hdr('RP-DEAD', $joe, '2026-10-02'), [$mkRow($ja, 'R-1', 'John smith', ['diesel' => '9999'])], null);
+$repo->softDelete($dead, null);
+
+sign_in($mgr);
+$svc = new TripService();
+$rep = $svc->foremanReport(TripCriteria::fromRequest(\App\Core\Request::make('GET', '/trips/report', [], [])));
+$byName = array_column($rep['rows'], null, 'name');
+check(array_keys($byName) === ['Joe', 'Sam'], 'the report lists foremen who have trips (Idle has none, so is left out)');
+check($byName['Joe']['trips'] === 2 && $byName['Joe']['jobs'] === 3 && $byName['Sam']['trips'] === 2 && $byName['Sam']['jobs'] === 2, 'trip and job counts per foreman (the deleted trip is not counted)');
+check($byName['Joe']['diesel'] === '5.86' && $byName['Joe']['hotels'] === '10.00' && $byName['Joe']['commission'] === '100.00' && $byName['Joe']['extra'] === '1.15' && $byName['Joe']['total'] === '117.01', 'each column is summed per foreman without losing a cent (0.29 + 0.57 + 5 = 5.86)');
+check($byName['Sam']['misc'] === '7.50' && $byName['Sam']['helper'] === '2.30' && $byName['Sam']['diesel'] === '1000.00', 'Sam\'s columns');
+check($rep['totals']['trips'] === 4 && $rep['totals']['jobs'] === 5 && $rep['totals']['diesel'] === '1005.86' && $rep['totals']['total'] === '1126.81', 'grand totals add the foremen up exactly (117.01 + 1009.80 = 1126.81)');
+$q = static fn (array $query): array => $svc->foremanReport(TripCriteria::fromRequest(\App\Core\Request::make('GET', '/trips/report', [], $query)));
+check(array_column($q(['from' => '2026-10-01', 'to' => '2026-10-31'])['rows'], 'name') === ['Joe'] && $q(['from' => '2026-10-01'])['totals']['trips'] === 2, 'the period filters trips by the day they begin; a trip with no begin date is left out of a period');
+check(array_column($q(['foreman' => (string) $sam])['rows'], 'name') === ['Sam'] && $q(['foreman' => (string) $sam])['totals']['trips'] === 2, 'the foreman filter');
+check($q(['from' => '2030-01-01'])['rows'] === [] && $q(['foreman' => ['x'], 'from' => ['y']])['totals']['trips'] === 4, 'an empty period gives no rows; array parameters are ignored');
+$page = call('GET', '/trips/report');
+$pb = plain($page->body());
+check($page->status() === 200 && str_contains($pb, 'Joe') && str_contains($pb, 'Sam') && !preg_match('/foreman=\\d+[^>]*>Idle</', $page->body()) && str_contains($pb, '$117.01') && str_contains($pb, '$1,126.81') && str_contains($pb, 'Export CSV'), 'the report page shows the lines, the totals and an Export button');
+check(str_contains(plain(call('GET', '/trips/report', [], ['from' => '2030-01-01'])->body()), 'No trips in this period'), 'an empty period shows a friendly message');
+check(str_contains(call('GET', '/trips')->body(), 'Export CSV') && str_contains(call('GET', '/trips')->body(), '/trips/report'), 'the trip list links to the report and has an Export button');
+
+// CSV of the trip list
+$csv = call('GET', '/trips/export');
+$text = $csv->content();
+$lines = array_map('str_getcsv', array_filter(explode("\n", substr($text, 3))));
+check($csv->status() === 200 && str_starts_with($text, "\xEF\xBB\xBF") && str_contains((string) $csv->getHeader('Content-Type'), 'text/csv') && str_contains((string) $csv->getHeader('Content-Disposition'), 'attachment; filename="trips-'), 'the export is a UTF-8 CSV with a BOM, sent as a download');
+check($lines[0] === ['Trip Number', 'Foreman', 'Trip Begins', 'Trip Ends', 'Collected By', 'Job #', 'Customer Name', 'Date', 'From', 'BH', 'Diesel', 'Hotels', 'Helper', 'Misc', 'Commission', 'Extra', 'Remark'], 'the headings follow the client\'s sheet');
+check(count($lines) === 1 + 5, 'one line per job row (5), not per trip; the deleted trip is absent');
+$first = array_column(array_slice($lines, 1), null, 4 - 4 + 0);
+check($lines[1][0] === 'RP-4' || $lines[1][0] === 'RP-2', 'newest trips first');
+$rp1 = array_values(array_filter($lines, static fn (array $l): bool => $l[0] === 'RP-1'));
+check(count($rp1) === 2 && $rp1[0][1] === 'Joe' && $rp1[0][2] === '2026-10-01' && $rp1[0][4] === 'Col' && $rp1[1][1] === 'Joe' && $rp1[0][5] === 'R-1' && $rp1[0][6] === 'John smith' && $rp1[0][10] === '0.29' && $rp1[0][11] === '10.00' && $rp1[1][14] === '100.00', 'the trip details are repeated on each of its job lines; amounts have two decimals');
+check($rp1[0][16] === "'=HYPERLINK(\"x\")", 'a remark that looks like a formula is neutralised (CSV injection)');
+check($rp1[1][11] === '' && $rp1[0][12] === '', 'an empty amount stays empty (not 0.00)');
+$filtered = array_filter(explode("\n", substr(call('GET', '/trips/export', [], ['foreman' => (string) $sam])->content(), 3)));
+check(count($filtered) === 1 + 2 && !str_contains(implode("\n", $filtered), 'RP-1'), 'the export follows the same filters as the list');
+check(count(array_filter(explode("\n", substr(call('GET', '/trips/export', [], ['q' => 'Mia'])->content(), 3)))) === 1 + 3, 'and the search (customer Mia is on two trips, so all three of their job lines come out)');
+$aud = (string) Database::fetchValue("SELECT new_values FROM audit_logs WHERE action = 'trips_exported' ORDER BY id DESC LIMIT 1");
+check(str_contains($aud, '"rows":3') && str_contains($aud, 'csv'), 'every export is audited with the number of rows and the filters');
+
+// CSV of the report
+$rc = call('GET', '/trips/report/export');
+$rl = array_map('str_getcsv', array_filter(explode("\n", substr($rc->content(), 3))));
+check($rc->status() === 200 && $rl[0] === ['Foreman', 'Trips', 'Jobs', 'Diesel', 'Hotels', 'Helper', 'Misc', 'Commission', 'Extra', 'Total Expenses'] && $rl[1][0] === 'Joe' && $rl[1][9] === '117.01' && end($rl)[0] === 'Total' && end($rl)[9] === '1126.81', 'the report CSV has a line per foreman and a Total line');
+check(str_contains((string) $rc->getHeader('Content-Disposition'), 'trips-by-foreman-'), '...named for what it is');
+
+// people without the money or the export permission
+fresh_session();
+make_role('Clerk no money', ['trips.view', 'trips.manage', 'trips.export']);
+sign_in(make_user('Clerk no money', 'rc@example.com'));
+$cc = call('GET', '/trips/export')->content();
+check(!str_contains($cc, 'Diesel') && !str_contains($cc, 'Commission') && !str_contains($cc, '100.00') && str_contains($cc, 'Remark'), 'the export has no expense columns for a user without trips.financials');
+$rcc = call('GET', '/trips/report/export')->content();
+check(str_starts_with(substr($rcc, 3), 'Foreman,Trips,Jobs') && !str_contains($rcc, 'Diesel') && !str_contains($rcc, 'Total Expenses') && str_contains($rcc, 'Joe,2,3'), 'the report CSV has only counts for that user');
+$pp = plain(call('GET', '/trips/report')->body());
+check(str_contains($pp, 'Joe') && !str_contains($pp, 'Diesel') && !str_contains($pp, '$') , 'the report page has counts only');
+fresh_session();
+make_role('Trip viewer 2', ['trips.view']);
+sign_in(make_user('Trip viewer 2', 'tv2@example.com'));
+check(call('GET', '/trips/report')->status() === 200 && call('GET', '/trips/export')->status() === 403 && call('GET', '/trips/report/export')->status() === 403, 'trips.view alone shows the report but cannot export');
+check(!str_contains(call('GET', '/trips')->body(), 'Export CSV') && !str_contains(call('GET', '/trips/report')->body(), 'Export CSV'), '...and sees no Export buttons');
+fresh_session();
+sign_in($stf);
+check(call('GET', '/trips/report')->status() === 403 && call('GET', '/trips/export')->status() === 403 && call('GET', '/trips/report/export')->status() === 403, 'Staff cannot open the report or either export');
+fresh_session();
+check(call('GET', '/trips/report')->status() === 302 && call('GET', '/trips/export')->status() === 302, 'signed-out visitors are sent to sign in');
 Clock::fake(null);

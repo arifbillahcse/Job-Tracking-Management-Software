@@ -29,7 +29,7 @@ final class AuditService
         'user_activated' => 'User activated', 'user_deactivated' => 'User deactivated', 'user_unlocked' => 'User unlocked',
         'role_created' => 'Role created', 'role_updated' => 'Role updated', 'role_deleted' => 'Role deleted',
         'role_permissions_changed' => 'Role permissions changed', 'settings_updated' => 'Settings changed',
-        'trip_created' => 'Trip created', 'trip_updated' => 'Trip updated', 'trip_deleted' => 'Trip deleted',
+        'trip_created' => 'Trip created', 'trip_updated' => 'Trip updated', 'trip_deleted' => 'Trip deleted', 'trips_exported' => 'Trips exported',
         'foreman_created' => 'Foreman created', 'foreman_updated' => 'Foreman updated', 'foreman_activated' => 'Foreman activated', 'foreman_deactivated' => 'Foreman deactivated',
         'maintenance_cleanup' => 'Maintenance cleanup', 'backup_created' => 'Backup created',
     ];

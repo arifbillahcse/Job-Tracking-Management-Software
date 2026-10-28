@@ -6,6 +6,8 @@
 ?>
 <div class="jt-page-actions">
     <p class="text-body-secondary mb-0 me-auto"><?= e($paginator->total) ?> trip<?= $paginator->total === 1 ? '' : 's' ?><?= $criteria->hasFilters() ? ' (filtered)' : '' ?></p>
+    <a class="btn btn-outline-secondary" href="<?= e(list_url('/trips/report', ['foreman' => $criteria->foremanId > 0 ? $criteria->foremanId : '', 'from' => $criteria->from, 'to' => $criteria->to])) ?>"><?= icon('activity') ?> By foreman</a>
+    <?php if (can('trips.export') && $trips !== []): ?><a class="btn btn-outline-secondary" href="<?= e(list_url('/trips/export', $criteria->linkParams())) ?>"><?= icon('download') ?> Export CSV</a><?php endif; ?>
     <?php if (can('foremen.manage')): ?><a class="btn btn-outline-secondary" href="<?= e(url('/foremen')) ?>"><?= icon('users') ?> Foremen</a><?php endif; ?>
     <?php if (can('trips.manage')): ?><a class="btn btn-primary" href="<?= e(url('/trips/create')) ?>"><?= icon('plus') ?> New trip</a><?php endif; ?>
 </div>

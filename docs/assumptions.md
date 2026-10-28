@@ -186,6 +186,14 @@ The generated role x route matrix is in `docs/permission-matrix.md` (`php cli/pe
 | T6 | Trips are **soft-deleted**; foremen are **deactivated**, never deleted, and an inactive foreman stays on his old trips. A trip must have at least one job. | `TripRepository`, `ForemanController` |
 | T7 | Permissions: `trips.view`, `trips.manage` (create, edit, delete), `trips.financials` (see and edit the six expense columns and totals) and `foremen.manage`. Without `trips.financials` the amounts are stripped in the service (not just hidden in the page) and a save keeps the amounts that were hidden. | `TripService` |
 
+## Trip report and export (version 1.2.1)
+
+| # | Assumption | Where |
+|---|------------|-------|
+| U1 | The **foreman-wise report** groups trips by the day they **begin** (a trip with no begin date is left out once a period is chosen). Deleted trips are never counted. Totals use the same plain sums as the trip page (assumption T1). | `TripRepository::foremanReport()` |
+| U2 | The CSV is **one line per job row** with the trip's details repeated (the shape of the client's sheet, easy to pivot in Excel). Searching by a job or customer exports every line of each trip that matches, exactly as the list shows whole trips. | `TripExportService` |
+| U3 | Exporting needs its own permission (`trips.export`) because it takes data out of the system; seeing the report on screen needs only `trips.view`. Money columns follow `trips.financials`. | `routes.php`, `TripExportService` |
+
 ## Security defaults (can be tuned in `app/Config/app.php` / `.env`)
 
 * Sessions end after **30 minutes idle** or **8 hours** in total.

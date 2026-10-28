@@ -65,7 +65,7 @@ Session length, lockout rules and password rules are server settings (`.env`) an
 
 ## Foremen and trips
 
-Four permissions control the module: **View foreman trips**, **Create, edit and delete foreman trips**, **See and edit trip expenses** and **Manage foremen** (Admin has all four, Manager has all four on a new install, Staff none). On an existing install tick them for Manager under *Roles & Permissions*. Give a clerk *view + create/edit* without *expenses* to let them record trips without seeing any amounts. Everything is in the Audit Log (trip and foreman entries).
+Five permissions control the module: **View foreman trips**, **Create, edit and delete foreman trips**, **See and edit trip expenses**, **Export trips and the foreman report to CSV** and **Manage foremen** (Admin has all, Manager has all on a new install, Staff none). On an existing install tick them for Manager under *Roles & Permissions*. Give a clerk *view + create/edit* without *expenses* to let them record trips without seeing any amounts. Everything is in the Audit Log (trip and foreman entries).
 
 ## Imports and exports
 

@@ -101,6 +101,8 @@ Sign in as **Admin** unless a scenario says otherwise. Replace `TEST-1` etc. wit
 | H6 | Edit the trip: change an amount, remove a job, add one. Open the Audit Log. | Saved; "Trip updated" shows what changed. | ☐ | |
 | H7 | Sign in as a user whose role has Trips but **not** "See and edit trip expenses". | No expense columns, totals or inputs anywhere; changing a remark does not erase the amounts (check again as Manager). | ☐ | |
 | H8 | Delete a trip. | It disappears from the list; the jobs on it are not affected. | ☐ | |
+| H9 | Open **Trips -> By foreman**. Pick a period. | One line per foreman with trips, jobs, each expense column and Total expenses, and a Total line. The numbers match the trip pages. | ☐ | |
+| H10 | Click **Export CSV** on the trip list (after a search) and on the report. Open the files in Excel. | One line per job with the trip details repeated; only the trips you searched for; amounts as numbers. | ☐ | |
 
 ## G. Phone and tablet
 

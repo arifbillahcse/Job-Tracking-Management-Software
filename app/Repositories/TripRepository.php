@@ -61,6 +61,64 @@ final class TripRepository
         );
     }
 
+    /** Number of job rows (not trips) in the trips matching the criteria: the size of an export. */
+    public function countJobRows(TripCriteria $c): int
+    {
+        [$where, $params] = $this->where($c);
+        return (int) Database::fetchValue(
+            "SELECT COUNT(*) FROM trip_jobs tj JOIN trips t ON t.id = tj.trip_id JOIN foremen f ON f.id = t.foreman_id WHERE {$where}",
+            $params
+        );
+    }
+
+    /**
+     * One line per job row, trip details repeated on every line (the shape of the client's sheet), in the list's order.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function jobRows(TripCriteria $c, int $limit, int $offset): array
+    {
+        [$where, $params] = $this->where($c);
+        return Database::fetchAll(
+            "SELECT t.trip_number, f.name AS foreman_name, t.begins_on, t.ends_on, t.collected_by, tj.*
+             FROM trip_jobs tj JOIN trips t ON t.id = tj.trip_id JOIN foremen f ON f.id = t.foreman_id
+             WHERE {$where} ORDER BY t.begins_on DESC, t.id DESC, tj.sort_order ASC, tj.id ASC LIMIT ? OFFSET ?",
+            [...$params, $limit, $offset]
+        );
+    }
+
+    /**
+     * Per foreman: live trips, job rows and the sum of each expense column, for trips beginning in the date range
+     * (and only the chosen foreman, if any). Foremen with no matching trip are not listed.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function foremanReport(TripCriteria $c): array
+    {
+        $where = 't.deleted_at IS NULL';
+        $params = [];
+        if ($c->foremanId > 0) {
+            $where .= ' AND t.foreman_id = ?';
+            $params[] = $c->foremanId;
+        }
+        if ($c->from !== '') {
+            $where .= ' AND t.begins_on >= ?';
+            $params[] = $c->from;
+        }
+        if ($c->to !== '') {
+            $where .= ' AND t.begins_on <= ?';
+            $params[] = $c->to;
+        }
+        $sums = implode(', ', array_map(static fn (string $m): string => "COALESCE(SUM(tj.{$m}), 0) AS {$m}", self::MONEY));
+
+        return Database::fetchAll(
+            "SELECT f.id, f.name, f.active, COUNT(DISTINCT t.id) AS trips, COUNT(tj.id) AS jobs, {$sums}
+             FROM trips t JOIN foremen f ON f.id = t.foreman_id LEFT JOIN trip_jobs tj ON tj.trip_id = t.id
+             WHERE {$where} GROUP BY f.id, f.name, f.active ORDER BY f.name ASC",
+            $params
+        );
+    }
+
     /** @return array{0:string,1:array<int,mixed>} */
     private function where(TripCriteria $c): array
     {

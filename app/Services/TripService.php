@@ -44,6 +44,45 @@ final class TripService
         return $trip;
     }
 
+    /**
+     * The foreman-wise report: one line per foreman plus the grand total. Expense columns are left out
+     * (counts only) for a user without trips.financials.
+     *
+     * @return array{rows:array<int,array<string,mixed>>,totals:array<string,string|int>,money:bool}
+     */
+    public function foremanReport(TripCriteria $criteria): array
+    {
+        $money = $this->canSeeFinancials();
+        $rows = [];
+        $cents = array_fill_keys([...TripRepository::MONEY, 'total'], 0);
+        $trips = 0;
+        $jobs = 0;
+        foreach ($this->trips->foremanReport($criteria) as $r) {
+            $line = ['id' => (int) $r['id'], 'name' => (string) $r['name'], 'active' => (int) $r['active'], 'trips' => (int) $r['trips'], 'jobs' => (int) $r['jobs']];
+            $trips += $line['trips'];
+            $jobs += $line['jobs'];
+            if ($money) {
+                $lineCents = 0;
+                foreach (TripRepository::MONEY as $m) {
+                    $c = (int) round((float) $r[$m] * 100);
+                    $line[$m] = number_format($c / 100, 2, '.', '');
+                    $cents[$m] += $c;
+                    $lineCents += $c;
+                }
+                $line['total'] = number_format($lineCents / 100, 2, '.', '');
+                $cents['total'] += $lineCents;
+            }
+            $rows[] = $line;
+        }
+        $totals = ['trips' => $trips, 'jobs' => $jobs];
+        if ($money) {
+            foreach ($cents as $k => $c) {
+                $totals[$k] = number_format($c / 100, 2, '.', '');
+            }
+        }
+        return ['rows' => $rows, 'totals' => $totals, 'money' => $money];
+    }
+
     /** @return array<int,array<string,mixed>> the stored rows, expenses included (for prepare(): hidden expenses are kept) */
     public function existingRows(int $id): array
     {
