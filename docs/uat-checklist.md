@@ -106,6 +106,7 @@ Sign in as **Admin** unless a scenario says otherwise. Replace `TEST-1` etc. wit
 | H12 | Add a job and choose a **Trip**. Open the job, then the trip. | The job shows the trip number (a link) and the trip's foreman, and appears on the trip with no expenses. | ☐ | |
 | H13 | Edit the job and choose another trip, then none. | The job moves; the row on the old trip and its expenses are still there. | ☐ | |
 | H14 | Search the job list for a trip number and for a foreman name. | The jobs assigned to them. | ☐ | |
+| H15 | On the job lists, look at the **Foreman / trip** column; use **More filters -> Foreman** and **Trip number**; sort by the column. | The column shows the foreman and the trip number (a link). The filters narrow the list; the Export button exports the same jobs. | ☐ | |
 | H11 | Open a job that is on a trip, then a job that is on none and use **Add to a trip**; also try **New trip with this job**. Look at the dashboard. | The first job lists its trips. The second is added to the chosen trip (no amounts yet) or opens a new trip form with its number filled in. The dashboard has a "Foreman trips" card (last 30 days). | ☐ | |
 
 ## G. Phone and tablet

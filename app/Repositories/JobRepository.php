@@ -164,6 +164,17 @@ final class JobRepository
             array_push($params, $like($c->carrier), $like($c->carrier));
         }
 
+        if ($c->foremanId === -1) {
+            $sql .= ' AND j.foreman_id IS NULL';
+        } elseif ($c->foremanId > 0) {
+            $sql .= ' AND j.foreman_id = ?';
+            $params[] = $c->foremanId;
+        }
+        if ($c->trip !== '') {
+            $sql .= " AND atr.trip_number LIKE ? ESCAPE '!'";
+            $params[] = $like($c->trip);
+        }
+
         if ($c->balance === 'due') {
             $sql .= ' AND j.balance > 0';
         } elseif ($c->balance === 'paid') {

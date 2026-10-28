@@ -300,6 +300,26 @@ async function createJob(page, number, availableOffset, extra = {}) {
         await page.goto(BASE + '/dashboard');
         must((await page.textContent('main')).includes('Foreman trips'), 'no trips card on the dashboard');
     });
+    await step('a job is assigned to a trip on its form, and the list shows, filters and keeps its buttons in view', async () => {
+        await page.goto(BASE + '/jobs?q=' + RUN + '-C30');
+        await page.click('a.jt-jobno[href^="/jobs/"]');
+        await Promise.all([page.waitForNavigation(), page.click('a[href$="/edit"]')]);
+        await page.selectOption('#trip_id', { label: RUN + '-TR \u00b7 ' + RUN + ' Foreman' });
+        await Promise.all([page.waitForNavigation(), page.click('main form button[type=submit]')]);
+        const text = await page.textContent('main');
+        must(text.includes(RUN + '-TR') && text.includes(RUN + ' Foreman'), 'details do not show the trip and the foreman: ' + text.replace(/\s+/g, ' ').slice(0, 120));
+        await page.goto(BASE + '/jobs?trip=' + RUN + '-TR');
+        const listText = await page.textContent('main');
+        must(listText.includes('Foreman / trip') && listText.includes(RUN + '-C30') && listText.includes(RUN + ' Foreman'), 'list does not show the column or the job');
+        await page.goto(BASE + '/jobs?q=' + RUN + '-A&foreman=none');
+        must(!(await page.textContent('main')).includes(RUN + '-A<'), 'foreman filter "none" still lists a job on a trip');
+        await page.goto(BASE + '/jobs?q=' + RUN + '-B');
+        const rows = await page.locator('table tbody tr').count();
+        must(rows > 0, 'no row for ' + RUN + '-B in the list');
+        const box = await page.locator('td.jt-actions').first().locator('a.btn').first().boundingBox({ timeout: 5000 });
+        const width = page.viewportSize().width;
+        must(box !== null && box.x >= 0 && box.x + box.width <= width + 1, 'the row buttons are outside the screen: ' + JSON.stringify(box));
+    });
     await step('a trip can be deleted', async () => {
         await page.goto(BASE + '/trips?q=' + RUN + '-TR');
         await page.click('a.jt-jobno[href^="/trips/"]');

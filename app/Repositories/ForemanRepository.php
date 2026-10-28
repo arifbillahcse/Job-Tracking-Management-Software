@@ -33,6 +33,12 @@ final class ForemanRepository
         );
     }
 
+    /** @return array<int,array<string,mixed>> every foreman, active or not, for a filter (old jobs may point at an inactive one) */
+    public function allForFilter(): array
+    {
+        return Database::fetchAll('SELECT id, name, active FROM foremen ORDER BY active DESC, name ASC');
+    }
+
     /** @return array<int,array<string,mixed>> foremen for a pick list (the active ones, plus $includeId even if inactive) */
     public function options(?int $includeId = null): array
     {

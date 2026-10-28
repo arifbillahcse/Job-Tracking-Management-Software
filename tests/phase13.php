@@ -233,3 +233,86 @@ $svc->commit((int) $st['batch'], (int) $stf['id']);
 $is = (array) Database::fetchOne("SELECT trip_id, foreman_id FROM jobs WHERE job_number = 'IA-S'");
 check($is !== [] && $is['trip_id'] === null && $is['foreman_id'] === null, 'without trips.manage the Foreman and Trip Number columns are ignored (the job is still imported)');
 Clock::fake(null);
+
+// ================================================================ phase 3: columns, filters and sorting on the job lists
+
+section('Foreman and trip on the job lists: column, filters, sorting');
+fresh_db();
+fresh_session();
+Clock::fake('2026-10-23');
+$mgr = make_user('Manager', 'l-mgr@example.com');
+$fr = new ForemanRepository();
+$joe = $fr->create(['name' => 'Joe', 'phone' => null]);
+$sam = $fr->create(['name' => 'Sam', 'phone' => null]);
+$ret = $fr->create(['name' => 'Retired', 'phone' => null]);
+$repo = new TripRepository();
+$seed = mk_job(['job_number' => 'L-SEED']);
+$mkTrip = static fn (string $n, int $f): int => $repo->create(['trip_number' => $n, 'foreman_id' => $f, 'begins_on' => '2026-10-01', 'ends_on' => null, 'collected_by' => null, 'notes' => null], [[
+    'job_id' => $seed, 'job_number' => 'L-SEED', 'customer_name' => 'X', 'job_date' => null, 'from_location' => 'GA', 'bh' => null, 'diesel' => null, 'hotels' => null, 'helper' => null, 'misc' => null, 'commission' => null, 'extra' => null, 'remark' => null]], null);
+$tj = $mkTrip('LT-JOE', $joe);
+$ts = $mkTrip('LT-SAM', $sam);
+$fr->setActive($ret, false);
+mk_job(['job_number' => 'L-READY', 'first_available_date' => '2026-11-01', 'foreman_id' => $joe, 'trip_id' => $tj]);
+mk_job(['job_number' => 'L-LATER', 'first_available_date' => '2027-06-01', 'foreman_id' => $sam, 'trip_id' => $ts]);
+mk_job(['job_number' => 'L-TRANSIT', 'status' => 'in_transit', 'foreman_id' => $joe, 'carrier_name' => 'C', 'driver_name' => 'D', 'driver_phone' => '5550001111']);
+mk_job(['job_number' => 'L-DONE', 'status' => 'delivered', 'delivered_at' => '2026-10-10 00:00:00', 'foreman_id' => $ret]);
+mk_job(['job_number' => 'L-NONE', 'first_available_date' => '2026-11-02']);
+sign_in($mgr);
+foreach (['/jobs', '/jobs/ready', '/jobs/more-than-30', '/jobs/in-transit', '/jobs/delivered'] as $path) {
+    $h = plain(call('GET', $path)->body());
+    check(str_contains($h, 'Foreman / trip'), "{$path} has a Foreman / trip column");
+}
+$ready = call('GET', '/jobs/ready')->body();
+check(str_contains(plain($ready), 'Joe') && preg_match('#<a href="/trips/' . $tj . '">LT-JOE</a>#', $ready) === 1, 'the cell shows the foreman and the trip number, linked to the trip');
+check(str_contains(plain(call('GET', '/jobs/in-transit')->body()), 'Joe') && str_contains(plain(call('GET', '/jobs/delivered')->body()), 'Retired'), 'in transit and delivered rows show theirs too (an inactive foreman still shows on an old job)');
+$all = call('GET', '/jobs')->body();
+check(preg_match('#class="jt-subtle"><a href="/trips/#', $all) === 1 && substr_count($all, '—') >= 1, 'a job with no foreman shows a dash');
+
+$list = static function (array $q, string $path = '/jobs'): array {
+    $body = call('GET', $path, [], $q)->body();
+    preg_match_all('#class="jt-jobno"[^>]*>(L-[A-Z]+)<#', $body, $m);
+    $found = array_values(array_unique($m[1]));
+    sort($found);
+    return $found;
+};
+check($list(['foreman' => (string) $joe]) === ['L-READY', 'L-TRANSIT'], 'filter by foreman');
+check($list(['foreman' => 'none']) === ['L-NONE', 'L-SEED'], 'filter "No foreman assigned"');
+check($list(['foreman' => (string) $ret]) === ['L-DONE'], 'an inactive foreman can still be filtered');
+check($list(['trip' => 'LT-SAM']) === ['L-LATER'] && $list(['trip' => 'lt-']) === ['L-LATER', 'L-READY'], 'filter by trip number (part of it, any letter case)');
+check($list(['foreman' => (string) $joe, 'trip' => 'LT-JOE']) === ['L-READY'] && $list(['foreman' => (string) $sam, 'trip' => 'LT-JOE']) === [], 'foreman and trip filters combine');
+check($list(['foreman' => (string) $joe, 'q' => 'READY']) === ['L-READY'], 'they combine with the search box');
+check($list(['foreman' => (string) $joe], '/jobs/ready') === ['L-READY'] && $list(['foreman' => (string) $joe], '/jobs/in-transit') === ['L-TRANSIT'], 'they work inside each section');
+check($list(['trip' => '%']) === [] && $list(['trip' => '_']) === [] && $list(['trip' => "' OR 1=1 --"]) === [], 'LIKE wildcards and SQL in the trip filter are plain text');
+check($list(['foreman' => 'abc']) !== [] && $list(['foreman' => '-7']) === $list([]) && $list(['foreman' => ['x'], 'trip' => ['y']]) === $list([]) && $list(['foreman' => '999999']) === [], 'a malformed foreman is ignored (not an error); an unknown one finds nothing');
+check($list(['foreman' => (string) $joe, 'status' => 'delivered']) === [], 'with the status filter');
+
+$body = call('GET', '/jobs', [], ['foreman' => (string) $joe, 'trip' => 'LT'])->body();
+check(str_contains($body, '<option value="' . $joe . '" selected>') && str_contains($body, 'name="trip" value="LT"') && preg_match('#<details[^>]*open#', $body) === 1, 'the filter form shows the chosen values and opens the "More filters" panel');
+check(str_contains($body, 'foreman=' . $joe) && str_contains($body, 'trip=LT'), 'sort links keep the filters');
+check(str_contains(call('GET', '/jobs')->body(), 'No foreman assigned') && str_contains(call('GET', '/jobs')->body(), '>Retired (inactive)<'), 'the Foreman filter offers none, every foreman, and marks inactive ones');
+$srt = static function (string $dir) use ($list): array {
+    $body = call('GET', '/jobs', [], ['sort' => 'assign', 'dir' => $dir])->body();
+    preg_match_all('#class="jt-jobno"[^>]*>(L-[A-Z]+)<#', $body, $m);
+    return array_values(array_unique($m[1]));
+};
+$asc = $srt('asc');
+$desc = $srt('desc');
+check($asc[0] !== $desc[0] && array_search('L-READY', $asc, true) < array_search('L-LATER', $asc, true) && array_search('L-LATER', $desc, true) < array_search('L-READY', $desc, true), 'sorting by Foreman / trip works both ways (Joe before Sam)');
+check(call('GET', '/jobs', [], ['sort' => 'foreman'])->status() === 200 && call('GET', '/jobs', [], ['sort' => 'trip', 'dir' => 'desc'])->status() === 200, 'the foreman and trip sort keys work too');
+
+// export follows the same filters
+$csv = call('GET', '/jobs/export/all', [], ['foreman' => (string) $joe, 'format' => 'csv'])->content();
+$lines = array_filter(explode("\n", substr($csv, 3)));
+check(count($lines) === 3 && str_contains($csv, 'L-READY') && str_contains($csv, 'L-TRANSIT') && !str_contains($csv, 'L-LATER'), 'the export follows the foreman filter');
+check(count(array_filter(explode("\n", substr(call('GET', '/jobs/export/all', [], ['trip' => 'LT-SAM', 'format' => 'csv'])->content(), 3)))) === 2, '...and the trip filter');
+// counts are right
+check(strpos(plain(call('GET', '/jobs', [], ['foreman' => (string) $joe])->body()), '2 jobs') !== false, 'the result count matches the filter');
+
+// people who cannot see trips get the trip number as plain text
+fresh_session();
+make_role('Jobs only', ['dashboard.view', 'jobs.view']);
+sign_in(make_user('Jobs only', 'jo@example.com'));
+$jo = call('GET', '/jobs/ready')->body();
+check(str_contains($jo, 'LT-JOE') && !str_contains($jo, 'href="/trips/') && str_contains(plain($jo), 'Joe'), 'without trips.view the foreman and the trip number are shown as text, with no link');
+check($list(['foreman' => (string) $joe]) === ['L-READY', 'L-TRANSIT'], 'and they can filter by foreman');
+Clock::fake(null);

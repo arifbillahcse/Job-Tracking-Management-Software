@@ -2,6 +2,13 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.3.3 - Foreman / trip on the job lists (client follow-up, phase 3)
+
+* **All five job lists have a "Foreman / trip" column** (the foreman's name and, under it, the trip number, linked to the trip for people who may view trips). Click the heading to sort.
+* **New filters** under *More filters*: **Foreman** (any, a foreman, or "No foreman assigned") and **Trip number** (part of a number is enough). They combine with the search box, the other filters and every section, are kept by the sort links and paging, and the **export follows them**.
+* The search box also finds a job by its foreman or trip number.
+* Nothing needs migrating: **upload the code and run `php cli/doctor.php`**.
+
 ## 1.3.2 - a foreman and a trip number on every job (client follow-up, phase 2)
 
 * **Every job can be assigned to a Foreman and a Trip.** Add/Edit Job has a *Trip* and a *Foreman* choice; Job Details shows both (the trip number links to the trip). A job assigned to a trip appears on that trip, and a trip brings its own foreman.

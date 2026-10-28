@@ -3,7 +3,7 @@
  * One template for all five job lists; the section decides the columns.
  * @var string $bucket  @var \App\Services\JobCriteria $criteria  @var array<int,array<string,mixed>> $jobs
  * @var \App\Helpers\Paginator $paginator  @var array<string,int> $tabCounts  @var array<int,array{to:string,label:string}> $shortcuts
- * @var bool $showFinancials
+ * @var bool $showFinancials  @var array<int,array<string,mixed>> $foremen
  */
 use App\Services\JobBucket;
 
@@ -18,6 +18,7 @@ $all = [
     'pickup' => ['Pickup', 'pickup', ''],
     'available' => ['1st available', 'available', ''],
     'route' => ['Route', 'from', ''],
+    'assign' => ['Foreman / trip', 'assign', ''],
     'cf' => ['A-CF', 'cf', 'text-md-end'],
     'balance' => ['Balance', 'balance', 'text-md-end'],
     'storage' => ['Storage fee', 'storage', 'text-md-end'],
@@ -30,11 +31,11 @@ $all = [
     'delivered' => ['Delivered on', 'delivered', ''],
 ];
 $layouts = [
-    JobBucket::ALL => ['job', 'customer', 'pickup', 'available', 'route', 'cf', 'balance', 'storage', 'status'],
-    JobBucket::READY => ['job', 'customer', 'pickup', 'available', 'route', 'cf', 'balance', 'storage'],
-    JobBucket::LATER => ['job', 'customer', 'pickup', 'available', 'route', 'cf', 'balance', 'storage'],
-    JobBucket::TRANSIT => ['job', 'customer', 'route', 'cf', 'balance', 'storage', 'dispatched', 'carrierblock'],
-    JobBucket::DELIVERED => ['job', 'customer', 'pickup', 'available', 'route', 'cf', 'balance', 'storage', 'delivered'],
+    JobBucket::ALL => ['job', 'customer', 'pickup', 'available', 'route', 'assign', 'cf', 'balance', 'storage', 'status'],
+    JobBucket::READY => ['job', 'customer', 'pickup', 'available', 'route', 'assign', 'cf', 'balance', 'storage'],
+    JobBucket::LATER => ['job', 'customer', 'pickup', 'available', 'route', 'assign', 'cf', 'balance', 'storage'],
+    JobBucket::TRANSIT => ['job', 'customer', 'route', 'assign', 'cf', 'balance', 'storage', 'dispatched', 'carrierblock'],
+    JobBucket::DELIVERED => ['job', 'customer', 'pickup', 'available', 'route', 'assign', 'cf', 'balance', 'storage', 'delivered'],
 ];
 $columns = array_values(array_filter(
     $layouts[$bucket],
@@ -98,7 +99,7 @@ $sortHeader = static function (string $label, ?string $sortKey) use ($criteria, 
     <?php endif; ?>
 </div>
 
-<?= \App\Core\View::partial('jobs/_filters', ['bucket' => $bucket, 'criteria' => $criteria, 'showFinancials' => $showFinancials]) ?>
+<?= \App\Core\View::partial('jobs/_filters', ['bucket' => $bucket, 'criteria' => $criteria, 'showFinancials' => $showFinancials, 'foremen' => $foremen]) ?>
 
 <div class="small text-body-secondary mb-2" aria-live="polite">
     <?php if ($paginator->total === 0): ?>
@@ -174,6 +175,14 @@ $sortHeader = static function (string $label, ?string $sortKey) use ($criteria, 
                                         <?php break;
                                     case 'route': ?>
                                         <?= e($job['from_location']) ?> <?= icon('arrow-right', 'text-body-secondary') ?> <?= e($job['to_location']) ?>
+                                        <?php break;
+                                    case 'assign': ?>
+                                        <div class="jt-stack">
+                                            <?= !empty($job['foreman']) ? e($job['foreman']) : '<span class="text-body-secondary">—</span>' ?>
+                                            <?php if (!empty($job['trip_number'])): ?>
+                                                <div class="jt-subtle"><?= can('trips.view') ? '<a href="' . e(url('/trips/' . $job['trip_id'])) . '">' . e($job['trip_number']) . '</a>' : e($job['trip_number']) ?></div>
+                                            <?php endif; ?>
+                                        </div>
                                         <?php break;
                                     case 'cf': ?>
                                         <?= e(fmt_number($job['cf']) ?: '—') ?>

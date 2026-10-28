@@ -47,6 +47,11 @@ measure "Filters combined" "/jobs?q=Kim&status=booked&balance=due&sort=job" 1.5
 measure "Job details" /jobs/12345 0.5
 measure "Audit log" /audit 1
 measure "Users" /users 0.5
+measure "All Jobs, filter by foreman" "/jobs?foreman=3" 1.5
+measure "All Jobs, filter by trip number" "/jobs?trip=PT-0001" 1.5
+measure "All Jobs, no foreman" "/jobs?foreman=none" 1.5
+measure "All Jobs, sort by foreman / trip" "/jobs?sort=assign&dir=desc" 1.5
+measure "Search by foreman or trip text" "/jobs?q=PT-000123" 1.5
 measure "Trips, first page" /trips 1
 measure "Trips, last page" "/trips?page=$(( (N / 10 + 24) / 25 ))" 1
 measure "Trips, search by trip number" "/trips?q=PT-000123" 1.5

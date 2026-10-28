@@ -81,6 +81,7 @@ final class JobListController extends Controller
             'tabCounts' => $tabCounts,
             'shortcuts' => $shortcuts,
             'showFinancials' => $financials,
+            'foremen' => (new \App\Repositories\ForemanRepository())->allForFilter(),
         ]);
     }
 }

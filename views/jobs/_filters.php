@@ -1,7 +1,7 @@
 <?php
 /**
  * Search box and filters (plain GET form, works without JavaScript).
- * @var string $bucket  @var \App\Services\JobCriteria $criteria  @var bool $showFinancials
+ * @var string $bucket  @var \App\Services\JobCriteria $criteria  @var bool $showFinancials  @var array<int,array<string,mixed>> $foremen
  */
 use App\Services\JobBucket;
 use App\Services\JobCriteria;
@@ -23,7 +23,7 @@ $advanced = $criteria->activeFilterCount() - ($criteria->q !== '' ? 1 : 0);
             <div class="input-group jt-search">
                 <span class="input-group-text bg-white"><?= icon('search') ?></span>
                 <input type="search" class="form-control" name="q" value="<?= e($criteria->q) ?>" maxlength="100"
-                       placeholder="Search job #, customer, route, carrier, phone…" aria-label="Search jobs">
+                       placeholder="Search job #, customer, route, foreman, trip, phone…" aria-label="Search jobs">
             </div>
             <button type="submit" class="btn btn-primary">Search</button>
             <?php if ($criteria->hasFilters()): ?>
@@ -67,6 +67,20 @@ $advanced = $criteria->activeFilterCount() - ($criteria->q !== '' ? 1 : 0);
                         <input type="text" class="form-control" id="f-carrier" name="carrier" value="<?= e($criteria->carrier) ?>" maxlength="100">
                     </div>
                 <?php endif; ?>
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <label class="form-label" for="f-foreman">Foreman</label>
+                    <select class="form-select" id="f-foreman" name="foreman">
+                        <option value="">Any foreman</option>
+                        <option value="none"<?= $criteria->foremanId === -1 ? ' selected' : '' ?>>No foreman assigned</option>
+                        <?php foreach ($foremen as $f): ?>
+                            <option value="<?= e($f['id']) ?>"<?= $criteria->foremanId === (int) $f['id'] ? ' selected' : '' ?>><?= e($f['name']) ?><?= (int) $f['active'] === 1 ? '' : ' (inactive)' ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-12 col-sm-6 col-lg-3">
+                    <label class="form-label" for="f-trip">Trip number</label>
+                    <input type="text" class="form-control" id="f-trip" name="trip" value="<?= e($criteria->trip) ?>" maxlength="40">
+                </div>
                 <?php if ($showFinancials): ?>
                     <div class="col-12 col-sm-6 col-lg-3">
                         <label class="form-label" for="f-balance">Balance</label>

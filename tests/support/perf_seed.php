@@ -74,6 +74,7 @@ Database::transaction(static function () use ($count, $first, $last, $cities, $t
         $tripId = (int) Database::fetchValue('SELECT MAX(id) FROM trips');
         for ($r = 0, $n = mt_rand(1, 6); $r < $n; $r++) {
             $jobId = mt_rand(1, $count);
+            Database::execute('UPDATE jobs SET trip_id = ?, foreman_id = ? WHERE id = ?', [$tripId, $foremanIds[(int) (($t - 1) % 25)] ?? $foremanIds[0], $jobId]);
             $row->execute([$tripId, $jobId, $r, sprintf('PF-%06d', $jobId), $first[mt_rand(0, 11)] . ' ' . $last[mt_rand(0, 11)], $begin->format('Y-m-d'), $cities[mt_rand(0, 7)], 'BH',
                 mt_rand(0, 40000) / 100, mt_rand(0, 20000) / 100, mt_rand(0, 15000) / 100, mt_rand(0, 5000) / 100, mt_rand(0, 60000) / 100, null, $r === 0 ? 'ok' : null]);
         }

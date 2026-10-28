@@ -39,6 +39,7 @@ final class JobCriteria
         'storage'    => [['j.storage_fee'], true],
         'foreman'    => [['af.name'], false],
         'trip'       => [['atr.trip_number'], false],
+        'assign'     => [['af.name', 'atr.trip_number'], false],
     ];
 
     /** Default ordering per section. */
@@ -60,6 +61,9 @@ final class JobCriteria
         public readonly string $toLocation,
         public readonly string $carrier,
         public readonly string $balance,
+        /** Foreman filter: a foreman id, or -1 for jobs with no foreman, or 0 for any. */
+        public readonly int $foremanId,
+        public readonly string $trip,
         public readonly string $sort,
         public readonly string $dir,
         public readonly int $page,
@@ -71,7 +75,7 @@ final class JobCriteria
     public static function forBucket(string $bucket): self
     {
         [$sort, $dir] = self::DEFAULT_SORT[$bucket] ?? ['created', 'desc'];
-        return new self($bucket, '', '', '', '', '', '', '', '', $sort, $dir, 1, self::defaultPerPage());
+        return new self($bucket, '', '', '', '', '', '', '', '', 0, '', $sort, $dir, 1, self::defaultPerPage());
     }
 
     public static function fromRequest(Request $request, string $bucket, bool $canSeeFinancials): self
@@ -104,6 +108,9 @@ final class JobCriteria
         // Filtering or sorting by money would reveal figures a user may not see.
         $balance = $canSeeFinancials && in_array($request->query('balance'), ['due', 'paid'], true) ? $request->queryStr('balance') : '';
 
+        $foremanRaw = $request->queryStr('foreman');
+        $foremanId = $foremanRaw === 'none' ? -1 : max(0, $request->queryInt('foreman'));
+
         [$defaultSort, $defaultDir] = self::DEFAULT_SORT[$bucket] ?? ['created', 'desc'];
         $sort = $request->queryStr('sort', '');
         if (!isset(self::SORTS[$sort]) || (self::SORTS[$sort][1] && !$canSeeFinancials)) {
@@ -128,6 +135,8 @@ final class JobCriteria
             $text('to', 100),
             $text('carrier', 100),
             $balance,
+            $foremanId,
+            $text('trip', 40),
             $sort,
             $dir,
             max(1, $request->queryInt('page', 1)),
@@ -160,7 +169,7 @@ final class JobCriteria
     {
         return count(array_filter([
             $this->q, $this->status, $this->dateFrom, $this->dateTo,
-            $this->fromLocation, $this->toLocation, $this->carrier, $this->balance,
+            $this->fromLocation, $this->toLocation, $this->carrier, $this->balance, $this->trip, $this->foremanId !== 0 ? 'x' : '',
         ], static fn (string $v): bool => $v !== ''));
     }
 
@@ -185,6 +194,7 @@ final class JobCriteria
         $params = [
             'q' => $this->q, 'status' => $this->status, 'from_date' => $this->dateFrom, 'to_date' => $this->dateTo,
             'from' => $this->fromLocation, 'to' => $this->toLocation, 'carrier' => $this->carrier, 'balance' => $this->balance,
+            'foreman' => $this->foremanId === -1 ? 'none' : ($this->foremanId > 0 ? (string) $this->foremanId : ''), 'trip' => $this->trip,
         ];
         [$defaultSort, $defaultDir] = self::DEFAULT_SORT[$this->bucket] ?? ['created', 'desc'];
         if ($this->sort !== $defaultSort || $this->dir !== $defaultDir) {
@@ -214,7 +224,7 @@ final class JobCriteria
     {
         return new self(
             $this->bucket, $this->q, $this->status, $this->dateFrom, $this->dateTo, $this->fromLocation, $this->toLocation,
-            $this->carrier, $this->balance, $this->sort, $this->dir, $page, $this->perPage
+            $this->carrier, $this->balance, $this->foremanId, $this->trip, $this->sort, $this->dir, $page, $this->perPage
         );
     }
 }
