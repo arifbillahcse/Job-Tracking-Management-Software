@@ -7,7 +7,7 @@ Everything the client's team needs to own, run, and extend this software.
 | Item | Where |
 |---|---|
 | Source code, full history (one commit per phase) | the repository |
-| Production release archive + checksum | build with `scripts/build-release.sh` (`dist/job-tracker-1.0.0.tar.gz`) |
+| Production release archive + checksum | build with `scripts/build-release.sh` (`dist/job-tracker-<version>.tar.gz`; the current version is in the `VERSION` file) |
 | Deployment, operations, administrator, user guides | `docs/deployment.md`, `docs/operations.md`, `docs/admin-guide.md`, `docs/user-guide.md` |
 | Acceptance pack | `docs/uat-checklist.md`, `docs/requirements-traceability.md`, `docs/test-plan.md` |
 | Security | `docs/security-review.md`, `docs/permission-matrix.md` |
@@ -37,7 +37,7 @@ Everything the client's team needs to own, run, and extend this software.
 
 ## 3. Evidence of quality
 
-1,568 automated unit/integration checks, a 44-check proof that the release archive runs on its own, 337 HTTP checks in 6 suites, a 24-step browser walkthrough, a scale test (20,000 and 100,000 jobs), WCAG-AA contrast and layout audits, and about 20 deliberate-breakage checks proving the tests can fail. Run all with `tests/all.sh --perf --e2e`. Details and what is *not* covered: `docs/test-plan.md`.
+1,853 automated unit/integration checks, a 44-check proof that the release archive runs on its own, about 340 HTTP checks in 6 suites, a 29-step browser walkthrough, a scale test (20,000 and 100,000 jobs, with about 2,000 trips), WCAG-AA contrast and layout audits, and about 20 deliberate-breakage checks proving the tests can fail. Run all with `tests/all.sh --perf --e2e`. Details and what is *not* covered: `docs/test-plan.md`.
 
 ## 4. Known limits and things not verified
 
@@ -45,7 +45,7 @@ Be clear-eyed about these before relying on the system:
 
 | | |
 |---|---|
-| **Real MySQL/MariaDB** | Never run against one while building (none was available). The code uses standard SQL and has a static compatibility lint, but follow `docs/deployment.md` step 9 on staging before real data |
+| **Real MySQL/MariaDB** | Automated tests run on SQLite. Migrations 001-007 were run successfully on MariaDB 10.11 (cPanel). **Migrations 008-010 (phone and storage fee, sheet fields, trips) have not been confirmed on MariaDB yet**: run `php cli/migrate.php` on staging and check `php cli/doctor.php` before real data |
 | **Real Apache/Nginx, HTTPS** | Configuration templates were reviewed and consistency-tested, not applied to a live server |
 | **Microsoft Excel** | Generated `.xlsx` files are valid and read back correctly but were not opened in Excel itself. `.xls` (old format) is not supported |
 | **Browsers/devices** | Tested in Chromium with phone/tablet emulation only; not Safari, Firefox, or real devices; not with a screen reader |
@@ -56,9 +56,13 @@ Be clear-eyed about these before relying on the system:
 | **Penetration test** | A self-review only (`docs/security-review.md`). For a system holding customer data, an independent test is recommended before opening it to the internet |
 | **Audit log** | Kept forever by default and contains personal data (names, addresses, IPs); decide a retention period |
 
+## 4b. What changed in the client's change request (versions 1.1 - 1.3)
+
+One-click In Transit / Delivered with loaded and delivery dates; sections counted from the 1st available date (pickup date selectable); automatic storage fee (A-CF x rate x months from the pickup date, rate in dollars or cents, manual fees never overwritten); customer phone; the sheet's money and detail fields on a job; foremen and foreman trips with per-job expenses, report, CSV export, job and dashboard integration. Every reading of the client's sheet is an assumption in `docs/assumptions.md` (sections J-V); the open questions are at the end of `docs/uat-checklist.md`.
+
 ## 5. Not built (candidates for a next phase)
 
-Customer contact details (phone/e-mail/address), invoices and payments, documents or photos per job, e-mail/SMS notifications, a calendar or map view, reports, a customer portal, multiple companies or branches, an API, a "forgot password" e-mail flow, multi-factor sign-in. Each needs a decision from the client first (questions are at the end of `docs/uat-checklist.md`).
+Customer e-mail and address, invoices and payments, **rules for the sheet's Grand Total / BH Total / Paid / Balance columns and for Addio, Job Beg, "Total to BH" and the 15% (not defined by the client, see assumptions M2, T1-T4)**, documents or photos per job, e-mail/SMS notifications, a calendar or map view, reports beyond the foreman report, a customer portal, multiple companies or branches, an API, a "forgot password" e-mail flow, multi-factor sign-in. Each needs a decision from the client first (questions are at the end of `docs/uat-checklist.md`).
 
 ## 6. Ownership checklist (fill in at handover)
 

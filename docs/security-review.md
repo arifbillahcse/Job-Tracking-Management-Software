@@ -28,6 +28,23 @@ Scope: the code in this repository as of Phase 7, run on PHP 8.3 with SQLite in 
 4. **Test gap closed (Phase 8):** session idle/absolute limits and the browser-fingerprint check are now covered by tests that fail when the safeguard is removed.
 5. No other defects found in the areas above.
 
+## Version 1.2 review: foremen, trips and expenses
+
+Reviewed by reading the new code and by automated checks that fail when the safeguard is removed (`tests/phase12.php`, "Trips: security").
+
+| Area | Result |
+|---|---|
+| **Access control** | Every new route declares a permission (`php cli/route-audit.php`, 71 routes, no problems). Viewing, changing, expenses, export and foremen are separate permissions. Without `trips.financials` the expense amounts are removed in the service before any template sees them, and a save keeps amounts the user could not see. A forged money value is ignored |
+| **CSRF** | All trip, foreman and "add to trip" POST routes refuse a forged token and change nothing (tested route by route) |
+| **XSS** | Trip, foreman, customer and "from" text is escaped on the trip page, edit form, list, report, foremen page, new-trip form and job page; tested with `<script>` and `"><img onerror>` payloads |
+| **SQL injection** | All values are bound parameters; the only SQL built from text is column names from fixed lists. Hostile strings in every search, filter, page and form field create no trip, change no job and break no page |
+| **CSV injection** | Trip and report exports neutralise cells that start with `= + - @` exactly as the job export does |
+| **Mass assignment / input size** | Only whitelisted fields are read from a row. A trip holds at most 60 rows and a request with more than 120 rows is refused before validation (denial-of-service guard, and PHP's `max_input_vars` would otherwise cut a big form off silently) |
+| **Data protection** | Exporting takes data out, so it needs its own permission and is audited with the filters used. Trips are soft-deleted; foremen are deactivated, never deleted |
+| **Findings** | No defect found. One design risk was removed before release: a bigger-than-1000-field form losing rows silently (now a clear refusal) |
+
+Not checked: the same items as above (real Apache/Nginx, TLS, MariaDB behaviour, browsers other than Chromium, an independent penetration test).
+
 ## Accepted risks and things this review could not check
 
 * **Not tested here:** Apache/Nginx configuration (`.htaccess` rules are present but only the PHP built-in server was available), TLS (HSTS and the Secure cookie flag are implemented and only apply over HTTPS in production), MySQL/MariaDB behaviour (tests run on SQLite), real browsers other than Chromium, screen readers.

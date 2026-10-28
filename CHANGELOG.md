@@ -2,6 +2,15 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.3.0 - final pass for the client's change request (roadmap phase 9)
+
+* **Limits for the trip form:** a trip holds at most **60 job rows** (a bigger form would be silently cut off by PHP's default `max_input_vars` of 1000, so it is refused with a message instead), and a request carrying more than 120 rows is refused before any row is checked.
+* **Security review of the new module** (`docs/security-review.md`, "Version 1.2 review"): output escaping on every page, SQL injection strings in every search/filter/form field, forged tokens on every new POST route, hidden expenses surviving a save, export permission and CSV formula injection. No defect found; 6 new checks added for the limits.
+* **Performance:** `tests/perf.sh` now builds trips too (2,000 trips, about 7,000 job rows at 20,000 jobs) and times the trip list, search, details, report, foremen and CSV export (all well inside their budgets).
+* `php cli/seed-demo.php` also creates two demo foremen and three demo trips.
+* Handover, test plan and security review brought up to date.
+* **Upgrade:** upload the new files and run `php cli/doctor.php`. No migration.
+
 ## 1.2.2 - trips connected to jobs and the dashboard (roadmap phase 8)
 
 * **Job Details has a "Foreman trips" card** (for people who may view trips): the trips the job is on, linked, with the foreman and date. People who may manage trips can **add the job to an existing trip** from a drop-down (trips that already carry it are not offered) or start **a new trip with this job** already in the first row. A job added this way gets no expenses; enter them on the trip.

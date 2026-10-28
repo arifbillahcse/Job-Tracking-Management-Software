@@ -58,6 +58,27 @@ Database::transaction(static function () use ($count, $first, $last, $cities, $s
         ]);
     }
 });
+// Foremen and trips: about one trip per ten jobs, one to six job rows each, over 25 foremen.
+Database::transaction(static function () use ($count, $first, $last, $cities, $today, $now, $userId): void {
+    $foremanIds = [];
+    for ($f = 1; $f <= 25; $f++) {
+        Database::execute('INSERT INTO foremen (name, phone, active, created_at, updated_at) VALUES (?, ?, 1, ?, ?)', [$first[$f % 12] . ' ' . $last[$f % 12] . " {$f}", null, $now, $now]);
+        $foremanIds[] = (int) Database::fetchValue('SELECT MAX(id) FROM foremen');
+    }
+    $trip = Database::connect()->prepare('INSERT INTO trips (trip_number, foreman_id, begins_on, ends_on, collected_by, created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    $row = Database::connect()->prepare('INSERT INTO trip_jobs (trip_id, job_id, sort_order, job_number, customer_name, job_date, from_location, bh, diesel, hotels, helper, misc, commission, extra, remark) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+    $trips = max(1, intdiv($count, 10));
+    for ($t = 1; $t <= $trips; $t++) {
+        $begin = $today->modify('-' . mt_rand(0, 400) . ' days');
+        $trip->execute([sprintf('PT-%06d', $t), $foremanIds[mt_rand(0, 24)], $begin->format('Y-m-d'), $begin->modify('+' . mt_rand(1, 6) . ' days')->format('Y-m-d'), 'BH Office', $userId, $userId, $now, $now]);
+        $tripId = (int) Database::fetchValue('SELECT MAX(id) FROM trips');
+        for ($r = 0, $n = mt_rand(1, 6); $r < $n; $r++) {
+            $jobId = mt_rand(1, $count);
+            $row->execute([$tripId, $jobId, $r, sprintf('PF-%06d', $jobId), $first[mt_rand(0, 11)] . ' ' . $last[mt_rand(0, 11)], $begin->format('Y-m-d'), $cities[mt_rand(0, 7)], 'BH',
+                mt_rand(0, 40000) / 100, mt_rand(0, 20000) / 100, mt_rand(0, 15000) / 100, mt_rand(0, 5000) / 100, mt_rand(0, 60000) / 100, null, $r === 0 ? 'ok' : null]);
+        }
+    }
+});
 echo "Inserted {$count} jobs. Total: " . Database::fetchValue('SELECT COUNT(*) FROM jobs') . "\n";
 
 // Do the section and list queries use an index? (SQLite's planner is a stand-in for MySQL's; the index definitions are the same.)
@@ -67,6 +88,8 @@ $plans = [
     'Job number lookup' => ["SELECT id FROM jobs WHERE job_number = ?", ['PF-000123']],
     'Customer sort' => ['SELECT id FROM jobs WHERE deleted_at IS NULL ORDER BY customer_last_name, customer_first_name, id DESC LIMIT 25', []],
 ];
+$plans['Trip list'] = ['SELECT t.id FROM trips t WHERE t.deleted_at IS NULL ORDER BY t.begins_on DESC, t.id DESC LIMIT 25', []];
+$plans['Trip rows of one trip'] = ['SELECT id FROM trip_jobs WHERE trip_id = ? ORDER BY sort_order', [123]];
 foreach ($plans as $label => [$sql, $params]) {
     $rows = Database::fetchAll('EXPLAIN QUERY PLAN ' . $sql, $params);
     $detail = implode(' | ', array_column($rows, 'detail'));

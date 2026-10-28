@@ -143,6 +143,30 @@ for ($i = 1; $i <= $count; $i++) {
 
 \App\Services\StorageFeeService::refresh(); // fees follow the rules in Settings
 
+// Two foremen and three trips over the demo jobs, so the Trips pages are not empty (skipped when trips already exist).
+$tripsCreated = 0;
+if ((int) \App\Core\Database::fetchValue('SELECT COUNT(*) FROM trips') === 0) {
+    $foremen = new \App\Repositories\ForemanRepository();
+    $trips = new \App\Repositories\TripRepository();
+    $ids = [$foremen->create(['name' => 'Joe Demo', 'phone' => '(555) 010-2231']), $foremen->create(['name' => 'Sam Demo', 'phone' => null])];
+    $demoJobs = \App\Core\Database::fetchAll('SELECT id, job_number, customer_first_name, customer_last_name, from_location, pickup_date FROM jobs WHERE deleted_at IS NULL ORDER BY id LIMIT 6');
+    foreach ([[0, 'DEMO-TRIP-1', 18, [100.10, 80.0, 40.0, 10.0, 120.0, null]], [1, 'DEMO-TRIP-2', 9, [75.5, null, 30.0, null, 90.0, 12.25]], [0, 'DEMO-TRIP-3', 2, [60.0, 55.0, null, 5.0, 70.0, null]]] as $n => [$who, $number, $daysAgo, $money]) {
+        $rows = [];
+        foreach (array_slice($demoJobs, $n * 2, 2) as $i => $job) {
+            $rows[] = ['job_id' => (int) $job['id'], 'job_number' => $job['job_number'], 'customer_name' => $job['customer_first_name'] . ' ' . $job['customer_last_name'],
+                'job_date' => $job['pickup_date'], 'from_location' => $job['from_location'], 'bh' => 'BH',
+                'diesel' => $i === 0 ? $money[0] : null, 'hotels' => $i === 0 ? $money[1] : null, 'helper' => $money[2], 'misc' => $money[3], 'commission' => $i === 0 ? $money[4] : null, 'extra' => $money[5], 'remark' => $i === 0 ? 'Demo trip' : null];
+        }
+        if ($rows === []) {
+            continue;
+        }
+        $begin = gmdate('Y-m-d', strtotime("-{$daysAgo} days"));
+        $trips->create(['trip_number' => $number, 'foreman_id' => $ids[$who], 'begins_on' => $begin, 'ends_on' => gmdate('Y-m-d', strtotime($begin . ' +3 days')), 'collected_by' => 'BH Office', 'notes' => null], $rows, $userId);
+        $tripsCreated++;
+    }
+    echo "Created 2 demo foremen and {$tripsCreated} demo trip(s).\n";
+}
+
 echo "Created {$created} demo job(s)" . ($skipped > 0 ? ", skipped {$skipped} existing" : '') . ".\n";
 ksort($byStatus);
 foreach ($byStatus as $status => $n) {

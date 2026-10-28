@@ -21,6 +21,11 @@ final class TripService
 {
     private const TEXT = ['job_number', 'job_date', 'bh', 'remark'];
 
+    /** Job rows one trip may hold. Each row posts up to 12 fields and PHP drops everything past max_input_vars (default 1000), so more would be cut off silently. */
+    public const MAX_ROWS = 60;
+    /** Rows (blank spares included) read from one request at all, so a hostile body cannot make the server validate thousands of rows. */
+    private const MAX_POSTED = 120;
+
     public function __construct(private TripRepository $trips = new TripRepository())
     {
     }
@@ -178,6 +183,10 @@ final class TripService
         $rows = [];
         $seen = [];
         $posted = is_array($post['rows'] ?? null) ? $post['rows'] : [];
+        if (count($posted) > self::MAX_POSTED) {
+            $errors['rows'][] = 'Too many rows were sent. A trip holds at most ' . self::MAX_ROWS . ' jobs; split a bigger trip into two.';
+            $posted = [];
+        }
         $number = 0;
         foreach ($posted as $index => $raw) {
             if (!is_array($raw)) {
@@ -192,6 +201,10 @@ final class TripService
                 continue; // a blank spare row
             }
             $number++;
+            if ($number > self::MAX_ROWS) {
+                $errors['rows'] = ['A trip holds at most ' . self::MAX_ROWS . ' jobs (PHP would cut off more); split a bigger trip into two.'];
+                break;
+            }
             $key = 'rows.' . (string) $index . '.';
             $labels = array_map(static fn (string $l): string => "Row {$number} {$l}", TripRules::labels());
 

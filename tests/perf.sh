@@ -47,6 +47,14 @@ measure "Filters combined" "/jobs?q=Kim&status=booked&balance=due&sort=job" 1.5
 measure "Job details" /jobs/12345 0.5
 measure "Audit log" /audit 1
 measure "Users" /users 0.5
+measure "Trips, first page" /trips 1
+measure "Trips, last page" "/trips?page=$(( (N / 10 + 24) / 25 ))" 1
+measure "Trips, search by trip number" "/trips?q=PT-000123" 1.5
+measure "Trips, search by customer" "/trips?q=Smith" 1.5
+measure "Trips, filter foreman + dates" "/trips?foreman=3&from=2026-01-01&to=2026-12-31" 1.5
+measure "Trip details" /trips/123 0.5
+measure "Foremen" /foremen 0.5
+measure "Trips by foreman (all time)" /trips/report 1.5
 
 echo "Export (streamed)"
 for fmt in csv xlsx; do
@@ -65,6 +73,15 @@ for fmt in csv xlsx; do
   if [[ "$code" == 200 && "$rows" -ge "$N" ]] && awk "BEGIN{exit !($secs <= $limit)}"; then PASSED=$((PASSED+1)); st=ok; else FAILED=$((FAILED+1)); st=FAIL; fi
   printf "  %-5s %-34s %6ss (budget %ss)  HTTP %s  %s MB, %s rows\n" "$st" "all $N jobs as $fmt" "$secs" "$limit" "$code" "$((size/1048576))" "$rows"
 done
+
+echo "Trip export (streamed)"
+start=$(date +%s.%N)
+r=$(curl -s -o "$OUT" -b "$JAR" -w '%{http_code} %{size_download}' "$BASE/trips/export")
+secs=$(awk "BEGIN{printf \"%.2f\", $(date +%s.%N) - $start}")
+read -r code size <<<"$r"
+rows=$(wc -l < "$OUT")
+if [[ "$code" == 200 && "$rows" -gt "$((N / 10))" ]] && awk "BEGIN{exit !($secs <= 30)}"; then PASSED=$((PASSED+1)); st=ok; else FAILED=$((FAILED+1)); st=FAIL; fi
+printf "  %-5s %-34s %6ss (budget 30s)  HTTP %s  %s KB, %s lines\n" "$st" "all trips as csv" "$secs" "$code" "$((size/1024))" "$rows"
 
 echo "Import (5,000-row file)"
 python3 -I - "$OUT.csv" <<'PY'

@@ -436,3 +436,78 @@ sign_in($stf);
 $sb = call('GET', "/jobs/{$ja}")->body();
 check(!str_contains($sb, 'Foreman trips') && !str_contains(plain(call('GET', '/dashboard')->body()), 'Foreman trips') && call('POST', "/jobs/{$ja}/trip", ['trip' => (string) $tB])->status() === 403, 'Staff sees no trips panel, no dashboard card and cannot add');
 Clock::fake(null);
+
+// ================================================================ roadmap phase 9: security checks for the trip module
+
+section('Trips: security (XSS, SQL injection, CSRF, limits)');
+fresh_db();
+fresh_session();
+Clock::fake('2026-10-23');
+$mgr = make_user('Manager', 's-mgr@example.com');
+$fr = new \App\Repositories\ForemanRepository();
+$xss = '<script>alert(1)</script>';
+$foreman = $fr->create(['name' => 'Joe ' . $xss, 'phone' => null]);
+$sj = mk_job(['job_number' => 'S-1', 'customer_first_name' => 'A' . $xss, 'customer_last_name' => 'B', 'from_location' => '"><img src=x onerror=alert(2)>']);
+sign_in($mgr);
+$r = call('POST', '/trips', ['trip_number' => 'SEC-1', 'foreman_id' => (string) $foreman, 'collected_by' => $xss, 'notes' => $xss,
+    'rows' => [['job_number' => 'S-1', 'bh' => $xss, 'remark' => $xss, 'diesel' => '1']]]);
+$tid = (int) Database::fetchValue("SELECT id FROM trips WHERE trip_number = 'SEC-1'");
+check($r->status() === 302 && $tid > 0, 'a trip full of markup is accepted as plain text');
+$pages = [call('GET', "/trips/{$tid}")->body(), call('GET', "/trips/{$tid}/edit")->body(), call('GET', '/trips')->body(), call('GET', '/trips/report')->body(), call('GET', '/foremen')->body(), call('GET', '/trips/create')->body(), call('GET', "/jobs/{$sj}")->body()];
+$leak = false;
+foreach ($pages as $html) {
+    $leak = $leak || str_contains($html, '<script>alert(1)') || str_contains($html, '<img src=x');
+}
+check(!$leak, 'trip, foreman, customer and From values are escaped on every page that shows them (trip, edit, list, report, foremen, new trip, job)');
+check(str_contains($pages[0], '&lt;script&gt;alert(1)&lt;/script&gt;'), '...as visible text');
+$csv = call('GET', '/trips/export')->content();
+check(str_contains($csv, '<script>') && !str_contains($csv, "\n<script>"), 'a CSV is data, not HTML; its cells just carry the text');
+
+$before = [(int) Database::fetchValue('SELECT COUNT(*) FROM trips'), (int) Database::fetchValue('SELECT COUNT(*) FROM jobs'), (int) Database::fetchValue('SELECT COUNT(*) FROM foremen')];
+foreach (["' OR '1'='1", "'; DROP TABLE trips; --", '" OR 1=1 --', "\\' UNION SELECT password_hash FROM users --", '%\' AND SLEEP(5) AND \'%'] as $evil) {
+    foreach ([['q' => $evil], ['foreman' => $evil], ['from' => $evil], ['page' => $evil]] as $query) {
+        if (call('GET', '/trips', [], $query)->status() !== 200 || call('GET', '/trips/report', [], $query)->status() !== 200 || call('GET', '/trips/export', [], $query)->status() !== 200) {
+            check(false, 'hostile query ' . json_encode($query) . ' broke a trip page');
+        }
+    }
+    call('POST', '/trips', ['trip_number' => $evil, 'foreman_id' => $evil, 'rows' => [['job_number' => $evil, 'diesel' => $evil]]]);
+    call('POST', '/foremen', ['name' => $evil . 'x', 'phone' => $evil]);
+}
+$after = [(int) Database::fetchValue('SELECT COUNT(*) FROM trips'), (int) Database::fetchValue('SELECT COUNT(*) FROM jobs'), (int) Database::fetchValue('SELECT COUNT(*) FROM foremen')];
+check($after[0] === $before[0] && $after[1] === $before[1], 'SQL injection strings in every search, filter and form field create no trip and change no job, and break no page');
+call('POST', '/foremen', ['name' => "'; DROP TABLE trips; --x", 'phone' => '']);
+check((int) Database::fetchValue('SELECT COUNT(*) FROM foremen WHERE name = ?', ["'; DROP TABLE trips; --x"]) === 1 && (int) Database::fetchValue('SELECT COUNT(*) FROM trips') >= 1, '...a foreman name that looks like SQL is stored as plain text, and the trips table is still there');
+
+// CSRF on every state-changing trip route
+$post = [['/trips', ['trip_number' => 'CSRF-1']], ["/trips/{$tid}", []], ["/trips/{$tid}/delete", []], ['/foremen', ['name' => 'Csrf']], ["/foremen/{$foreman}", ['name' => 'Csrf2']], ["/foremen/{$foreman}/toggle", []], ["/jobs/{$sj}/trip", ['trip' => (string) $tid]]];
+$bad = 0;
+foreach ($post as [$path, $data]) {
+    next_request();
+    $_GET = [];
+    \App\Core\Auth::reset();
+    $res = real_router()->dispatch(\App\Core\Request::make('POST', $path, $data + ['_csrf' => 'forged'], [], [], []));
+    $bad += $res->status() === 403 ? 0 : 1;
+}
+check($bad === 0 && Database::fetchValue('SELECT deleted_at FROM trips WHERE id = ?', [$tid]) === null && (int) Database::fetchValue("SELECT COUNT(*) FROM foremen WHERE name LIKE 'Csrf%'") === 0, 'every trip and foreman POST route refuses a forged token and changes nothing');
+
+// limits
+$many = [];
+for ($i = 0; $i < 61; $i++) {
+    $many[] = ['job_number' => 'S-1'];
+}
+$p = (new TripService())->prepare(['trip_number' => 'LIM-1', 'foreman_id' => (string) $foreman, 'rows' => $many]);
+check(isset($p['errors']['rows']) && str_contains(implode(' ', $p['errors']['rows']), 'at most 60'), 'more than 60 job rows on one trip is refused with a message (PHP would silently drop the rest of a bigger form)');
+$huge = array_fill(0, 500, ['job_number' => 'S-1']);
+$t0 = microtime(true);
+$p = (new TripService())->prepare(['trip_number' => 'LIM-2', 'foreman_id' => (string) $foreman, 'rows' => $huge]);
+check(isset($p['errors']['rows']) && microtime(true) - $t0 < 1.0, 'a body with hundreds of rows is refused before any row is validated (fast)');
+$sixty = [];
+for ($i = 0; $i < 60; $i++) {
+    $sixty[] = $i === 0 ? ['job_number' => 'S-1'] : [];
+}
+check((new TripService())->prepare(['trip_number' => 'LIM-3', 'foreman_id' => (string) $foreman, 'rows' => $sixty])['errors'] === [], 'blank spare rows do not count towards the limit');
+$longs = (new TripService())->prepare(['trip_number' => str_repeat('A', 41), 'foreman_id' => (string) $foreman, 'notes' => str_repeat('é', 5001), 'rows' => [['job_number' => str_repeat('9', 41)]]]);
+check(isset($longs['errors']['trip_number']) && isset($longs['errors']['notes']) && isset($longs['errors']['rows.0.job_number']), 'over-long values are refused');
+$utf = (new TripService())->prepare(['trip_number' => 'UTF-1', 'foreman_id' => (string) $foreman, 'collected_by' => 'Zoë 北京 😀', 'rows' => [['job_number' => 'S-1', 'remark' => 'ça va 😀']]]);
+check($utf['errors'] === [] && $utf['header']['collected_by'] === 'Zoë 北京 😀', 'unicode text is accepted and kept');
+Clock::fake(null);

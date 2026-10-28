@@ -7,7 +7,7 @@ Show, with evidence a reader can reproduce, that the software does what the clie
 
 | Level | What it proves | How to run | Count |
 |---|---|---|---|
-| Unit and integration | Rules, services, repositories, controllers and views, called in-process on in-memory SQLite using the real migrations | `php tests/run.php` | 1841 checks |
+| Unit and integration | Rules, services, repositories, controllers and views, called in-process on in-memory SQLite using the real migrations | `php tests/run.php` | 1853 checks |
 | Release archive | The built archive contains the right files and nothing secret, and runs on its own: migrate, create administrator, sign in, create a job, back up, reset a password | `tests/release-check.sh` | 44 checks |
 | Route audit | Every route has exactly one access rule; nothing changes data over GET | `php cli/route-audit.php` | 52 routes |
 | HTTP smoke suites | The real application over real HTTP: cookies, redirects, headers, multipart uploads, downloads | `tests/smoke*.sh` (see README) | 337 checks in 6 suites |
@@ -48,10 +48,13 @@ Show, with evidence a reader can reproduce, that the software does what the clie
 | Export all as CSV / Excel | 0.2 s / 1.4 s | refused politely (caps: 50,000 CSV, 20,000 Excel) |
 | Preview + save a 5,000-row import | 0.2 s + 0.3 s | same |
 
+| Trips (about 2,000 trips, 7,000 job rows at 20,000 jobs): list, search, filters, details, foremen, foreman report | 0.002 - 0.012 s |
+| Export all trips as CSV (7,000 lines) | 0.4 s |
+
 These numbers show the queries are indexed and pages never load everything; they are **not a promise for production**. MySQL on a shared host, a busy server and many simultaneous users will differ. Searching for text in the middle of a name (`LIKE '%x%'`) cannot use an index, so it slows down roughly in proportion to the number of jobs; at the volumes above it is still instant. Re-run `tests/perf.sh` against a staging copy before relying on it.
 
 ## Not covered (and why)
-* **MySQL/MariaDB:** none was available. The migrations are written for MySQL 8 / MariaDB 10.5 and avoid SQLite-only syntax, but they have not been run on one. First task of Phase 9.
+* **MySQL/MariaDB:** the automated tests run on SQLite. Migrations 001-007 were later run on MariaDB 10.11 by the client; 008-010 are not yet confirmed there.
 * **Microsoft Excel and LibreOffice** opening the generated `.xlsx`: not available. The files are valid XML in a valid zip and read back correctly.
 * **Safari, Firefox, Edge, real phones and tablets:** only Chromium with device emulation.
 * **Screen readers and keyboard-only use on real assistive technology:** contrast, focus rings, labels, skip link and landmarks are verified automatically; real screen-reader use is not.
