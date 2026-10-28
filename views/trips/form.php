@@ -2,7 +2,7 @@
 /**
  * Create / edit a trip: header plus a table of job rows (five spare blank rows; blank rows are ignored on save).
  * @var array<string,mixed>|null $trip  @var string $action  @var string $cancelTo  @var string $submitLabel
- * @var array<int,array<string,mixed>> $foremen  @var bool $editMoney
+ * @var array<int,array<string,mixed>> $foremen  @var bool $editMoney  @var string $prefillJob job number to put in the first row ("New trip with this job")
  */
 $val = static fn (string $key): string => old_or($key, $trip[$key] ?? '');
 $money = ['diesel' => 'Diesel', 'hotels' => 'Hotels', 'helper' => 'Helper', 'misc' => 'Misc', 'commission' => 'Commission', 'extra' => 'Extra'];
@@ -10,6 +10,9 @@ $money = ['diesel' => 'Diesel', 'hotels' => 'Hotels', 'helper' => 'Helper', 'mis
 // Rows: what the user typed (after a validation error), else the saved rows; then spare rows.
 $old = \App\Core\Session::flashed('old', []);
 $rows = is_array($old) && isset($old['rows']) && is_array($old['rows']) ? array_values(array_filter($old['rows'], 'is_array')) : ($trip['rows'] ?? []);
+if ($rows === [] && $prefillJob !== '') {
+    $rows[] = ['job_number' => $prefillJob];
+}
 $existing = count($rows);
 for ($i = 0; $i < 5; $i++) {
     $rows[] = [];

@@ -42,8 +42,13 @@ final class JobController extends Controller
         $wanted = (string) (Session::flashed('open_modal') ?? $request->queryStr('do'));
         $autoOpen = in_array($wanted, array_column($transitions, 'to'), true) ? $wanted : null;
 
+        $trips = new \App\Services\TripService();
+        $showTrips = can('trips.view');
+
         return $this->view('jobs/show', [
             'title' => 'Job ' . $job['job_number'],
+            'jobTrips' => $showTrips ? $trips->forJob($id) : [],
+            'tripChoices' => $showTrips && can('trips.manage') ? $trips->choicesForJob($id) : [],
             'job' => $job,
             'showFinancials' => $this->jobs->canSeeFinancials(),
             'transitions' => $transitions,

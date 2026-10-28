@@ -92,7 +92,7 @@ final class TripController extends Controller
 
     public function create(Request $request): Response
     {
-        return $this->form('New Trip', null, '/trips', '/trips', 'Create trip');
+        return $this->form('New Trip', null, '/trips', '/trips', 'Create trip', trim($request->queryStr('job')));
     }
 
     public function store(Request $request): Response
@@ -144,6 +144,28 @@ final class TripController extends Controller
         return $this->redirect('/trips/' . $id);
     }
 
+    /** Adds the job ($id) to the end of an existing trip (posted as "trip"), from the Job Details page. */
+    public function addJob(Request $request, int $id): Response
+    {
+        $jobId = $id;
+        $id = (int) $request->str('trip');
+        $result = $this->trips->addJob($id, $jobId);
+        if ($result === 'no_job') {
+            return ErrorPages::response(404);
+        }
+        $back = '/jobs/' . $jobId;
+        if ($result === 'no_trip') {
+            $this->flash('warning', 'Choose a trip to add the job to.');
+            return $this->redirect($back);
+        }
+        if ($result === 'already') {
+            $this->flash('warning', 'That job is already on the trip.');
+            return $this->redirect($back);
+        }
+        $this->flash('success', 'The job was added to trip ' . ($this->trips->find($id)['trip_number'] ?? '') . '. Open the trip to enter its expenses.');
+        return $this->redirect($back);
+    }
+
     public function destroy(Request $request, int $id): Response
     {
         $number = $this->trips->delete($id);
@@ -155,7 +177,7 @@ final class TripController extends Controller
     }
 
     /** @param array<string,mixed>|null $trip */
-    private function form(string $title, ?array $trip, string $action, string $cancelTo, string $submitLabel): Response
+    private function form(string $title, ?array $trip, string $action, string $cancelTo, string $submitLabel, string $prefillJob = ''): Response
     {
         return $this->view('trips/form', [
             'title' => $title,
@@ -165,6 +187,7 @@ final class TripController extends Controller
             'submitLabel' => $submitLabel,
             'foremen' => (new ForemanRepository())->options($trip === null ? null : (int) $trip['foreman_id']),
             'editMoney' => $this->trips->canSeeFinancials(),
+            'prefillJob' => mb_substr($prefillJob, 0, 40),
         ]);
     }
 }

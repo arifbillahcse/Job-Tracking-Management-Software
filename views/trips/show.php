@@ -42,7 +42,7 @@ $dl = static fn (string $label, string $html): string => '<dt class="col-sm-4 te
             <tbody>
             <?php foreach ($trip['rows'] as $row): ?>
                 <tr>
-                    <td><?= can('jobs.view') ? '<a class="jt-jobno" href="' . e(url('/jobs/' . $row['job_id'])) . '">' . e($row['job_number']) . '</a>' : e($row['job_number']) ?></td>
+                    <td><?= can('jobs.view') && empty($row['job_deleted']) ? '<a class="jt-jobno" href="' . e(url('/jobs/' . $row['job_id'])) . '">' . e($row['job_number']) . '</a>' : e($row['job_number']) . (!empty($row['job_deleted']) ? ' <span class="badge text-bg-secondary">job deleted</span>' : '') ?></td>
                     <td><?= e($row['customer_name']) ?></td>
                     <td><?= e(fmt_date($row['job_date']) ?: '—') ?></td>
                     <td><?= e($row['from_location'] ?: '—') ?></td>

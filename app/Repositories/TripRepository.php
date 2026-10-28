@@ -31,7 +31,12 @@ final class TripRepository
     /** @return array<int,array<string,mixed>> */
     public function rows(int $tripId): array
     {
-        return Database::fetchAll('SELECT * FROM trip_jobs WHERE trip_id = ? ORDER BY sort_order ASC, id ASC', [$tripId]);
+        $rows = Database::fetchAll(
+            'SELECT tj.*, CASE WHEN j.deleted_at IS NULL THEN 0 ELSE 1 END AS job_deleted
+             FROM trip_jobs tj LEFT JOIN jobs j ON j.id = tj.job_id WHERE tj.trip_id = ? ORDER BY tj.sort_order ASC, tj.id ASC',
+            [$tripId]
+        );
+        return $rows;
     }
 
     /** @return array<int,array<string,mixed>> the live trips a job appears on */
@@ -43,6 +48,50 @@ final class TripRepository
              WHERE tj.job_id = ? AND t.deleted_at IS NULL ORDER BY t.begins_on DESC, t.id DESC',
             [$jobId]
         );
+    }
+
+    /** @return array<int,array<string,mixed>> the newest live trips that do not carry this job yet (for "add to a trip") */
+    public function choicesForJob(int $jobId, int $limit = 50): array
+    {
+        return Database::fetchAll(
+            'SELECT t.id, t.trip_number, t.begins_on, f.name AS foreman_name FROM trips t JOIN foremen f ON f.id = t.foreman_id
+             WHERE t.deleted_at IS NULL AND NOT EXISTS (SELECT 1 FROM trip_jobs x WHERE x.trip_id = t.id AND x.job_id = ?)
+             ORDER BY t.begins_on DESC, t.id DESC LIMIT ?',
+            [$jobId, $limit]
+        );
+    }
+
+    /**
+     * Adds one job row at the end of a trip and marks the trip as changed (so a form opened earlier warns about the conflict).
+     *
+     * @param array<string,mixed> $row
+     */
+    public function appendRow(int $tripId, array $row, ?int $userId): void
+    {
+        Database::transaction(function () use ($tripId, $row, $userId): void {
+            $next = (int) Database::fetchValue('SELECT COALESCE(MAX(sort_order), -1) + 1 FROM trip_jobs WHERE trip_id = ?', [$tripId]);
+            Database::insert(
+                'INSERT INTO trip_jobs (trip_id, job_id, sort_order, job_number, customer_name, job_date, from_location, bh, diesel, hotels, helper, misc, commission, extra, remark)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)',
+                [$tripId, $row['job_id'], $next, $row['job_number'], $row['customer_name'], $row['job_date'], $row['from_location']]
+            );
+            Database::execute('UPDATE trips SET updated_by = ?, updated_at = ? WHERE id = ?', [$userId, gmdate('Y-m-d H:i:s'), $tripId]);
+        });
+    }
+
+    /**
+     * Trips that began in the last $days days: how many, job lines on them and the sum of the expense columns.
+     *
+     * @return array{trips:int,jobs:int,expenses:string}
+     */
+    public function recentFigures(string $since): array
+    {
+        $row = Database::fetchOne(
+            'SELECT COUNT(DISTINCT t.id) AS trips, COUNT(tj.id) AS jobs, COALESCE(SUM(' . self::EXPENSE_SUM . '), 0) AS expenses
+             FROM trips t LEFT JOIN trip_jobs tj ON tj.trip_id = t.id WHERE t.deleted_at IS NULL AND t.begins_on >= ?',
+            [$since]
+        ) ?? [];
+        return ['trips' => (int) ($row['trips'] ?? 0), 'jobs' => (int) ($row['jobs'] ?? 0), 'expenses' => number_format((float) ($row['expenses'] ?? 0), 2, '.', '')];
     }
 
     public function count(TripCriteria $c): int

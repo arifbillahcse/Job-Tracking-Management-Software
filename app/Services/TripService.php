@@ -83,6 +83,59 @@ final class TripService
         return ['rows' => $rows, 'totals' => $totals, 'money' => $money];
     }
 
+    /** @return array<int,array<string,mixed>> the live trips a job is on (for the Job Details page) */
+    public function forJob(int $jobId): array
+    {
+        return $this->trips->forJob($jobId);
+    }
+
+    /** @return array<int,array<string,mixed>> trips the job could still be added to */
+    public function choicesForJob(int $jobId): array
+    {
+        return $this->trips->choicesForJob($jobId);
+    }
+
+    /**
+     * Adds a job to the end of an existing trip (no expenses yet). The row copies the job's number, customer and From, and its
+     * Date is the job's pickup date.
+     *
+     * @return string 'ok', 'no_trip', 'no_job' or 'already'
+     */
+    public function addJob(int $tripId, int $jobId): string
+    {
+        $trip = $this->trips->find($tripId);
+        if ($trip === null) {
+            return 'no_trip';
+        }
+        $job = \App\Core\Database::fetchOne('SELECT id, job_number, customer_first_name, customer_last_name, pickup_date, from_location FROM jobs WHERE id = ? AND deleted_at IS NULL', [$jobId]);
+        if ($job === null) {
+            return 'no_job';
+        }
+        foreach ($this->trips->rows($tripId) as $row) {
+            if ((int) $row['job_id'] === $jobId) {
+                return 'already';
+            }
+        }
+        $this->trips->appendRow($tripId, [
+            'job_id' => $jobId, 'job_number' => (string) $job['job_number'],
+            'customer_name' => trim($job['customer_first_name'] . ' ' . $job['customer_last_name']),
+            'job_date' => $job['pickup_date'], 'from_location' => $job['from_location'],
+        ], Auth::id());
+        AuditService::record('trip_updated', 'trip', $tripId, ['jobs' => (int) $trip['job_count']], ['jobs_added' => [(string) $job['job_number']]]);
+        return 'ok';
+    }
+
+    /**
+     * Dashboard figures for trips that began in the last 30 days; the expense total only with trips.financials.
+     *
+     * @return array{trips:int,jobs:int,expenses:?string}
+     */
+    public function dashboardFigures(): array
+    {
+        $f = $this->trips->recentFigures(\App\Core\Clock::addDays(\App\Core\Clock::today(), -30));
+        return ['trips' => $f['trips'], 'jobs' => $f['jobs'], 'expenses' => $this->canSeeFinancials() ? $f['expenses'] : null];
+    }
+
     /** @return array<int,array<string,mixed>> the stored rows, expenses included (for prepare(): hidden expenses are kept) */
     public function existingRows(int $id): array
     {

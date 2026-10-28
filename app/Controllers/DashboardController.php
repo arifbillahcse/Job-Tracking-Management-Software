@@ -33,6 +33,7 @@ final class DashboardController extends Controller
         return $this->view('dashboard/index', [
             'title' => 'Dashboard',
             'data' => $data,
+            'trips' => can('trips.view') ? (new \App\Services\TripService())->dashboardFigures() : null,
             'permissions' => PermissionService::forRole((int) $user['role_id']),
         ]);
     }

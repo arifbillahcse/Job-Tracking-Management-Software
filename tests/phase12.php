@@ -350,3 +350,89 @@ check(call('GET', '/trips/report')->status() === 403 && call('GET', '/trips/expo
 fresh_session();
 check(call('GET', '/trips/report')->status() === 302 && call('GET', '/trips/export')->status() === 302, 'signed-out visitors are sent to sign in');
 Clock::fake(null);
+
+// ================================================================ roadmap phase 8: trips on the job page, add to a trip, dashboard
+
+section('Integration: trips on Job Details, add a job to a trip, dashboard');
+fresh_db();
+fresh_session();
+Clock::fake('2026-10-23');
+$mgr = make_user('Manager', 'i-mgr@example.com');
+$stf = make_user('Staff', 'i-stf@example.com');
+$fr = new \App\Repositories\ForemanRepository();
+$joe = $fr->create(['name' => 'Joe', 'phone' => null]);
+$ja = mk_job(['job_number' => 'I-1', 'customer_first_name' => 'John', 'customer_last_name' => 'smith', 'pickup_date' => '2026-10-02', 'from_location' => 'GA']);
+$jb = mk_job(['job_number' => 'I-2', 'customer_first_name' => 'Mia', 'customer_last_name' => 'Lee', 'pickup_date' => null, 'from_location' => 'FL']);
+$jc = mk_job(['job_number' => 'I-3']);
+$repo = new TripRepository();
+$row = static fn (int $jid, string $num, string $cust, array $o = []): array => $o + ['job_id' => $jid, 'job_number' => $num, 'customer_name' => $cust, 'job_date' => null, 'from_location' => 'GA', 'bh' => null,
+    'diesel' => null, 'hotels' => null, 'helper' => null, 'misc' => null, 'commission' => null, 'extra' => null, 'remark' => null];
+$hdr = static fn (string $n, ?string $b): array => ['trip_number' => $n, 'foreman_id' => $joe, 'begins_on' => $b, 'ends_on' => null, 'collected_by' => null, 'notes' => null];
+$tA = $repo->create($hdr('IT-A', '2026-10-10'), [$row($ja, 'I-1', 'John smith', ['diesel' => '40', 'hotels' => '10.50'])], null);
+$tB = $repo->create($hdr('IT-B', '2026-10-12'), [$row($jc, 'I-3', 'Ada Smith', ['diesel' => '5'])], null);
+$tOld = $repo->create($hdr('IT-OLD', '2026-09-01'), [$row($jc, 'I-3', 'Ada Smith', ['diesel' => '999'])], null);
+
+sign_in($mgr);
+$page = call('GET', "/jobs/{$ja}");
+$pb = $page->body();
+$pt = plain($pb);
+check(str_contains($pt, 'Foreman trips') && str_contains($pb, 'href="/trips/' . $tA . '"') && str_contains($pt, 'IT-A') && str_contains($pt, 'Joe'), 'Job Details lists the trips the job is on, linked, with the foreman');
+check(!str_contains($pb, '>IT-A</option>') && str_contains($pb, '>IT-B &middot; Joe</option>') || str_contains($pb, 'IT-B · Joe'), '"Add to a trip" offers the other trips but not the one it is already on');
+check(str_contains($pb, '/trips/create?job=I-1'), 'and a "New trip with this job" link');
+check(str_contains(plain(call('GET', "/jobs/{$jb}")->body()), 'This job is not on any trip yet'), 'a job on no trip says so');
+
+$before = (int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ?', [$tB]);
+Database::execute('UPDATE trips SET updated_at = ? WHERE id = ?', ['2026-10-23 08:00:00', $tB]);
+$r = call('POST', "/jobs/{$ja}/trip", ['trip' => (string) $tB]);
+$rows = $repo->rows($tB);
+check($r->status() === 302 && count($rows) === $before + 1 && $rows[1]['job_number'] === 'I-1' && $rows[1]['customer_name'] === 'John smith' && $rows[1]['from_location'] === 'GA' && $rows[1]['job_date'] === '2026-10-02', 'adding appends a row at the end with the job\'s number, customer, From and pickup date');
+check($rows[1]['diesel'] === null && $rows[1]['commission'] === null && (int) $rows[1]['sort_order'] === 1, '...and no expenses (they are entered on the trip)');
+check(Database::fetchValue('SELECT updated_at FROM trips WHERE id = ?', [$tB]) !== '2026-10-23 08:00:00', 'the trip counts as changed, so an edit form opened earlier gets the conflict warning');
+$aud = (string) Database::fetchValue("SELECT new_values FROM audit_logs WHERE action = 'trip_updated' AND entity_id = ? ORDER BY id DESC LIMIT 1", [$tB]);
+check(str_contains($aud, 'I-1'), 'it is audited');
+check(count($repo->forJob($ja)) === 2 && !str_contains(call('GET', "/jobs/{$ja}")->body(), '>IT-B &middot; Joe</option>'), 'the job now shows both trips and IT-B is no longer offered');
+call('POST', "/jobs/{$ja}/trip", ['trip' => (string) $tB]);
+check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ? AND job_id = ?', [$tB, $ja]) === 1 && isset($_SESSION['_flash_next']['alert']), 'adding the same job again changes nothing and says so');
+call('POST', "/jobs/{$ja}/trip", ['trip' => '']);
+call('POST', "/jobs/{$ja}/trip", ['trip' => '99999']);
+check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE job_id = ?', [$ja]) === 2, 'no trip chosen, or an unknown trip, changes nothing');
+check(call('POST', '/jobs/99999/trip', ['trip' => (string) $tA])->status() === 404, 'an unknown job is a 404');
+$gone = mk_job(['job_number' => 'I-GONE']);
+(new JobRepository())->softDelete($gone, null);
+check(call('POST', "/jobs/{$gone}/trip", ['trip' => (string) $tA])->status() === 404, 'a deleted job cannot be added');
+$tDel = $repo->create($hdr('IT-DEL', '2026-10-14'), [$row($jb, 'I-2', 'Mia Lee')], null);
+Database::execute('UPDATE trips SET deleted_at = ? WHERE id = ?', ['2026-10-20 00:00:00', $tDel]);
+call('POST', "/jobs/{$jc}/trip", ['trip' => (string) $tDel]);
+check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ? AND job_id = ?', [$tDel, $jc]) === 0, 'a deleted trip cannot be added to');
+check(!str_contains(call('GET', "/jobs/{$ja}")->body(), 'IT-DEL') && !str_contains(call('GET', "/jobs/{$jb}")->body(), 'IT-DEL'), 'and a deleted trip is neither offered nor listed on a job');
+
+// prefill
+$f = call('GET', '/trips/create', [], ['job' => 'I-2'])->body();
+check(preg_match('/name="rows\[0\]\[job_number\]"[^>]*value="I-2"/', $f) === 1 && preg_match('/name="rows\[1\]\[job_number\]"[^>]*value=""/', $f) === 1, '"New trip with this job" puts the job number in the first row');
+check(str_contains(call('GET', '/trips/create', [], ['job' => str_repeat('x', 200)])->body(), 'value="' . str_repeat('x', 40) . '"') && !str_contains(call('GET', '/trips/create', [], ['job' => str_repeat('x', 200)])->body(), str_repeat('x', 41)) && call('GET', '/trips/create', [], ['job' => ['a']])->status() === 200, 'an over-long or malformed job parameter is harmless');
+check(!str_contains(call('GET', '/trips/create', [], ['job' => '"><script>alert(1)</script>'])->body(), '<script>alert(1)'), 'and is escaped');
+
+// deleting a job that is on a trip
+(new JobRepository())->softDelete($jc, null);
+$show = call('GET', "/trips/{$tB}")->body();
+check(str_contains(plain($show), 'I-3') && str_contains($show, 'job deleted') && !str_contains($show, 'href="/jobs/' . $jc . '"'), 'a trip still shows a deleted job, marked, without a dead link');
+check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE job_id = ?', [$jc]) === 2, 'deleting a job never deletes trip rows');
+
+// dashboard
+$d = plain(call('GET', '/dashboard')->body());
+check(str_contains($d, 'Foreman trips') && str_contains($d, 'last 30 days'), 'the dashboard has a trips card');
+$fig = (new TripService())->dashboardFigures();
+check($fig['trips'] === 2 && $fig['jobs'] === 3 && $fig['expenses'] === '55.50', 'it counts trips that began in the last 30 days only (IT-OLD, 52 days ago, is out): 2 trips, 3 job lines, expenses 40 + 10.50 + 5');
+check(str_contains($d, '$55.50'), '...and shows the expenses to a Manager');
+fresh_session();
+make_role('Trip clerk 3', ['dashboard.view', 'jobs.view', 'trips.view']);
+sign_in(make_user('Trip clerk 3', 'tc3@example.com'));
+$d = plain(call('GET', '/dashboard')->body());
+check(str_contains($d, 'Foreman trips') && !str_contains($d, '$55.50') && (new TripService())->dashboardFigures()['expenses'] === null, 'without trips.financials the card has counts but no expenses');
+check(!str_contains(call('GET', "/jobs/{$ja}")->body(), 'Add to a trip') && !str_contains(call('GET', "/jobs/{$ja}")->body(), 'New trip with this job'), 'a viewer sees the trips on a job but has no Add button');
+check(call('POST', "/jobs/{$ja}/trip", ['trip' => (string) $tB])->status() === 403, 'and cannot add (403)');
+fresh_session();
+sign_in($stf);
+$sb = call('GET', "/jobs/{$ja}")->body();
+check(!str_contains($sb, 'Foreman trips') && !str_contains(plain(call('GET', '/dashboard')->body()), 'Foreman trips') && call('POST', "/jobs/{$ja}/trip", ['trip' => (string) $tB])->status() === 403, 'Staff sees no trips panel, no dashboard card and cannot add');
+Clock::fake(null);

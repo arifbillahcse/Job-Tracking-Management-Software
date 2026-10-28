@@ -120,6 +120,44 @@ $dl = static function (string $label, string $valueHtml): string {
         </div>
     </div>
 
+    <?php if (can('trips.view')): ?>
+        <div class="col-12 col-lg-6">
+            <div class="card jt-card h-100">
+                <div class="card-header bg-transparent fw-semibold d-flex align-items-center gap-2"><?= icon('truck') ?> Foreman trips</div>
+                <div class="card-body">
+                    <?php if ($jobTrips === []): ?>
+                        <p class="text-body-secondary mb-2">This job is not on any trip yet.</p>
+                    <?php else: ?>
+                        <ul class="list-unstyled mb-3">
+                            <?php foreach ($jobTrips as $t): ?>
+                                <li><a class="jt-jobno" href="<?= e(url('/trips/' . $t['id'])) ?>"><?= e($t['trip_number']) ?></a>
+                                    <span class="text-body-secondary">&middot; <?= e($t['foreman_name']) ?><?= !empty($t['begins_on']) ? ' &middot; ' . e(fmt_date($t['begins_on'])) : '' ?></span></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                    <?php if (can('trips.manage')): ?>
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            <?php if ($tripChoices !== []): ?>
+                                <form class="d-flex gap-2" method="post" action="<?= e(url('/jobs/' . $job['id'] . '/trip')) ?>">
+                                    <?= csrf_field() ?>
+                                    <label class="visually-hidden" for="add-trip">Add this job to a trip</label>
+                                    <select class="form-select form-select-sm" id="add-trip" name="trip" required>
+                                        <option value="">Add to a trip&hellip;</option>
+                                        <?php foreach ($tripChoices as $t): ?>
+                                            <option value="<?= e($t['id']) ?>"><?= e($t['trip_number']) ?> &middot; <?= e($t['foreman_name']) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <button type="submit" class="btn btn-sm btn-outline-primary">Add</button>
+                                </form>
+                            <?php endif; ?>
+                            <a class="btn btn-sm btn-outline-secondary" href="<?= e(list_url('/trips/create', ['job' => $job['job_number']])) ?>"><?= icon('plus') ?> New trip with this job</a>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
+
     <?php if (!empty($job['notes'])): ?>
         <div class="col-12">
             <div class="card jt-card">

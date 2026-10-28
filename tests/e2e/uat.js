@@ -288,6 +288,17 @@ async function createJob(page, number, availableOffset, extra = {}) {
         const csv = fs.readFileSync(file, 'utf8');
         must(csv.includes('Trip Number') && csv.includes(RUN + '-TR') && csv.includes('120.10') && csv.includes('80.00'), 'CSV is missing the trip or its amounts');
     });
+    await step('a job page lists its trips and can add the job to another trip', async () => {
+        await page.goto(BASE + '/jobs?q=' + RUN + '-B');
+        await page.click('a.jt-jobno[href^="/jobs/"]');
+        must((await page.textContent('main')).includes('not on any trip yet'), 'job B should be on no trip');
+        await page.selectOption('#add-trip', { label: RUN + '-TR \u00b7 ' + RUN + ' Foreman' });
+        await Promise.all([page.waitForNavigation(), page.click('form[action$="/trip"] button[type=submit]')]);
+        const text = await page.textContent('main');
+        must(text.includes('was added to trip ' + RUN + '-TR') && text.includes(RUN + '-TR'), 'no confirmation or trip link: ' + text.replace(/\s+/g, ' ').slice(0, 160));
+        await page.goto(BASE + '/dashboard');
+        must((await page.textContent('main')).includes('Foreman trips'), 'no trips card on the dashboard');
+    });
     await step('a trip can be deleted', async () => {
         await page.goto(BASE + '/trips?q=' + RUN + '-TR');
         await page.click('a.jt-jobno[href^="/trips/"]');

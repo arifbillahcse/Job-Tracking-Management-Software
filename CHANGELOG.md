@@ -2,6 +2,14 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.2.2 - trips connected to jobs and the dashboard (roadmap phase 8)
+
+* **Job Details has a "Foreman trips" card** (for people who may view trips): the trips the job is on, linked, with the foreman and date. People who may manage trips can **add the job to an existing trip** from a drop-down (trips that already carry it are not offered) or start **a new trip with this job** already in the first row. A job added this way gets no expenses; enter them on the trip.
+* **Dashboard card "Foreman trips, last 30 days"**: trips, job lines and (with `trips.financials`) the expenses, linking to the foreman report.
+* A trip still shows a job that was later deleted, marked "job deleted" and without a dead link. Deleting a job never deletes trip rows.
+* Adding a job to a trip counts as a change to the trip, so an edit form opened before it shows the "someone else changed this" warning, and it is audited.
+* **Upgrade:** upload the new files and run `php cli/doctor.php`. No migration, no new permission (adding uses `trips.manage`).
+
 ## 1.2.1 - foreman report and CSV export of trips (roadmap phase 7)
 
 * **Trips by foreman** report (Trips -> By foreman): one line per foreman with trips, jobs, each of the six expense columns and Total expenses, plus a grand total, for trips beginning in a chosen period (and optionally one foreman). Counts only for users without `trips.financials`.

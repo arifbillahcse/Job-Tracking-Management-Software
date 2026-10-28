@@ -194,6 +194,14 @@ The generated role x route matrix is in `docs/permission-matrix.md` (`php cli/pe
 | U2 | The CSV is **one line per job row** with the trip's details repeated (the shape of the client's sheet, easy to pivot in Excel). Searching by a job or customer exports every line of each trip that matches, exactly as the list shows whole trips. | `TripExportService` |
 | U3 | Exporting needs its own permission (`trips.export`) because it takes data out of the system; seeing the report on screen needs only `trips.view`. Money columns follow `trips.financials`. | `routes.php`, `TripExportService` |
 
+## Trips and jobs together (version 1.2.2)
+
+| # | Assumption | Where |
+|---|------------|-------|
+| V1 | "Add to a trip" from a job appends a row with the job's number, customer, From and **pickup date**, and **no expenses**. It needs `trips.manage`. The panel and the dashboard card need `trips.view`; the card's expense total needs `trips.financials`. | `TripService::addJob()` |
+| V2 | The dashboard card counts trips whose **begin date is in the last 30 days** (a trip with no begin date is not counted). Same plain sums as everywhere else (assumption T1). | `TripRepository::recentFigures()` |
+| V3 | A job can be on several trips, never twice on the same trip. Deleting a job (soft delete) leaves its trip rows in place. | `TripService`, `trip_jobs` |
+
 ## Security defaults (can be tuned in `app/Config/app.php` / `.env`)
 
 * Sessions end after **30 minutes idle** or **8 hours** in total.

@@ -1,7 +1,7 @@
 <?php
 /**
  * @var array<string,mixed>|null $data  job figures (null when the user may not view jobs)
- * @var array<int,string> $permissions
+ * @var array<int,string> $permissions  @var array{trips:int,jobs:int,expenses:?string}|null $trips  trips that began in the last 30 days (null without trips.view)
  */
 use App\Services\JobBucket;
 
@@ -106,6 +106,22 @@ $threshold = JobBucket::threshold();
                                 <div class="h4 mb-0 jt-money"><?= e(fmt_money($data['money']['storage_fee'])) ?></div>
                                 <div class="jt-subtle">on undelivered jobs</div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($trips !== null): ?>
+                <div class="card jt-card mb-4">
+                    <div class="card-header bg-transparent fw-semibold d-flex align-items-center gap-2"><?= icon('truck') ?> Foreman trips <span class="jt-subtle fw-normal">last 30 days</span>
+                        <a class="ms-auto small fw-normal" href="<?= e(url('/trips/report')) ?>">By foreman</a></div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-4"><div class="text-body-secondary small">Trips</div><div class="h4 mb-0"><?= e($trips['trips']) ?></div></div>
+                            <div class="col-4"><div class="text-body-secondary small">Jobs</div><div class="h4 mb-0"><?= e($trips['jobs']) ?></div></div>
+                            <?php if ($trips['expenses'] !== null): ?>
+                                <div class="col-4"><div class="text-body-secondary small">Expenses</div><div class="h4 mb-0 jt-money"><?= e(fmt_money($trips['expenses'])) ?></div></div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
