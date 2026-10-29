@@ -2,6 +2,14 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.4.0 - "Keep me signed in" on the sign-in page
+
+* **A checkbox on the sign-in page: "Keep me signed in on this device"** (for 14 days, or until you sign out), so administrators and staff do not have to type their password again every time the session times out or the browser is closed. Tick it only on your own computer or phone.
+* **How it works, and why it is safe enough:** the browser keeps a random cookie (HttpOnly, SameSite=Lax, Secure over HTTPS); the database keeps only a **hash** of its secret, so a copy of the table cannot sign anyone in. A remembered sign-in is refused, and removed, when it has expired (fixed 14 days from the day it was ticked; using it does not extend it), the secret is wrong, the account is deactivated, locked or gone, or the user's **password has changed since**. Signing out ends it for that browser. The ordinary 30-minute idle timeout still applies to a session; a remembered browser simply gets a new session without asking.
+* **My Account -> Devices:** shows how many devices are remembered and has **Forget all devices**. Changing the password on My Account forgets every device. A user keeps at most 10 remembered browsers. Everything is in the audit log (kept signed in, forgot devices, refused a cookie).
+* **Switch it off:** `REMEMBER_ME_DAYS=0` in `.env` removes the checkbox and stops existing cookies from working (1-90 days otherwise; the default is 14).
+* **Upgrade:** `git pull origin main`, `php cli/migrate.php` (013 adds the `remember_tokens` table), `php cli/doctor.php`. Until migrated, the checkbox is simply not shown and signing in works as before.
+
 ## 1.3.5 - `php cli/verify.php`: a read-only check of a real deployment (client follow-up, phase 5)
 
 * **New command `php cli/verify.php`.** It runs every job, trip and foreman query the application uses (all five job lists, the new Foreman and Trip filters and sorting, the dashboard, trip list and search, trip pick lists, the foreman report, the trip export, the foremen page) against the real database, and checks the tables and columns the newer features need. This proves the queries work on the real database engine (MariaDB on cPanel); the automated tests only run on SQLite. It also reports the code version and commit, the database version, the settings that decide what people see (counting the 30 days from the pickup date, monthly storage fee), the storage fee rate, the data counts and any inconsistency (a job assigned to a deleted trip, a foreman that does not match the trip's, booked jobs with no pickup date).

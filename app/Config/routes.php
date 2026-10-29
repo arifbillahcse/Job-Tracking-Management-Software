@@ -105,6 +105,7 @@ return static function (Router $router): void {
     $router->get('/account', [AccountController::class, 'show'])->authOnly()->name('account');
     $router->post('/account/profile', [AccountController::class, 'updateProfile'])->authOnly()->name('account.profile');
     $router->post('/account/password', [AccountController::class, 'updatePassword'])->authOnly()->name('account.password');
+    $router->post('/account/devices', [AccountController::class, 'forgetDevices'])->authOnly()->name('account.devices');
 
     // Phase 7: read-only audit trail and application settings.
     $router->get('/audit', [AuditController::class, 'index'])->can('audit.view')->name('audit');

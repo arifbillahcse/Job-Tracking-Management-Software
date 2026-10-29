@@ -216,6 +216,16 @@ The generated role x route matrix is in `docs/permission-matrix.md` (`php cli/pe
 | W8 | On the job lists the foreman and the trip share **one column** (foreman first, trip number below it) to keep the table within the screen. The **Foreman** filter has "No foreman assigned" and lists inactive foremen too (old jobs may still point at them). Everyone who can see jobs can use these filters and see the names; the trip link needs `trips.view`. | `views/jobs/list.php`, `JobCriteria` |
 | W7 | The Trip choice on the job form lists the newest 200 live trips plus the job's current one. A job with an older trip is assigned by editing the trip, or by the import. | `TripRepository::choices()` |
 
+## Keep me signed in (version 1.4.0)
+
+| # | Assumption | Where |
+|---|------------|-------|
+| X1 | The checkbox is available to **every** user, administrators included, because the client asked for admin and staff. An organization that does not want it on shared computers sets `REMEMBER_ME_DAYS=0`. | `config/app.php`, `RememberService` |
+| X2 | **14 days, fixed.** A remembered sign-in lasts 14 days from the day it was ticked; using it does not extend it, so a stolen cookie cannot live on. Raise or lower it with `REMEMBER_ME_DAYS` (1-90). | `RememberService::issue()` |
+| X3 | A remembered browser is **not** tied to the IP address or the exact browser string (both change in normal use, which would sign people out constantly). The protections are the secret, the hash, the expiry, the password check and sign-out. | `RememberService::restore()` |
+| X4 | **Forget all devices** removes the cookies of this user. A session that is open right now cannot be closed from elsewhere (sessions are files on the server); it ends by itself after the idle time (30 minutes by default). | `AccountController::forgetDevices()` |
+| X5 | Because the 30-minute idle timeout silently renews for a remembered browser, someone who walks away from a remembered computer stays signed in. That is the trade the client asked for; the advice on the sign-in page is to tick it only on a personal device. | - |
+
 ## Security defaults (can be tuned in `app/Config/app.php` / `.env`)
 
 * Sessions end after **30 minutes idle** or **8 hours** in total.

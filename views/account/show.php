@@ -60,5 +60,27 @@
                 </form>
             </div>
         </div>
+
+        <?php if (!empty($rememberEnabled)): ?>
+            <div class="card jt-card mt-4">
+                <div class="card-header bg-transparent fw-semibold d-flex align-items-center gap-2"><?= icon('shield') ?> Devices</div>
+                <div class="card-body">
+                    <p class="mb-3">
+                        <?php if ($remembered > 0): ?>
+                            You chose &ldquo;Keep me signed in&rdquo; on <strong><?= e($remembered) ?></strong> device<?= $remembered === 1 ? '' : 's' ?> (for up to <?= e($rememberDays) ?> days each).
+                        <?php else: ?>
+                            No device is set to keep you signed in. Tick &ldquo;Keep me signed in on this device&rdquo; on the sign-in page to stay signed in.
+                        <?php endif; ?>
+                    </p>
+                    <?php if ($remembered > 0): ?>
+                        <form method="post" action="<?= e(url('/account/devices')) ?>">
+                            <?= csrf_field() ?>
+                            <button type="submit" class="btn btn-outline-danger" data-confirm="Sign out on all your remembered devices? You will have to type your password again on each.">Forget all devices</button>
+                        </form>
+                        <div class="form-text mt-2">A session that is open right now ends by itself after <?= e(\App\Core\Config::get('app.session.idle_minutes', 30)) ?> idle minutes.</div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        <?php endif; ?>
     </div>
 </div>

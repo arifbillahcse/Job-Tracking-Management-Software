@@ -4,6 +4,9 @@ For everyone who works with jobs. Ask your administrator if you cannot see somet
 
 ## Signing in and out
 
+Tick **Keep me signed in on this device** on the sign-in page to stop typing your password every time (for 14 days, or until you sign out). Only do this on your own computer or phone. **My Account -> Devices** shows how many devices are remembered and lets you forget them all. Changing your password forgets them too.
+
+
 Open the address you were given, type your **username** and password, press **Sign in**. After a wrong password you can try again; after **5 wrong tries** you must wait about 15 minutes (or ask an administrator to unlock you). If you do nothing for **30 minutes** you are signed out for safety.
 
 **First time:** you will be asked to choose your own password (at least 10 characters; a sentence is easiest to remember). Change it anytime under your name -> **My Account**.

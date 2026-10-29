@@ -45,6 +45,21 @@ Reviewed by reading the new code and by automated checks that fail when the safe
 
 Not checked: the same items as above (real Apache/Nginx, TLS, MariaDB behaviour, browsers other than Chromium, an independent penetration test).
 
+## Version 1.4 review: "Keep me signed in"
+
+Reviewed by reading the code and by tests that fail when the safeguard is removed (`tests/phase14.php`, and a real-browser check).
+
+| Area | Result |
+|---|---|
+| **Secret handling** | 96 random bits for the selector and 256 for the secret. Only a SHA-256 hash of the secret is stored and compared in constant time; the secret is nowhere in the database (tested) |
+| **Cookie** | HttpOnly, SameSite=Lax, Secure over HTTPS, scoped to the application path (checked in a real browser) |
+| **Lifetime** | Fixed from the day of issue, never extended by use; expired tokens are deleted on use and on the next sign-in; at most 10 per user |
+| **Revocation** | Sign-out, "Forget all devices", a password change (also checked by a marker stored with the token), deactivation, locking, removal of the user, and a wrong secret (treated as guessing: the token is deleted and the event audited) all stop it. Each is tested |
+| **Input** | Malformed, over-long and SQL-looking cookie values are ignored without error (tested) |
+| **Sessions** | Signing in from a cookie creates a fresh session id and a new CSRF token, exactly like a password sign-in |
+| **Residual risk** | A stolen cookie works until it expires or is revoked (that is what "remember me" means). It is not bound to an IP or browser string (X3). Someone who steals the remembered computer stays signed in until the user signs out elsewhere or forgets devices |
+| **Findings** | No defect found. One mutation (ignoring an inactive user in the cookie check) was first missed by the tests and is now caught |
+
 ## Accepted risks and things this review could not check
 
 * **Not tested here:** Apache/Nginx configuration (`.htaccess` rules are present but only the PHP built-in server was available), TLS (HSTS and the Secure cookie flag are implemented and only apply over HTTPS in production), MySQL/MariaDB behaviour (tests run on SQLite), real browsers other than Chromium, screen readers.

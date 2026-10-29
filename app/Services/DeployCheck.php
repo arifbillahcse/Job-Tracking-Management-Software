@@ -54,6 +54,7 @@ final class DeployCheck
             'jobs' => ['customer_phone', 'loaded_date', 'delivery_date', 'storage_fee_override', 'storage_rate', 'estimated_cf', 'estimated_total', 'deposit', 'grand_total', 'bh_total', 'paid', 'job_lot', 'color', 'foreman_id', 'trip_id'],
             'foremen' => ['id', 'name', 'phone', 'active'],
             'trips' => ['id', 'trip_number', 'foreman_id', 'begins_on', 'ends_on', 'collected_by', 'deleted_at'],
+            'remember_tokens' => ['user_id', 'selector', 'token_hash', 'pw_marker', 'expires_at'],
             'trip_jobs' => ['id', 'trip_id', 'job_id', 'job_number', 'customer_name', 'diesel', 'hotels', 'helper', 'misc', 'commission', 'extra', 'remark'],
         ];
         foreach ($schema as $table => $columns) {

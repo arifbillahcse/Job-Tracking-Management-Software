@@ -22,6 +22,7 @@ final class AuditService
         'account_locked' => 'Account locked', 'access_denied' => 'Access denied',
         'password_changed' => 'Password changed', 'password_reset' => 'Password reset by an administrator',
         'profile_updated' => 'Profile updated',
+        'remember_enabled' => 'Kept signed in on a device', 'remember_revoked' => 'Forgot remembered devices', 'remember_rejected' => 'Refused a remember-me cookie',
         'job_created' => 'Job created', 'job_updated' => 'Job updated', 'job_status_changed' => 'Job status changed',
         'job_deleted' => 'Job deleted', 'job_restored' => 'Job restored',
         'jobs_imported' => 'Jobs imported', 'jobs_exported' => 'Jobs exported',

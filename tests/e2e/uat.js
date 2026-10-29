@@ -355,6 +355,40 @@ async function createJob(page, number, availableOffset, extra = {}) {
         must(!(await page.textContent('main')).includes(RUN + '-TR'), 'trip still listed');
     });
 
+    console.log('== Keep me signed in');
+    await step('the checkbox keeps a browser signed in after the session is gone, and signing out ends it', async () => {
+        const remembered = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+        const p = await remembered.newPage();
+        await p.goto(BASE + '/login');
+        must(await p.isVisible('#remember'), 'no "Keep me signed in" checkbox');
+        await p.fill('#username', ADMIN);
+        await p.fill('#password', ADMIN_PASS);
+        await p.check('#remember');
+        await Promise.all([p.waitForNavigation(), p.click('button[type=submit]')]);
+        const cookies = await remembered.cookies();
+        const keep = cookies.find((c) => c.name === 'JT_REMEMBER');
+        must(keep && keep.httpOnly && keep.sameSite === 'Lax' && keep.expires > Date.now() / 1000 + 13 * 86400, 'the remember cookie is missing or not HttpOnly / SameSite=Lax / about 14 days: ' + JSON.stringify(keep));
+        await remembered.clearCookies({ name: 'JT_SESSID' });   // the browser was closed: the session cookie is gone
+        await p.goto(BASE + '/dashboard');
+        must((await p.textContent('main')).includes('Total jobs'), 'not signed in again by the remember cookie');
+        await p.goto(BASE + '/account');
+        must((await p.textContent('main')).includes('on 1 device'), 'My Account does not show the remembered device');
+        await p.click('[data-bs-toggle="dropdown"]');
+        await Promise.all([p.waitForNavigation(), p.click('form[action$="/logout"] button')]);
+        await remembered.clearCookies({ name: 'JT_SESSID' });
+        await p.goto(BASE + '/dashboard');
+        must(p.url().includes('/login'), 'still signed in after signing out');
+        await remembered.close();
+        const plain = await browser.newContext();
+        const q = await plain.newPage();
+        await signIn(q, ADMIN, ADMIN_PASS);   // no checkbox ticked
+        must(!(await plain.cookies()).some((c) => c.name === 'JT_REMEMBER'), 'a remember cookie was set without ticking the box');
+        await plain.clearCookies({ name: 'JT_SESSID' });
+        await q.goto(BASE + '/dashboard');
+        must(q.url().includes('/login'), 'signed in again without having ticked the box');
+        await plain.close();
+    });
+
     console.log('== A Staff member');
     await step('Staff cannot see money, imports, users or settings', async () => {
         const staff = await browser.newContext({ viewport: { width: 1280, height: 800 } });

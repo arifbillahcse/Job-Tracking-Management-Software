@@ -35,6 +35,11 @@ return [
         'secure' => Env::bool('SESSION_SECURE', false), // forced on automatically over HTTPS
     ],
 
+    // "Keep me signed in": days a remembered browser stays signed in (0 turns the checkbox off). Fixed from the day it was ticked.
+    'remember' => [
+        'days' => Env::int('REMEMBER_ME_DAYS', 14),
+    ],
+
     'auth' => [
         'max_failed_attempts' => 5,   // per account before a temporary lock
         'lockout_minutes' => 15,

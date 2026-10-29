@@ -177,3 +177,5 @@ php cli/verify.php                        # every line [ ok ] or [info]; read an
 ```
 
 Then open the site as each kind of user (Admin, Manager, Staff) and check the footer shows the version you expect. If someone says "I don't see the update", compare their role's menu with the permission matrix first: a role created before a feature existed does not have its permissions until `sync-roles --apply` (or an administrator ticks them under Roles & Permissions).
+
+`REMEMBER_ME_DAYS` in `.env` (default 14) controls the "Keep me signed in" checkbox: `0` removes it. The migration `013_create_remember_tokens.sql` must be applied (`php cli/migrate.php`) for the checkbox to appear.

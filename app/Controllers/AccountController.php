@@ -12,6 +12,7 @@ use App\Helpers\PasswordPolicy;
 use App\Repositories\UserRepository;
 use App\Services\AuditService;
 use App\Services\AuthService;
+use App\Services\RememberService;
 
 /**
  * The signed-in user's own account: profile summary and password change.
@@ -20,7 +21,12 @@ final class AccountController extends Controller
 {
     public function show(Request $request): Response
     {
-        return $this->view('account/show', ['title' => 'My Account']);
+        return $this->view('account/show', [
+            'title' => 'My Account',
+            'rememberEnabled' => RememberService::enabled(),
+            'remembered' => RememberService::enabled() ? RememberService::count((int) Auth::id()) : 0,
+            'rememberDays' => RememberService::days(),
+        ]);
     }
 
     public function updateProfile(Request $request): Response
@@ -78,9 +84,20 @@ final class AccountController extends Controller
         (new UserRepository())->updatePassword((int) $user['id'], $hash, false);
         (new UserRepository())->clearLock((int) $user['id']);
         Auth::refreshPasswordMarker($hash);
+        RememberService::revokeAll((int) $user['id']); // every remembered browser must sign in with the new password
         AuditService::record('password_changed', 'user', (int) $user['id']);
 
         $this->flash('success', 'Your password has been updated.');
+        return $this->redirect('/account');
+    }
+
+    /** "Forget all devices": removes every "keep me signed in" cookie of this user, including this browser's. */
+    public function forgetDevices(Request $request): Response
+    {
+        $n = RememberService::revokeAll((int) Auth::id());
+        RememberService::forget();
+        AuditService::record('remember_revoked', 'user', Auth::id(), null, ['devices' => $n]);
+        $this->flash('success', $n === 0 ? 'No device was remembered.' : 'Forgotten on ' . $n . ' device' . ($n === 1 ? '' : 's') . '.');
         return $this->redirect('/account');
     }
 }

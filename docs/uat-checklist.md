@@ -19,6 +19,8 @@ Sign in as **Admin** unless a scenario says otherwise. Replace `TEST-1` etc. wit
 | A3 | Click your name, then **Sign out**. Press the browser's Back button. | You are on the sign-in page. Back does not show private pages. | ☐ | |
 | A4 | Sign in, leave the page open 30 minutes without clicking, then click anything. | You are asked to sign in again. | ☐ | |
 | A5 | Enter a wrong password 5 times in a row. | A message that you must wait a few minutes. (An administrator can unlock you sooner under **Users**.) | ☐ | |
+| A6 | Sign in with **Keep me signed in on this device** ticked. Close the browser completely and open the site again. | You are still signed in (no password asked). My Account -> Devices says 1 device. | ☐ | |
+| A7 | Click **Forget all devices** (or sign out), close the browser and open the site again. | You must sign in again. | ☐ | |
 
 ## B. Creating and finding jobs
 

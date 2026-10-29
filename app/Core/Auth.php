@@ -30,7 +30,14 @@ final class Auth
 
         $id = Session::get('user_id');
         if (!is_int($id)) {
-            return self::$user = null;
+            // Not signed in: a valid "keep me signed in" cookie signs the user in again with a fresh session.
+            $remembered = \App\Services\RememberService::restore();
+            if ($remembered === null) {
+                return self::$user = null;
+            }
+            self::login($remembered);
+            self::$resolved = true;
+            $id = (int) $remembered['id'];
         }
 
         $user = (new UserRepository())->findById($id);
@@ -70,6 +77,7 @@ final class Auth
 
     public static function logout(): void
     {
+        \App\Services\RememberService::forget();
         Session::invalidate();
         self::reset();
     }

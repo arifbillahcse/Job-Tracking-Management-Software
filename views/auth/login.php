@@ -11,7 +11,7 @@
         <?= error_text('username') ?>
     </div>
 
-    <div class="mb-4">
+    <div class="mb-3">
         <label for="password" class="form-label">Password</label>
         <div class="input-group">
             <input type="password" class="form-control<?= has_error('password') ? ' is-invalid' : '' ?>" id="password" name="password"
@@ -20,6 +20,16 @@
         </div>
         <?= error_text('password') ?>
     </div>
+
+    <?php if (!empty($remember)): ?>
+        <div class="form-check mb-4">
+            <input class="form-check-input" type="checkbox" id="remember" name="remember" value="1">
+            <label class="form-check-label" for="remember">Keep me signed in on this device</label>
+            <div class="form-text">For <?= e($rememberDays) ?> days, or until you sign out. Only tick this on your own computer or phone.</div>
+        </div>
+    <?php else: ?>
+        <div class="mb-4"></div>
+    <?php endif; ?>
 
     <button type="submit" class="btn btn-primary w-100">Sign in</button>
 </form>
