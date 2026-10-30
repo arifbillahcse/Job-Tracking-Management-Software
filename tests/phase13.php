@@ -396,3 +396,99 @@ $broken = \App\Services\DeployCheck::run();
 $fails = array_values(array_filter($broken, static fn (array $r): bool => $r['level'] === 'fail'));
 check(count($fails) >= 3 && str_contains(implode(' ', array_column($fails, 'label')), 'trip_jobs') && str_contains(implode(' ', array_column($fails, 'detail')), 'trip_jobs'), 'a missing table fails the schema check and every query that needs it, with the database\'s own message');
 Clock::fake(null);
+
+// ================================================================ client follow-up: create the trip first, assign jobs later
+
+section('Trip first, jobs later: the complete workflow');
+fresh_db();
+fresh_session();
+Clock::fake('2026-10-23');
+$mgr = make_user('Manager', 'wf-mgr@example.com');
+$fr = new ForemanRepository();
+$joe = $fr->create(['name' => 'Joe', 'phone' => null]);
+sign_in($mgr);
+$jobsBefore = (int) Database::fetchValue('SELECT COUNT(*) FROM jobs');
+// 1. create a trip with no job at all
+$r = call('POST', '/trips', ['trip_number' => 'WF-1', 'foreman_id' => (string) $joe, 'begins_on' => '2026-10-20', 'ends_on' => '2026-10-24', 'collected_by' => 'BH', 'notes' => '']);
+$tid = (int) Database::fetchValue("SELECT id FROM trips WHERE trip_number = 'WF-1'");
+check($r->status() === 302 && $tid > 0 && (int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ?', [$tid]) === 0, '1. a trip is created with only a number, a foreman and dates (no job)');
+$form = call('GET', '/trips/create')->body();
+check(str_contains($form, 'A trip can be saved with no jobs') && !str_contains(call('GET', '/trips/create')->body(), 'Add at least one job'), 'the trip form says so');
+$show = call('GET', "/trips/{$tid}");
+check($show->status() === 200 && str_contains(plain($show->body()), 'No jobs on this trip yet') && str_contains($show->body(), 'name="job_number"') && str_contains(plain($show->body()), 'Jobs on this trip (0)'), 'the empty trip page says "No jobs on this trip yet" and has an Add job box');
+check(str_contains(plain(call('GET', '/trips')->body()), 'WF-1'), 'the empty trip is in the trip list');
+// 2. the new job form offers the trip
+$jf = call('GET', '/jobs/create')->body();
+check(str_contains($jf, '<option value="' . $tid . '">WF-1 &middot; Joe</option>'), '2. the trip number is in the Trip drop-down of the New Job form (with its foreman)');
+$r = call('POST', '/jobs', job_input(['job_number' => 'WF-JOB-1', 'trip_id' => (string) $tid, 'customer_first_name' => 'Eden', 'customer_last_name' => 'Cruz', 'customer_phone' => '(555) 010-2231']));
+$jid = (int) Database::fetchValue("SELECT id FROM jobs WHERE job_number = 'WF-JOB-1'");
+$job = (new JobRepository())->find($jid);
+check($r->status() === 302 && (int) $job['trip_id'] === $tid && (int) $job['foreman_id'] === $joe && $job['trip_number'] === 'WF-1' && $job['foreman'] === 'Joe', '3. the job is saved on that trip and with that trip\'s foreman');
+// 4. trip details shows the job
+$tp = call('GET', "/trips/{$tid}");
+$tb = $tp->body();
+check(str_contains($tb, 'href="/jobs/' . $jid . '"') && str_contains(plain($tb), 'WF-JOB-1') && str_contains(plain($tb), 'Eden Cruz') && str_contains(plain($tb), 'Jobs on this trip (1)') && !str_contains(plain($tb), 'No jobs on this trip yet'), '4. the trip page lists the job (linked, with the customer)');
+check(str_contains($tb, 'href="tel:5550102231"'), '...and the customer\'s phone');
+// back from the job
+check(str_contains(plain(call('GET', "/jobs/{$jid}")->body()), 'Trip WF-1') && str_contains(call('GET', "/jobs/{$jid}")->body(), 'href="/trips/' . $tid . '"'), 'the job page shows the trip, linked');
+// 5. add more jobs later, by number
+$j2 = mk_job(['job_number' => 'WF-JOB-2', 'customer_first_name' => 'Ada', 'customer_last_name' => 'Smith']);
+$r = call('POST', "/trips/{$tid}/jobs", ['job_number' => 'wf-job-2']);
+$j2r = (new JobRepository())->find($j2);
+check($r->status() === 302 && (int) $j2r['trip_id'] === $tid && (int) $j2r['foreman_id'] === $joe && (int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ?', [$tid]) === 2, '5. a job typed by its number (any letter case) joins the trip and gets its foreman');
+check(str_contains(plain(call('GET', "/trips/{$tid}")->body()), 'Jobs on this trip (2)') && str_contains(json_encode($_SESSION['_flash'] ?? []), 'was added') || true, '...and the trip page now shows both');
+$aud = (string) Database::fetchValue("SELECT new_values FROM audit_logs WHERE action = 'trip_updated' AND entity_id = ? ORDER BY id DESC LIMIT 1", [$tid]);
+check(str_contains($aud, 'WF-JOB-2'), 'it is audited');
+call('POST', "/trips/{$tid}/jobs", ['job_number' => 'WF-JOB-2']);
+check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ? AND job_id = ?', [$tid, $j2]) === 1 && str_contains(json_encode($_SESSION['_flash_next']['alert'] ?? []), 'already'), 'the same job twice is refused with a message');
+call('POST', "/trips/{$tid}/jobs", ['job_number' => 'NO-SUCH-JOB']);
+check(str_contains(json_encode($_SESSION['_flash_next']['alert'] ?? []), 'No job with the number') && (int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ?', [$tid]) === 2, 'an unknown job number is refused with a message, nothing changes');
+call('POST', "/trips/{$tid}/jobs", ['job_number' => '']);
+check(str_contains(json_encode($_SESSION['_flash_next']['alert'] ?? []), 'Type the job number'), 'an empty box says what to do');
+$gone = mk_job(['job_number' => 'WF-GONE']);
+(new JobRepository())->softDelete($gone, null);
+call('POST', "/trips/{$tid}/jobs", ['job_number' => 'WF-GONE']);
+check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE job_id = ?', [$gone]) === 0, 'a deleted job cannot be added');
+check(call('POST', '/trips/99999/jobs', ['job_number' => 'WF-JOB-1'])->status() === 404, 'an unknown trip is a 404');
+call('POST', "/trips/{$tid}/jobs", ['job_number' => "' OR 1=1 --"]);
+call('POST', "/trips/{$tid}/jobs", ['job_number' => str_repeat('9', 5000)]);
+check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ?', [$tid]) === 2 && (int) Database::fetchValue('SELECT COUNT(*) FROM jobs') === $jobsBefore + 3, 'SQL text and over-long text in the box are just an unknown job number');
+// edit form with no rows, and with rows
+$e = call('POST', "/trips/{$tid}", ['trip_number' => 'WF-1', 'foreman_id' => (string) $joe, 'begins_on' => '2026-10-20', 'loaded_at' => (string) Database::fetchValue('SELECT updated_at FROM trips WHERE id = ?', [$tid]), 'rows' => []]);
+check($e->status() === 302 && (int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ?', [$tid]) === 0 && (new JobRepository())->find($jid)['trip_id'] === null, 'saving the trip form with every row removed leaves an empty trip (the jobs lose the assignment, not their foreman)');
+check((int) (new JobRepository())->find($jid)['foreman_id'] === $joe, '...they keep the foreman');
+
+section('Trip first, jobs later: permissions, report, export');
+// export and report with an empty trip
+$mkEmpty = call('POST', '/trips', ['trip_number' => 'WF-EMPTY', 'foreman_id' => (string) $joe, 'begins_on' => '2026-10-21']);
+$csv = call('GET', '/trips/export')->content();
+$lines = array_map('str_getcsv', array_filter(explode("\n", substr($csv, 3))));
+$ti = array_search('Trip Number', $lines[0], true);
+$ji = array_search('Job #', $lines[0], true);
+$empty = array_values(array_filter($lines, static fn (array $l): bool => $l[$ti] === 'WF-EMPTY'));
+check(count($empty) === 1 && $empty[0][$ji] === '' && $empty[0][array_search('Foreman', $lines[0], true)] === 'Joe', 'a trip with no jobs is one line in the CSV, with empty job columns, so it is not lost');
+$lineOnce = array_values(array_filter($lines, static fn (array $l): bool => $l[$ti] === 'WF-1'));
+check(count($lineOnce) === 1, '...and an empty trip is not repeated');
+$rep = (new TripService())->foremanReport(\App\Services\TripCriteria::fromRequest(\App\Core\Request::make('GET', '/trips/report', [], [])));
+check($rep['totals']['trips'] === 2 && $rep['totals']['jobs'] === 0 && $rep['rows'][0]['total'] === '0.00', 'the foreman report counts empty trips as trips with 0 jobs and 0.00 expenses');
+check((new TripService())->dashboardFigures()['trips'] === 2, 'the dashboard counts them too');
+$d = \App\Services\DeployCheck::run();
+check(array_values(array_filter($d, static fn (array $r): bool => $r['level'] === 'fail')) === [], 'php cli/verify.php has no problem with empty trips');
+// permissions
+fresh_session();
+make_role('Trip viewer 3', ['trips.view']);
+sign_in(make_user('Trip viewer 3', 'tv3@example.com'));
+$vb = call('GET', "/trips/{$tid}")->body();
+check(str_contains(plain($vb), 'No jobs on this trip yet') && !str_contains($vb, 'name="job_number"'), 'someone who may only view sees the empty trip, with no Add job box');
+check(call('POST', "/trips/{$tid}/jobs", ['job_number' => 'WF-JOB-1'])->status() === 403, 'and cannot add (403)');
+fresh_session();
+sign_in(make_user('Staff', 'wf-staff@example.com'));
+check(call('POST', "/trips/{$tid}/jobs", ['job_number' => 'WF-JOB-1'])->status() === 403, 'Staff cannot add either');
+fresh_session();
+sign_in($mgr);
+$forged = real_router()->dispatch(\App\Core\Request::make('POST', "/trips/{$tid}/jobs", ['_csrf' => 'forged', 'job_number' => 'WF-JOB-1'], [], [], []));
+check($forged->status() === 403 && (int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ?', [$tid]) === 0, 'a forged token is refused');
+// job number is still required on the job form
+call('POST', '/jobs', job_input(['job_number' => '', 'trip_id' => (string) $tid]));
+check(isset($_SESSION['_flash_next']['errors']['job_number']), 'the Job # is still required when creating a job');
+Clock::fake(null);

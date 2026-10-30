@@ -118,7 +118,7 @@ $bad(['foreman_id' => ''], 'foreman_id', 'a foreman is required');
 $bad(['foreman_id' => '9999'], 'foreman_id', 'an unknown foreman is refused');
 $bad(['begins_on' => '2026-13-45'], 'begins_on', 'an impossible date is refused');
 $bad(['begins_on' => '2026-10-25', 'ends_on' => '2026-10-20'], 'ends_on', 'the trip cannot end before it begins');
-$bad(['rows' => []], 'rows', 'a trip needs at least one job');
+check((new TripService())->prepare(['trip_number' => 'EMPTY-OK', 'foreman_id' => (string) $joe, 'rows' => []])['errors'] === [] && (new TripService())->prepare(['trip_number' => 'EMPTY-OK2', 'foreman_id' => (string) $joe])['errors'] === [], 'a trip no longer needs any job (the client creates the trip first and assigns jobs later)');
 $bad(['rows' => [['job_number' => 'NOPE-1']]], 'rows.0.job_number', 'an unknown job number is refused');
 $bad(['rows' => [['job_number' => 'TJ-GONE']]], 'rows.0.job_number', 'a deleted job cannot be added');
 $bad(['rows' => [['job_number' => 'TJ-11'], ['job_number' => 'tj-11']]], 'rows.1.job_number', 'the same job twice on one trip is refused');
@@ -129,8 +129,9 @@ $bad(['rows' => [['job_number' => 'TJ-11', 'remark' => str_repeat('x', 501)]]], 
 $bad(['rows' => [['job_number' => 'TJ-11', 'job_date' => 'tomorrow']]], 'rows.0.job_date', 'a bad row date is refused');
 $bad(['collected_by' => str_repeat('x', 151)], 'collected_by', 'collected by has a length limit');
 check(call('POST', '/trips', ['trip_number' => 'T-NOCSRF', '_csrf' => 'wrong'] + $post)->status() === 403, 'a request without a valid token is refused');
-$bad(['rows' => 'not-an-array'], 'rows', 'a malformed rows field is refused, not a crash');
-$bad(['rows' => ['x' => 'y']], 'rows', 'a non-array row is skipped, not a crash (and then there is no job)');
+check((new TripService())->prepare(['trip_number' => 'MAL-1', 'foreman_id' => (string) $joe, 'rows' => 'not-an-array'])['errors'] === [], 'a malformed rows field is treated as no rows, not a crash');
+$np = (new TripService())->prepare(['trip_number' => 'MAL-2', 'foreman_id' => (string) $joe, 'rows' => ['x' => 'y', ['job_number' => 'TJ-11']]]);
+check($np['errors'] === [] && count($np['rows']) === 1, 'a non-array row is skipped, not a crash');
 
 section('Trips: edit, conflict, delete');
 call('GET', '/trips'); // a page load, so the flash data of the last failed post is gone

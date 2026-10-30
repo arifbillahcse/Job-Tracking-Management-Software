@@ -2,6 +2,14 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.4.1 - create the trip first, assign jobs later (client follow-up)
+
+* **A trip no longer needs a job.** The client creates the trip first (number, foreman, dates, collected by), then creates jobs and chooses that trip on the New Job form. Job Number is still required on the job.
+* **Add job box on the trip page:** type a job number and **Add job**; the job joins the trip and gets its foreman. An empty trip says "No jobs on this trip yet". Jobs can still be put on a trip from the job form, the job page's "Add to a trip", the trip form or an import.
+* **Empty trips everywhere:** they appear in the trip list (0 jobs), the foreman report (0 jobs, 0.00 expenses), the dashboard figure, and as one line (empty job columns) in the trip CSV export.
+* Saving the trip form with every row removed leaves an empty trip; the jobs lose the assignment and keep their foreman.
+* **Upgrade:** `git pull origin main`, `php cli/doctor.php`. No migration.
+
 ## 1.4.0 - "Keep me signed in" on the sign-in page
 
 * **A checkbox on the sign-in page: "Keep me signed in on this device"** (for 14 days, or until you sign out), so administrators and staff do not have to type their password again every time the session times out or the browser is closed. Tick it only on your own computer or phone.

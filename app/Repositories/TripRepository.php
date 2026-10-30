@@ -121,18 +121,19 @@ final class TripRepository
         );
     }
 
-    /** Number of job rows (not trips) in the trips matching the criteria: the size of an export. */
+    /** Number of export lines (job rows, plus one for a trip with no jobs) in the trips matching the criteria. */
     public function countJobRows(TripCriteria $c): int
     {
         [$where, $params] = $this->where($c);
         return (int) Database::fetchValue(
-            "SELECT COUNT(*) FROM trip_jobs tj JOIN trips t ON t.id = tj.trip_id JOIN foremen f ON f.id = t.foreman_id WHERE {$where}",
+            "SELECT COUNT(*) FROM trips t JOIN foremen f ON f.id = t.foreman_id LEFT JOIN trip_jobs tj ON tj.trip_id = t.id WHERE {$where}",
             $params
         );
     }
 
     /**
      * One line per job row, trip details repeated on every line (the shape of the client's sheet), in the list's order.
+     * A trip with no jobs yet is one line with empty job columns, so it is not lost from the export.
      *
      * @return array<int,array<string,mixed>>
      */
@@ -141,7 +142,7 @@ final class TripRepository
         [$where, $params] = $this->where($c);
         return Database::fetchAll(
             "SELECT t.trip_number, f.name AS foreman_name, t.begins_on, t.ends_on, t.collected_by, tj.*, j.customer_phone
-             FROM trip_jobs tj JOIN trips t ON t.id = tj.trip_id JOIN foremen f ON f.id = t.foreman_id LEFT JOIN jobs j ON j.id = tj.job_id
+             FROM trips t JOIN foremen f ON f.id = t.foreman_id LEFT JOIN trip_jobs tj ON tj.trip_id = t.id LEFT JOIN jobs j ON j.id = tj.job_id
              WHERE {$where} ORDER BY t.begins_on DESC, t.id DESC, tj.sort_order ASC, tj.id ASC LIMIT ? OFFSET ?",
             [...$params, $limit, $offset]
         );

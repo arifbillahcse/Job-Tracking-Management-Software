@@ -29,7 +29,23 @@ $dl = static fn (string $label, string $html): string => '<dt class="col-sm-4 te
 </div>
 
 <div class="card jt-card">
-    <div class="card-header bg-transparent fw-semibold">Jobs on this trip (<?= e(count($trip['rows'])) ?>)</div>
+    <div class="card-header bg-transparent fw-semibold d-flex flex-wrap align-items-center gap-2">
+        <span>Jobs on this trip (<?= e(count($trip['rows'])) ?>)</span>
+        <?php if (can('trips.manage')): ?>
+            <form class="ms-auto d-flex gap-2 fw-normal" method="post" action="<?= e(url('/trips/' . $trip['id'] . '/jobs')) ?>">
+                <?= csrf_field() ?>
+                <label class="visually-hidden" for="add-job-number">Job number to add</label>
+                <input type="text" class="form-control form-control-sm" id="add-job-number" name="job_number" maxlength="40" placeholder="Job # to add" required>
+                <button type="submit" class="btn btn-sm btn-primary">Add job</button>
+            </form>
+        <?php endif; ?>
+    </div>
+    <?php if ($trip['rows'] === []): ?>
+        <div class="card-body text-body-secondary">
+            No jobs on this trip yet.
+            <?= can('trips.manage') ? 'Type a job number above, choose this trip when you create or edit a job, or use <strong>Edit</strong> to add several at once.' : '' ?>
+        </div>
+    <?php else: ?>
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0 jt-table">
             <thead>
@@ -70,4 +86,5 @@ $dl = static fn (string $label, string $html): string => '<dt class="col-sm-4 te
             <?php endif; ?>
         </table>
     </div>
+    <?php endif; ?>
 </div>

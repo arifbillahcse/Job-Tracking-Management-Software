@@ -174,6 +174,20 @@ final class TripService
         return $result;
     }
 
+    /**
+     * Adds a job, typed by its job number, to a trip (the "Add job" box on the trip page).
+     *
+     * @return string 'ok', 'no_trip', 'no_job' (unknown number) or 'already'
+     */
+    public function addJobByNumber(int $tripId, string $jobNumber): string
+    {
+        $job = trim($jobNumber) === '' ? null : $this->trips->findJobByNumber(trim($jobNumber));
+        if ($job === null) {
+            return $this->trips->find($tripId) === null ? 'no_trip' : 'no_job';
+        }
+        return $this->addJob($tripId, (int) $job['id']);
+    }
+
     /** @return string 'ok', 'no_trip', 'no_job' or 'already' */
     private function addJobRow(int $tripId, int $jobId): string
     {
@@ -315,9 +329,7 @@ final class TripService
             $rows[] = $row;
         }
 
-        if ($rows === [] && !array_filter($errors, static fn (string $k): bool => str_starts_with($k, 'rows.'), ARRAY_FILTER_USE_KEY)) {
-            $errors['rows'][] = 'Add at least one job to the trip.';
-        }
+        // A trip may be saved with no jobs at all: the trip is created first, jobs are assigned to it later (job form, Add job box, import).
 
         return ['header' => $errors === [] ? $this->normalizeHeader((array) $header) : null, 'rows' => $rows, 'errors' => $errors];
     }

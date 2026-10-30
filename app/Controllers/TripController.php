@@ -166,6 +166,24 @@ final class TripController extends Controller
         return $this->redirect($back);
     }
 
+    /** The "Add job" box on the trip page: a job typed by its number joins this trip (and gets its foreman). */
+    public function addJobToTrip(Request $request, int $id): Response
+    {
+        $number = trim($request->str('job_number'));
+        $result = $this->trips->addJobByNumber($id, $number);
+        if ($result === 'no_trip') {
+            return ErrorPages::response(404);
+        }
+        $back = '/trips/' . $id;
+        $message = match ($result) {
+            'ok' => ['success', 'Job ' . $number . ' was added to the trip.'],
+            'already' => ['warning', 'Job ' . $number . ' is already on this trip.'],
+            default => ['danger', $number === '' ? 'Type the job number to add.' : 'No job with the number "' . mb_substr($number, 0, 40) . '" was found (deleted jobs cannot be added).'],
+        };
+        $this->flash($message[0], $message[1]);
+        return $this->redirect($back);
+    }
+
     public function destroy(Request $request, int $id): Response
     {
         $number = $this->trips->delete($id);

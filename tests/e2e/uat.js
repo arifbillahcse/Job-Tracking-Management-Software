@@ -346,6 +346,33 @@ async function createJob(page, number, availableOffset, extra = {}) {
         if (shots) await p.screenshot({ path: path.join(shots, '07-phone-trip.png') });
         await phone.close();
     });
+    await step('trip first, jobs later: an empty trip, a new job assigned to it, another job added by number', async () => {
+        await page.goto(BASE + '/trips/create');
+        await page.fill('#trip_number', RUN + '-EMPTY');
+        await page.selectOption('#foreman_id', { label: RUN + ' Foreman' });
+        await Promise.all([page.waitForNavigation(), page.click('main form button[type=submit]')]);
+        must((await page.textContent('main')).includes('No jobs on this trip yet'), 'an empty trip was not created: ' + (await page.textContent('main')).replace(/\s+/g, ' ').slice(0, 120));
+        const tripUrl = page.url();
+        await page.goto(BASE + '/jobs/create');
+        await page.fill('#job_number', RUN + '-ONTRIP');
+        await page.fill('#customer_first_name', 'Eden');
+        await page.fill('#customer_last_name', 'Cruz');
+        await page.fill('#from_location', 'Austin, TX');
+        await page.fill('#to_location', 'Denver, CO');
+        await page.fill('#first_available_date', day(10));
+        await page.selectOption('#trip_id', { label: RUN + '-EMPTY \u00b7 ' + RUN + ' Foreman' });
+        await Promise.all([page.waitForNavigation(), page.click('main form button[type=submit]')]);
+        must((await page.textContent('main')).includes(RUN + '-EMPTY'), 'the new job does not show its trip');
+        await page.goto(tripUrl);
+        must((await page.textContent('main')).includes(RUN + '-ONTRIP') && !(await page.textContent('main')).includes('No jobs on this trip yet'), 'the trip page does not list the new job');
+        await createJob(page, RUN + '-ADDLATER', 10);
+        await page.goto(tripUrl);
+        await page.fill('#add-job-number', RUN + '-addlater');
+        await Promise.all([page.waitForNavigation(), page.click('button:has-text("Add job")')]);
+        must((await page.textContent('main')).includes('was added to the trip') && (await page.textContent('main')).includes(RUN + '-ADDLATER'), 'the Add job box did not add the job');
+        page.once('dialog', (d) => d.accept());
+        await Promise.all([page.waitForNavigation(), page.click('button[data-confirm]')]);
+    });
     await step('a trip can be deleted', async () => {
         await page.goto(BASE + '/trips?q=' + RUN + '-TR');
         await page.click('a.jt-jobno[href^="/trips/"]');

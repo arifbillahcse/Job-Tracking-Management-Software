@@ -71,6 +71,7 @@ return static function (Router $router): void {
     $router->get('/trips/{id:int}', [TripController::class, 'show'])->can('trips.view')->name('trips.show');
     $router->get('/trips/{id:int}/edit', [TripController::class, 'edit'])->can('trips.manage')->name('trips.edit');
     $router->post('/trips/{id:int}', [TripController::class, 'update'])->can('trips.manage')->name('trips.update');
+    $router->post('/trips/{id:int}/jobs', [TripController::class, 'addJobToTrip'])->can('trips.manage')->name('trips.jobs.add');
     $router->post('/trips/{id:int}/delete', [TripController::class, 'destroy'])->can('trips.manage')->name('trips.delete');
     $router->post('/jobs/{id:int}/trip', [TripController::class, 'addJob'])->can('trips.manage')->name('jobs.addtrip');
     $router->get('/foremen', [ForemanController::class, 'index'])->can('foremen.manage')->name('foremen');

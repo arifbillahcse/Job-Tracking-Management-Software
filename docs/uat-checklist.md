@@ -110,6 +110,8 @@ Sign in as **Admin** unless a scenario says otherwise. Replace `TEST-1` etc. wit
 | H14 | Search the job list for a trip number and for a foreman name. | The jobs assigned to them. | ☐ | |
 | H15 | On the job lists, look at the **Foreman / trip** column; use **More filters -> Foreman** and **Trip number**; sort by the column. | The column shows the foreman and the trip number (a link). The filters narrow the list; the Export button exports the same jobs. | ☐ | |
 | H16 | Open a trip whose job has a customer phone number. Export the trip list. | The number shows under the customer's name (tap-to-call on a phone) and is in the Customer Phone column of the CSV. | ☐ | |
+| H17 | Create a trip with only a number, a foreman and dates (no job). Then create a job and choose that trip in the Trip drop-down. Open the trip. | The trip saves with no job. The job form offers the trip. The trip page lists the job. | ☐ | |
+| H18 | On the trip page type another job's number in the Add job box. | The job joins the trip and gets its foreman. | ☐ | |
 | H11 | Open a job that is on a trip, then a job that is on none and use **Add to a trip**; also try **New trip with this job**. Look at the dashboard. | The first job lists its trips. The second is added to the chosen trip (no amounts yet) or opens a new trip form with its number filled in. The dashboard has a "Foreman trips" card (last 30 days). | ☐ | |
 
 ## G. Phone and tablet

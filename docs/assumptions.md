@@ -183,7 +183,7 @@ The generated role x route matrix is in `docs/permission-matrix.md` (`php cli/pe
 | T3 | **"Collected by"** is one name on the trip (the sheet has "Collected" above the BH column). **BH** on a row is free text. We do not know what BH stands for. | `trips.collected_by`, `trip_jobs.bh` |
 | T4 | The sheet shows no **Hotels** column and no **trip begin/end dates**; the client's list has them, so Hotels is a column and both dates are optional. **Addio, Job Beg, "Total to BH" and a 15% commission rate** are not in the sheet we were given, so they are **not built**: Commission is a typed amount. | `trips`, `trip_jobs` |
 | T5 | A row's **Date** defaults to the job's pickup date when left empty. The customer name, job number and "from" are copied onto the row when it is saved, so the trip still reads correctly after the job is edited or deleted. A deleted job cannot be added to a trip; the same job cannot be on one trip twice (it can be on several trips). | `TripService::prepare()` |
-| T6 | Trips are **soft-deleted**; foremen are **deactivated**, never deleted, and an inactive foreman stays on his old trips. A trip must have at least one job. | `TripRepository`, `ForemanController` |
+| T6 | Trips are **soft-deleted**; foremen are **deactivated**, never deleted, and an inactive foreman stays on his old trips. ~~A trip must have at least one job.~~ **Superseded in 1.4.1:** a trip can be created with no jobs (assumption Y1). | `TripRepository`, `ForemanController` |
 | T7 | Permissions: `trips.view`, `trips.manage` (create, edit, delete), `trips.financials` (see and edit the six expense columns and totals) and `foremen.manage`. Without `trips.financials` the amounts are stripped in the service (not just hidden in the page) and a save keeps the amounts that were hidden. | `TripService` |
 
 ## Trip report and export (version 1.2.1)
@@ -225,6 +225,14 @@ The generated role x route matrix is in `docs/permission-matrix.md` (`php cli/pe
 | X3 | A remembered browser is **not** tied to the IP address or the exact browser string (both change in normal use, which would sign people out constantly). The protections are the secret, the hash, the expiry, the password check and sign-out. | `RememberService::restore()` |
 | X4 | **Forget all devices** removes the cookies of this user. A session that is open right now cannot be closed from elsewhere (sessions are files on the server); it ends by itself after the idle time (30 minutes by default). | `AccountController::forgetDevices()` |
 | X5 | Because the 30-minute idle timeout silently renews for a remembered browser, someone who walks away from a remembered computer stays signed in. That is the trade the client asked for; the advice on the sign-in page is to tick it only on a personal device. | - |
+
+## Trip first, jobs later (version 1.4.1)
+
+| # | Assumption | Where |
+|---|------------|-------|
+| Y1 | The client's workflow is **Create Trip -> Create Job (choose the trip) -> the job is linked to the trip**, so a trip needs no job when it is created. | `TripService::prepare()` |
+| Y2 | A job is added to an existing trip by typing its **job number** on the trip page (needs `trips.manage`); the job gets the trip and its foreman, exactly as when the trip is chosen on the job form. | `TripService::addJobByNumber()` |
+| Y3 | A trip with no jobs is **one line in the trip CSV** (empty job columns) so it is not lost from the export, and counts as a trip with 0 jobs in the report. | `TripRepository::jobRows()` |
 
 ## Security defaults (can be tuned in `app/Config/app.php` / `.env`)
 
