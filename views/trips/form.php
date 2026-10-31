@@ -82,7 +82,7 @@ $choice = static function (int $i, string $field, array $row, array $options): s
     <div class="card jt-card mb-4">
         <div class="card-header bg-transparent fw-semibold">Jobs on this trip</div>
         <div class="card-body pb-0">
-            <p class="small text-body-secondary mb-2">A trip can be saved with no jobs: create it first, then choose it when you create a job, or add jobs here later. To add jobs now, type the job number of each; the customer and &ldquo;from&rdquo; are filled in from the job when you save. Spare rows can stay empty.<?= $editMoney ? ' Amounts are saved exactly as you type them.' : ' You are not allowed to see or change the expense amounts.' ?></p>
+            <p class="small text-body-secondary mb-2">The same job number can be used as many times as you need (for example a pickup and a delivery). A trip can be saved with no jobs: create it first, then choose it when you create a job, or add jobs here later. To add jobs now, type the job number of each; the customer and &ldquo;from&rdquo; are filled in from the job when you save. Spare rows can stay empty.<?= $editMoney ? ' Amounts are saved exactly as you type them.' : ' You are not allowed to see or change the expense amounts.' ?></p>
             <?= error_text('rows') ?>
         </div>
         <div class="table-responsive">

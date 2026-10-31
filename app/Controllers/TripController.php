@@ -103,7 +103,7 @@ final class TripController extends Controller
         }
 
         $id = $this->trips->create($prepared['header'], $prepared['rows']);
-        $this->flash('success', 'Trip ' . $prepared['header']['trip_number'] . ' was created.');
+        $this->flash($prepared['warnings'] === [] ? 'success' : 'warning', 'Trip ' . $prepared['header']['trip_number'] . ' was created.' . ($prepared['warnings'] === [] ? '' : ' Note: ' . implode(' ', $prepared['warnings'])));
         return $this->redirect('/trips/' . $id);
     }
 
@@ -140,7 +140,7 @@ final class TripController extends Controller
             return ErrorPages::response(404);
         }
 
-        $this->flash('success', $result['changed'] ? 'Trip ' . $prepared['header']['trip_number'] . ' was updated.' : 'No changes were made.');
+        $this->flash($prepared['warnings'] === [] ? 'success' : 'warning', ($result['changed'] ? 'Trip ' . $prepared['header']['trip_number'] . ' was updated.' : 'No changes were made.') . ($prepared['warnings'] === [] ? '' : ' Note: ' . implode(' ', $prepared['warnings'])));
         return $this->redirect('/trips/' . $id);
     }
 
@@ -179,7 +179,7 @@ final class TripController extends Controller
         $back = '/trips/' . $id;
         $message = match ($result) {
             'ok' => ['success', 'Job ' . $number . ' was added to the trip' . ($activity !== '' ? ' as ' . (TripService::ACTIVITIES[$activity] ?? $activity) : '') . ($date !== '' ? ' on ' . $date : '') . '.'],
-            'already' => ['warning', 'Job ' . $number . ' is already on this trip' . ($activity !== '' ? ' as ' . (TripService::ACTIVITIES[$activity] ?? $activity) : '') . ($date !== '' ? ' on ' . $date : '') . '. Use another date or activity for a second entry.'],
+            'ok_same' => ['warning', 'Job ' . $number . ' was added again' . ($activity !== '' ? ' as ' . (TripService::ACTIVITIES[$activity] ?? $activity) : '') . ($date !== '' ? ' on ' . $date : '') . ' (an entry exactly like it was already on the trip). Check that this is what you meant.'],
             'bad_date' => ['danger', 'That date is not valid.'],
             'bad_activity' => ['danger', 'Choose Pickup, Delivery or Other.'],
             default => ['danger', $number === '' ? 'Type the job number to add.' : 'No job with the number "' . mb_substr($number, 0, 40) . '" was found (deleted jobs cannot be added).'],

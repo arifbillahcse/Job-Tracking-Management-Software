@@ -440,9 +440,9 @@ check(str_contains(plain(call('GET', "/trips/{$tid}")->body()), 'Jobs on this tr
 $aud = (string) Database::fetchValue("SELECT new_values FROM audit_logs WHERE action = 'trip_updated' AND entity_id = ? ORDER BY id DESC LIMIT 1", [$tid]);
 check(str_contains($aud, 'WF-JOB-2'), 'it is audited');
 call('POST', "/trips/{$tid}/jobs", ['job_number' => 'WF-JOB-2']);
-check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ? AND job_id = ?', [$tid, $j2]) === 1 && str_contains(json_encode($_SESSION['_flash_next']['alert'] ?? []), 'already'), 'the same job twice is refused with a message');
+check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ? AND job_id = ?', [$tid, $j2]) === 2 && str_contains(json_encode($_SESSION['_flash_next']['alert'] ?? []), 'added again'), 'the same job number can be added again (as many times as needed), with a note when it is an exact repeat');
 call('POST', "/trips/{$tid}/jobs", ['job_number' => 'NO-SUCH-JOB']);
-check(str_contains(json_encode($_SESSION['_flash_next']['alert'] ?? []), 'No job with the number') && (int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ?', [$tid]) === 2, 'an unknown job number is refused with a message, nothing changes');
+check(str_contains(json_encode($_SESSION['_flash_next']['alert'] ?? []), 'No job with the number') && (int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ?', [$tid]) === 3, 'an unknown job number is refused with a message, nothing changes');
 call('POST', "/trips/{$tid}/jobs", ['job_number' => '']);
 check(str_contains(json_encode($_SESSION['_flash_next']['alert'] ?? []), 'Type the job number'), 'an empty box says what to do');
 $gone = mk_job(['job_number' => 'WF-GONE']);
@@ -452,7 +452,7 @@ check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE job_id = 
 check(call('POST', '/trips/99999/jobs', ['job_number' => 'WF-JOB-1'])->status() === 404, 'an unknown trip is a 404');
 call('POST', "/trips/{$tid}/jobs", ['job_number' => "' OR 1=1 --"]);
 call('POST', "/trips/{$tid}/jobs", ['job_number' => str_repeat('9', 5000)]);
-check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ?', [$tid]) === 2 && (int) Database::fetchValue('SELECT COUNT(*) FROM jobs') === $jobsBefore + 3, 'SQL text and over-long text in the box are just an unknown job number');
+check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ?', [$tid]) === 3 && (int) Database::fetchValue('SELECT COUNT(*) FROM jobs') === $jobsBefore + 3, 'SQL text and over-long text in the box are just an unknown job number');
 // edit form with no rows, and with rows
 $e = call('POST', "/trips/{$tid}", ['trip_number' => 'WF-1', 'foreman_id' => (string) $joe, 'begins_on' => '2026-10-20', 'loaded_at' => (string) Database::fetchValue('SELECT updated_at FROM trips WHERE id = ?', [$tid]), 'rows' => []]);
 check($e->status() === 302 && (int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ?', [$tid]) === 0 && (new JobRepository())->find($jid)['trip_id'] === null, 'saving the trip form with every row removed leaves an empty trip (the jobs lose the assignment, not their foreman)');
@@ -540,14 +540,21 @@ check(preg_match('~Job # Customer Date Activity From To BH Foreman~', $pt) === 1
 check(str_contains($pt, 'Joe') && str_contains($pt, 'Sam') && str_contains($pt, 'Jobs on this trip (2)') && !str_contains($pt, 'Collected by'), 'the Foreman column shows each entry\'s foreman; the count is 2 entries; no "Collected by"');
 check(str_contains($pt, '$125.50') && substr_count($tb, 'href="/jobs/' . $jobId . '"') >= 2, 'the totals add both entries ($50 + $75.50), and each entry links to the job');
 
-// exact duplicate refused
+// the same job as many times as the client likes: identical entries are saved, with a note afterwards
 $dup = ['trip_number' => 'AC-DUP', 'foreman_id' => (string) $joe, 'rows' => [
     ['job_number' => 'B6048649', 'job_date' => '2026-10-30', 'activity' => 'pickup'],
     ['job_number' => 'b6048649', 'job_date' => '2026-10-30', 'activity' => 'pickup'],
+    ['job_number' => 'B6048649', 'job_date' => '2026-10-30', 'activity' => 'pickup'],
 ]];
 call('POST', '/trips', $dup);
-check(Database::fetchValue("SELECT COUNT(*) FROM trips WHERE trip_number = 'AC-DUP'") == 0 && isset($_SESSION['_flash_next']['errors']['rows.1.job_number']) && str_contains(implode(' ', $_SESSION['_flash_next']['errors']['rows.1.job_number']), 'already on this trip'), 'the exact same job + date + activity twice is refused, with a message on the second row (any letter case)');
-check(str_contains(implode(' ', $_SESSION['_flash_next']['errors']['rows.1.job_number']), 'Pickup') && str_contains(implode(' ', $_SESSION['_flash_next']['errors']['rows.1.job_number']), '2026-10-30'), '...naming the date and activity');
+$dupId = (int) Database::fetchValue("SELECT id FROM trips WHERE trip_number = 'AC-DUP'");
+check($dupId > 0 && (int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ?', [$dupId]) === 3, 'the same job + date + activity three times is saved: a job number can be used as many times as needed');
+$note = json_encode($_SESSION['_flash_next']['alert'] ?? []);
+check(str_contains($note, 'appears 3 times') && str_contains($note, '2026-10-30') && str_contains($note, 'Pickup') && str_contains($note, 'warning'), '...with a note naming the job, the count, the date and the activity (not an error)');
+$blank = (new TripService())->prepare(['trip_number' => 'AC-BLANK', 'foreman_id' => (string) $joe, 'rows' => [['job_number' => 'B6048649'], ['job_number' => 'B6048649'], ['job_number' => 'B6048649']]]);
+check($blank['errors'] === [] && count($blank['rows']) === 3 && count($blank['warnings']) === 1, 'rows with only the job number typed (no date, no activity), the client\'s screenshot, are all accepted');
+$clean = (new TripService())->prepare(['trip_number' => 'AC-CLEAN', 'foreman_id' => (string) $joe, 'rows' => [['job_number' => 'B6048649', 'job_date' => '2026-10-30', 'activity' => 'pickup'], ['job_number' => 'B6048649', 'job_date' => '2026-10-31', 'activity' => 'delivery']]]);
+check($clean['errors'] === [] && $clean['warnings'] === [], 'entries that differ produce no note');
 foreach ([
     [['job_date' => '2026-10-30', 'activity' => 'pickup'], ['job_date' => '2026-10-31', 'activity' => 'pickup']],
     [['job_date' => '2026-10-30', 'activity' => 'pickup'], ['job_date' => '2026-10-30', 'activity' => 'delivery']],
@@ -555,12 +562,10 @@ foreach ([
     [['job_date' => '2026-10-30', 'activity' => ''], ['job_date' => '2026-10-30', 'activity' => 'pickup']],
 ] as $i => [$a, $b]) {
     $p = (new TripService())->prepare(['trip_number' => 'AC-OK' . $i, 'foreman_id' => (string) $joe, 'rows' => [['job_number' => 'B6048649'] + $a, ['job_number' => 'B6048649'] + $b]]);
-    check($p['errors'] === [] && count($p['rows']) === 2, 'allowed: the same job with ' . json_encode([$a['job_date'] . ' ' . $a['activity'], $b['job_date'] . ' ' . $b['activity']]));
+    check($p['errors'] === [] && count($p['rows']) === 2 && ($i < 3 ? $p['warnings'] === [] : true), 'allowed: the same job with ' . json_encode([$a['job_date'] . ' ' . $a['activity'], $b['job_date'] . ' ' . $b['activity']]));
 }
-$p = (new TripService())->prepare(['trip_number' => 'AC-D2', 'foreman_id' => (string) $joe, 'rows' => [['job_number' => 'B6048649', 'job_date' => '2026-10-30'], ['job_number' => 'B6048649', 'job_date' => '2026-10-30']]]);
-check(isset($p['errors']['rows.1.job_number']), 'two entries with no activity on the same date are also the same entry');
 $p = (new TripService())->prepare(['trip_number' => 'AC-D3', 'foreman_id' => (string) $joe, 'rows' => [['job_number' => 'B6048649', 'activity' => 'pickup'], ['job_number' => 'B6048649', 'activity' => 'pickup']]]);
-check(isset($p['errors']['rows.1.job_number']), '...and with no date typed the job\'s pickup date is used, so the same entry twice is refused');
+check($p['errors'] === [] && count($p['warnings']) === 1 && str_contains($p['warnings'][0], '2026-10-30'), 'with no date typed the job\'s pickup date is used for the note');
 // the same job on a different trip is fine
 $r2 = call('POST', '/trips', ['trip_number' => 'AC-2', 'foreman_id' => (string) $sam, 'rows' => [['job_number' => 'B6048649', 'job_date' => '2026-10-30', 'activity' => 'pickup']]]);
 check($r2->status() === 302 && (int) Database::fetchValue("SELECT COUNT(*) FROM trips WHERE trip_number = 'AC-2'") === 1, 'the same job, date and activity on a different trip is allowed');
@@ -597,16 +602,16 @@ check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id =
 $last = array_values(array_filter((new TripRepository())->rows($tid), static fn (array $r): bool => $r['activity'] === 'other'));
 check($last[0]['job_date'] === '2026-11-02' && $last[0]['from_location'] === 'Atlanta, GA' && $last[0]['to_location'] === 'Denver, CO' && (int) $last[0]['foreman_id'] === $joe, '...with From and To from the job and the trip\'s foreman');
 call('POST', "/trips/{$tid}/jobs", ['job_number' => 'B6048649', 'job_date' => '2026-11-02', 'activity' => 'other']);
-check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ?', [$tid]) === 3 && str_contains(json_encode($_SESSION['_flash_next']['alert'] ?? []), 'already on this trip'), 'the exact same entry again is refused with a message');
+check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ?', [$tid]) === 4 && str_contains(json_encode($_SESSION['_flash_next']['alert'] ?? []), 'added again'), 'the exact same entry again through the Add job box is saved too, with a note');
 call('POST', "/trips/{$tid}/jobs", ['job_number' => 'B6048649', 'job_date' => '2026-02-31', 'activity' => 'pickup']);
 call('POST', "/trips/{$tid}/jobs", ['job_number' => 'B6048649', 'job_date' => '2026-11-03', 'activity' => 'teleport']);
-check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ?', [$tid]) === 3, 'a bad date or activity is refused');
+check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ?', [$tid]) === 4, 'a bad date or activity is refused');
 $other = mk_job(['job_number' => 'AC-OTHER']);
 call('POST', "/trips/{$tid}/jobs", ['job_number' => 'AC-OTHER']);
 check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ? AND job_id = ?', [$tid, $other]) === 1 && (int) (new JobRepository())->find($other)['trip_id'] === $tid, 'a different job is added as before (date and activity optional) and assigned to the trip');
 // the job page's "Add to a trip" still refuses a job that is already on the trip at all
 call('POST', "/jobs/{$jobId}/trip", ['trip' => (string) $tid]);
-check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ? AND job_id = ?', [$tid, $jobId]) === 3, 'the job page\'s "Add to a trip" does not add a second entry (use the trip page for that)');
+check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ? AND job_id = ?', [$tid, $jobId]) === 4, 'the job page\'s "Add to a trip" does not add a second entry (use the trip page for that)');
 $box = call('GET', "/trips/{$tid}")->body();
 check(str_contains($box, 'name="job_date"') && str_contains($box, 'name="activity"') && str_contains($box, 'id="add-job-date"'), 'the Add job box has a Date and an Activity');
 // job assignment: a second entry never steals the assignment

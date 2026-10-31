@@ -121,7 +121,8 @@ $bad(['begins_on' => '2026-10-25', 'ends_on' => '2026-10-20'], 'ends_on', 'the t
 check((new TripService())->prepare(['trip_number' => 'EMPTY-OK', 'foreman_id' => (string) $joe, 'rows' => []])['errors'] === [] && (new TripService())->prepare(['trip_number' => 'EMPTY-OK2', 'foreman_id' => (string) $joe])['errors'] === [], 'a trip no longer needs any job (the client creates the trip first and assigns jobs later)');
 $bad(['rows' => [['job_number' => 'NOPE-1']]], 'rows.0.job_number', 'an unknown job number is refused');
 $bad(['rows' => [['job_number' => 'TJ-GONE']]], 'rows.0.job_number', 'a deleted job cannot be added');
-$bad(['rows' => [['job_number' => 'TJ-11'], ['job_number' => 'tj-11']]], 'rows.1.job_number', 'the same job twice on one trip is refused');
+$same = (new TripService())->prepare(['trip_number' => 'SAME-1', 'foreman_id' => (string) $joe, 'rows' => [['job_number' => 'TJ-11'], ['job_number' => 'tj-11'], ['job_number' => 'TJ-11']]]);
+check($same['errors'] === [] && count($same['rows']) === 3, 'the same job number can be on a trip as many times as needed');
 $bad(['rows' => [['job_number' => 'TJ-11', 'diesel' => '-5']]], 'rows.0.diesel', 'a negative expense is refused');
 $bad(['rows' => [['job_number' => 'TJ-11', 'misc' => 'abc']]], 'rows.0.misc', 'a non-numeric expense is refused');
 $bad(['rows' => [['job_number' => 'TJ-11', 'extra' => '1.234']]], 'rows.0.extra', 'a third decimal is refused (no silent rounding)');

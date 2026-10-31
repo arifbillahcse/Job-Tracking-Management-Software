@@ -113,7 +113,7 @@ Sign in as **Admin** unless a scenario says otherwise. Replace `TEST-1` etc. wit
 | H17 | Create a trip with only a number, a foreman and dates (no job). Then create a job and choose that trip in the Trip drop-down. Open the trip. | The trip saves with no job. The job form offers the trip. The trip page lists the job. | ☐ | |
 | H18 | On the trip page type another job's number in the Add job box. | The job joins the trip and gets its foreman. | ☐ | |
 | H19 | Create a trip. Add an existing job twice: **Pickup** on 30 October and **Delivery** on 31 October (set From and To on each). Save and open the trip. | Both entries show with date, activity, From, To, BH and Foreman. No new job was created. | ☐ | |
-| H20 | Try to add the exact same job, date and activity again. | A message says it is already on the trip for that date and activity. | ☐ | |
+| H20 | On a trip, type the same job number in three rows (nothing else), and save. Also add the same job again with the Add job box. | All entries are saved. A note says the job appears 3 times (a warning, not an error). | ☐ | |
 | H11 | Open a job that is on a trip, then a job that is on none and use **Add to a trip**; also try **New trip with this job**. Look at the dashboard. | The first job lists its trips. The second is added to the chosen trip (no amounts yet) or opens a new trip form with its number filled in. The dashboard has a "Foreman trips" card (last 30 days). | ☐ | |
 
 ## G. Phone and tablet

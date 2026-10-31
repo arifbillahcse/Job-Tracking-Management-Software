@@ -372,7 +372,7 @@ async function createJob(page, number, availableOffset, extra = {}) {
         page.once('dialog', (d) => d.accept());
         await Promise.all([page.waitForNavigation(), page.click('button[data-confirm]')]);
     });
-    await step('the same job on one trip: Pickup on 30 Oct and Delivery on 31 Oct, both shown; the exact same entry is refused', async () => {
+    await step('the same job on one trip as many times as needed: Pickup 30 Oct, Delivery 31 Oct, an exact repeat (with a note), and three bare rows', async () => {
         await createJob(page, RUN + '-ACT', 10);
         await page.goto(BASE + '/trips/create');
         must(!(await page.content()).includes('Collected by'), 'the trip form still has Collected by');
@@ -394,7 +394,17 @@ async function createJob(page, number, availableOffset, extra = {}) {
         await page.fill('#add-job-date', '2026-10-30');
         await page.selectOption('#add-job-activity', 'pickup');
         await Promise.all([page.waitForNavigation(), page.click('button:has-text("Add job")')]);
-        must((await page.textContent('main')).includes('is already on this trip'), 'the exact same entry was not refused');
+        const again = (await page.textContent('main')).replace(/\s+/g, ' ');
+        must(again.includes('was added again') && again.includes('Jobs on this trip (3)'), 'the exact same entry was not saved with a note: ' + again.slice(0, 200));
+        await page.goto(BASE + '/trips/create');
+        await page.fill('#trip_number', RUN + '-ACT-BARE');
+        await page.selectOption('#foreman_id', { label: RUN + ' Foreman' });
+        for (const i of [0, 1, 2]) await page.fill('input[name="rows[' + i + '][job_number]"]', RUN + '-ACT');
+        await Promise.all([page.waitForNavigation(), page.click('main form button[type=submit]')]);
+        const bare = (await page.textContent('main')).replace(/\s+/g, ' ');
+        must(bare.includes('Jobs on this trip (3)') && bare.includes('appears 3 times'), 'three rows with only the job number were not all saved: ' + bare.slice(0, 200));
+        page.once('dialog', (d) => d.accept());
+        await Promise.all([page.waitForNavigation(), page.click('button[data-confirm]')]);
         await page.goto(tripUrl);
         page.once('dialog', (d) => d.accept());
         await Promise.all([page.waitForNavigation(), page.click('button[data-confirm]')]);

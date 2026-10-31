@@ -2,6 +2,13 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.4.3 - the same job number as many times as needed on a trip
+
+* **A job number can be used on a trip as many times as the client likes**, with or without a date and an activity. The previous release refused the second row when nothing distinguished it (the job's pickup date was filled in for both), which is what the client hit. **Nothing is refused any more.**
+* Instead, if entries look exactly alike (same job, date and activity), the trip is saved and a **note** appears: *"Job X appears 3 times on 2026-10-14 with no activity. Check that this is what you meant."* The **Add job** box behaves the same (*"was added again ... Check that this is what you meant"*).
+* The job page's "Add to a trip" still adds a job to the trip once (it is an assignment, not an entry).
+* **Upgrade:** `git pull origin main`, `php cli/doctor.php`. No migration.
+
 ## 1.4.2 - trip entries: Activity, From / To, Foreman; the same job on several dates (client feedback)
 
 * **"Collected by" is gone** from the trip form, trip page, trip list and export (the client does not need it). The Foreman of the trip stays. The old values are kept in the database, untouched.
