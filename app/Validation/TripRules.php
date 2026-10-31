@@ -17,7 +17,6 @@ final class TripRules
             'foreman_id' => 'required|integer|exists:foremen,id',
             'begins_on' => 'nullable|date',
             'ends_on' => 'nullable|date',
-            'collected_by' => 'nullable|max:150',
             'notes' => 'nullable|max:5000',
         ];
     }
@@ -28,6 +27,10 @@ final class TripRules
         $rules = [
             'job_number' => 'required|max:40',
             'job_date' => 'nullable|date',
+            'activity' => 'nullable|in:pickup,delivery,other',
+            'from_location' => 'nullable|max:190',
+            'to_location' => 'nullable|max:190',
+            'foreman_id' => 'nullable|integer|exists:foremen,id',
             'bh' => 'nullable|max:100',
             'remark' => 'nullable|max:500',
         ];
@@ -44,7 +47,7 @@ final class TripRules
     {
         return [
             'trip_number' => 'Trip number', 'foreman_id' => 'Foreman', 'begins_on' => 'Trip begins', 'ends_on' => 'Trip ends',
-            'collected_by' => 'Collected by', 'notes' => 'Notes',
+            'notes' => 'Notes', 'activity' => 'Activity', 'from_location' => 'From', 'to_location' => 'To',
             'job_number' => 'Job #', 'job_date' => 'Date', 'bh' => 'BH', 'diesel' => 'Diesel', 'hotels' => 'Hotels', 'helper' => 'Helper',
             'misc' => 'Misc', 'commission' => 'Commission', 'extra' => 'Extra', 'remark' => 'Remark',
         ];

@@ -492,3 +492,179 @@ check($forged->status() === 403 && (int) Database::fetchValue('SELECT COUNT(*) F
 call('POST', '/jobs', job_input(['job_number' => '', 'trip_id' => (string) $tid]));
 check(isset($_SESSION['_flash_next']['errors']['job_number']), 'the Job # is still required when creating a job');
 Clock::fake(null);
+
+// ================================================================ client follow-up: Activity, To, row Foreman, same job twice on a trip
+
+section('Trip rows: Activity, From / To, Foreman; the same job on different dates');
+fresh_db();
+fresh_session();
+Clock::fake('2026-10-30');
+$mgr = make_user('Manager', 'ac-mgr@example.com');
+$fr = new ForemanRepository();
+$joe = $fr->create(['name' => 'Joe', 'phone' => null]);
+$sam = $fr->create(['name' => 'Sam', 'phone' => null]);
+$jobId = mk_job(['job_number' => 'B6048649', 'customer_first_name' => 'Eden', 'customer_last_name' => 'Cruz', 'customer_phone' => '(555) 010-2231', 'pickup_date' => '2026-10-30', 'from_location' => 'Atlanta, GA', 'to_location' => 'Denver, CO']);
+$jobsBefore = (int) Database::fetchValue('SELECT COUNT(*) FROM jobs');
+sign_in($mgr);
+
+// the form
+$f = call('GET', '/trips/create')->body();
+check(!str_contains($f, 'collected_by') && !str_contains($f, 'Collected by'), 'the trip form no longer has "Collected by"');
+check(preg_match('/name="rows\[0\]\[activity\]"/', $f) === 1 && str_contains($f, '>Pickup<') && str_contains($f, '>Delivery<') && str_contains($f, '>Other<'), 'each job row has an Activity choice: Pickup / Delivery / Other');
+check(str_contains($f, 'name="rows[0][from_location]"') && str_contains($f, 'name="rows[0][to_location]"') && str_contains($f, 'name="rows[0][foreman_id]"') && str_contains($f, 'foreman</option>'), 'and From, To and Foreman');
+$pos = static fn (string $needle): int => (int) strpos($f, $needle);
+check($pos('rows[0][job_number]') < $pos('rows[0][job_date]') && $pos('rows[0][job_date]') < $pos('rows[0][activity]') && $pos('rows[0][activity]') < $pos('rows[0][from_location]') && $pos('rows[0][from_location]') < $pos('rows[0][to_location]') && $pos('rows[0][to_location]') < $pos('rows[0][bh]') && $pos('rows[0][bh]') < $pos('rows[0][foreman_id]') && $pos('rows[0][foreman_id]') < $pos('rows[0][diesel]'), 'column order: Job #, Date, Activity, From, To, BH, Foreman, then the expenses (BH and Foreman as in the client\'s sheet)');
+
+// Create Trip -> Add existing job -> Pickup Oct 30 -> Delivery Oct 31
+$r = call('POST', '/trips', ['trip_number' => 'AC-1', 'foreman_id' => (string) $joe, 'begins_on' => '2026-10-30', 'ends_on' => '2026-10-31',
+    'rows' => [
+        ['job_number' => 'B6048649', 'job_date' => '2026-10-30', 'activity' => 'pickup', 'from_location' => 'Atlanta, GA', 'to_location' => 'Warehouse A', 'bh' => 'BH', 'foreman_id' => '', 'diesel' => '50', 'remark' => 'picked up'],
+        ['job_number' => 'B6048649', 'job_date' => '2026-10-31', 'activity' => 'delivery', 'from_location' => 'Warehouse A', 'to_location' => 'Denver, CO', 'foreman_id' => (string) $sam, 'diesel' => '75.5', 'remark' => 'delivered'],
+    ]]);
+$tid = (int) Database::fetchValue("SELECT id FROM trips WHERE trip_number = 'AC-1'");
+check($r->status() === 302 && $tid > 0, 'Create Trip -> add the existing job twice: Pickup on 30 Oct and Delivery on 31 Oct are both accepted');
+$rows = (new TripRepository())->rows($tid);
+check(count($rows) === 2 && $rows[0]['job_number'] === 'B6048649' && $rows[1]['job_number'] === 'B6048649' && (int) $rows[0]['job_id'] === $jobId && (int) $rows[1]['job_id'] === $jobId, 'both entries are the same existing job (same job id, same job number)');
+check($rows[0]['activity'] === 'pickup' && $rows[0]['job_date'] === '2026-10-30' && $rows[0]['from_location'] === 'Atlanta, GA' && $rows[0]['to_location'] === 'Warehouse A' && $rows[1]['activity'] === 'delivery' && $rows[1]['job_date'] === '2026-10-31' && $rows[1]['from_location'] === 'Warehouse A' && $rows[1]['to_location'] === 'Denver, CO', 'activity, date, From and To are saved on each entry');
+check((int) $rows[0]['foreman_id'] === $joe && $rows[0]['row_foreman'] === 'Joe' && (int) $rows[1]['foreman_id'] === $sam && $rows[1]['row_foreman'] === 'Sam', 'the row foreman defaults to the trip\'s foreman and can be another');
+check((int) Database::fetchValue('SELECT COUNT(*) FROM jobs') === $jobsBefore && (int) Database::fetchValue("SELECT COUNT(*) FROM jobs WHERE job_number = 'B6048649'") === 1, 'no new Job record was created: the Job Number is still unique in the Jobs table');
+$j = (new JobRepository())->find($jobId);
+check((int) $j['trip_id'] === $tid && (int) $j['foreman_id'] === $joe, 'the job is assigned to the trip once (and to the trip\'s foreman)');
+
+// Trip details
+$tp = call('GET', "/trips/{$tid}");
+$tb = $tp->body();
+$pt = plain($tb);
+check(substr_count($pt, 'B6048649') >= 2 && str_contains($pt, 'Pickup') && str_contains($pt, 'Delivery') && str_contains($pt, 'Warehouse A') && str_contains($pt, 'Atlanta, GA') && str_contains($pt, 'Denver, CO') && str_contains($pt, 'Oct 30, 2026') && str_contains($pt, 'Oct 31, 2026'), 'Trip Details shows both entries with date, activity, From and To');
+check(preg_match('~Job # Customer Date Activity From To BH Foreman~', $pt) === 1, 'the table columns are Job #, Customer, Date, Activity, From, To, BH, Foreman, then the expenses');
+check(str_contains($pt, 'Joe') && str_contains($pt, 'Sam') && str_contains($pt, 'Jobs on this trip (2)') && !str_contains($pt, 'Collected by'), 'the Foreman column shows each entry\'s foreman; the count is 2 entries; no "Collected by"');
+check(str_contains($pt, '$125.50') && substr_count($tb, 'href="/jobs/' . $jobId . '"') >= 2, 'the totals add both entries ($50 + $75.50), and each entry links to the job');
+
+// exact duplicate refused
+$dup = ['trip_number' => 'AC-DUP', 'foreman_id' => (string) $joe, 'rows' => [
+    ['job_number' => 'B6048649', 'job_date' => '2026-10-30', 'activity' => 'pickup'],
+    ['job_number' => 'b6048649', 'job_date' => '2026-10-30', 'activity' => 'pickup'],
+]];
+call('POST', '/trips', $dup);
+check(Database::fetchValue("SELECT COUNT(*) FROM trips WHERE trip_number = 'AC-DUP'") == 0 && isset($_SESSION['_flash_next']['errors']['rows.1.job_number']) && str_contains(implode(' ', $_SESSION['_flash_next']['errors']['rows.1.job_number']), 'already on this trip'), 'the exact same job + date + activity twice is refused, with a message on the second row (any letter case)');
+check(str_contains(implode(' ', $_SESSION['_flash_next']['errors']['rows.1.job_number']), 'Pickup') && str_contains(implode(' ', $_SESSION['_flash_next']['errors']['rows.1.job_number']), '2026-10-30'), '...naming the date and activity');
+foreach ([
+    [['job_date' => '2026-10-30', 'activity' => 'pickup'], ['job_date' => '2026-10-31', 'activity' => 'pickup']],
+    [['job_date' => '2026-10-30', 'activity' => 'pickup'], ['job_date' => '2026-10-30', 'activity' => 'delivery']],
+    [['job_date' => '2026-10-30', 'activity' => 'pickup'], ['job_date' => '2026-10-30', 'activity' => 'other']],
+    [['job_date' => '2026-10-30', 'activity' => ''], ['job_date' => '2026-10-30', 'activity' => 'pickup']],
+] as $i => [$a, $b]) {
+    $p = (new TripService())->prepare(['trip_number' => 'AC-OK' . $i, 'foreman_id' => (string) $joe, 'rows' => [['job_number' => 'B6048649'] + $a, ['job_number' => 'B6048649'] + $b]]);
+    check($p['errors'] === [] && count($p['rows']) === 2, 'allowed: the same job with ' . json_encode([$a['job_date'] . ' ' . $a['activity'], $b['job_date'] . ' ' . $b['activity']]));
+}
+$p = (new TripService())->prepare(['trip_number' => 'AC-D2', 'foreman_id' => (string) $joe, 'rows' => [['job_number' => 'B6048649', 'job_date' => '2026-10-30'], ['job_number' => 'B6048649', 'job_date' => '2026-10-30']]]);
+check(isset($p['errors']['rows.1.job_number']), 'two entries with no activity on the same date are also the same entry');
+$p = (new TripService())->prepare(['trip_number' => 'AC-D3', 'foreman_id' => (string) $joe, 'rows' => [['job_number' => 'B6048649', 'activity' => 'pickup'], ['job_number' => 'B6048649', 'activity' => 'pickup']]]);
+check(isset($p['errors']['rows.1.job_number']), '...and with no date typed the job\'s pickup date is used, so the same entry twice is refused');
+// the same job on a different trip is fine
+$r2 = call('POST', '/trips', ['trip_number' => 'AC-2', 'foreman_id' => (string) $sam, 'rows' => [['job_number' => 'B6048649', 'job_date' => '2026-10-30', 'activity' => 'pickup']]]);
+check($r2->status() === 302 && (int) Database::fetchValue("SELECT COUNT(*) FROM trips WHERE trip_number = 'AC-2'") === 1, 'the same job, date and activity on a different trip is allowed');
+
+// validation
+foreach (['activity' => 'teleport', 'job_date' => 'tomorrow', 'to_location' => str_repeat('x', 191), 'from_location' => str_repeat('x', 191), 'foreman_id' => '99999'] as $field => $bad) {
+    call('POST', '/trips', ['trip_number' => 'AC-BAD', 'foreman_id' => (string) $joe, 'rows' => [['job_number' => 'B6048649', $field => $bad]]]);
+    check(Database::fetchValue("SELECT COUNT(*) FROM trips WHERE trip_number = 'AC-BAD'") == 0 && isset($_SESSION['_flash_next']['errors']['rows.0.' . $field]), "a bad {$field} is refused with a message on the row");
+}
+$p = (new TripService())->prepare(['trip_number' => 'AC-DEF', 'foreman_id' => (string) $sam, 'rows' => [['job_number' => 'B6048649']]]);
+check($p['rows'][0]['from_location'] === 'Atlanta, GA' && $p['rows'][0]['to_location'] === 'Denver, CO' && (int) $p['rows'][0]['foreman_id'] === $sam && $p['rows'][0]['activity'] === null && $p['rows'][0]['job_date'] === '2026-10-30', 'From and To default to the job\'s own places, the foreman to the trip\'s, the date to the pickup date; no activity unless chosen');
+
+// Edit keeps everything
+call('GET', '/trips'); // a page load, so the flash data of the last failed post is gone
+$edit = call('GET', "/trips/{$tid}/edit")->body();
+check(substr_count($edit, 'value="B6048649"') === 2 && str_contains($edit, 'value="Warehouse A"') && preg_match('/<option value="delivery" selected>/', $edit) === 1 && preg_match('/<option value="' . $sam . '" selected>/', $edit) === 1, 'Edit shows both entries with their activity, places and foreman selected');
+$u = Database::fetchValue('SELECT updated_at FROM trips WHERE id = ?', [$tid]);
+Database::execute('UPDATE trips SET updated_at = ? WHERE id = ?', ['2026-10-30 09:00:00', $tid]);
+$er = (new TripRepository())->rows($tid);
+call('POST', "/trips/{$tid}", ['trip_number' => 'AC-1', 'foreman_id' => (string) $joe, 'begins_on' => '2026-10-30', 'ends_on' => '2026-10-31', 'loaded_at' => '2026-10-30 09:00:00', 'rows' => [
+    ['id' => (string) $er[0]['id'], 'job_number' => 'B6048649', 'job_date' => '2026-10-30', 'activity' => 'pickup', 'from_location' => 'Atlanta, GA', 'to_location' => 'Warehouse A', 'bh' => 'BH', 'diesel' => '50', 'remark' => 'picked up'],
+    ['id' => (string) $er[1]['id'], 'job_number' => 'B6048649', 'job_date' => '2026-11-01', 'activity' => 'delivery', 'from_location' => 'Warehouse A', 'to_location' => 'Denver, CO', 'foreman_id' => (string) $sam, 'diesel' => '75.5', 'remark' => 'delivered late'],
+]]);
+$er2 = (new TripRepository())->rows($tid);
+check(count($er2) === 2 && $er2[1]['job_date'] === '2026-11-01' && $er2[1]['remark'] === 'delivered late' && $er2[0]['job_date'] === '2026-10-30', 'editing one entry (its date) leaves the other as it was');
+$aud = (string) Database::fetchValue("SELECT new_values FROM audit_logs WHERE action = 'trip_updated' AND entity_id = ? ORDER BY id DESC LIMIT 1", [$tid]);
+check(str_contains($aud, 'B6048649'), 'the change is audited');
+
+section('Trip rows: Add job box with date and activity; permissions; export; old data');
+Database::execute('UPDATE trips SET updated_at = ? WHERE id = ?', ['2026-10-30 10:00:00', $tid]);
+// add by number: second entry of a job that is already on the trip, on another date/activity
+call('POST', "/trips/{$tid}/jobs", ['job_number' => 'b6048649', 'job_date' => '2026-11-02', 'activity' => 'other']);
+check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ? AND job_id = ?', [$tid, $jobId]) === 3, 'the Add job box adds a second/third entry of the same job on another date or activity');
+$last = array_values(array_filter((new TripRepository())->rows($tid), static fn (array $r): bool => $r['activity'] === 'other'));
+check($last[0]['job_date'] === '2026-11-02' && $last[0]['from_location'] === 'Atlanta, GA' && $last[0]['to_location'] === 'Denver, CO' && (int) $last[0]['foreman_id'] === $joe, '...with From and To from the job and the trip\'s foreman');
+call('POST', "/trips/{$tid}/jobs", ['job_number' => 'B6048649', 'job_date' => '2026-11-02', 'activity' => 'other']);
+check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ?', [$tid]) === 3 && str_contains(json_encode($_SESSION['_flash_next']['alert'] ?? []), 'already on this trip'), 'the exact same entry again is refused with a message');
+call('POST', "/trips/{$tid}/jobs", ['job_number' => 'B6048649', 'job_date' => '2026-02-31', 'activity' => 'pickup']);
+call('POST', "/trips/{$tid}/jobs", ['job_number' => 'B6048649', 'job_date' => '2026-11-03', 'activity' => 'teleport']);
+check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ?', [$tid]) === 3, 'a bad date or activity is refused');
+$other = mk_job(['job_number' => 'AC-OTHER']);
+call('POST', "/trips/{$tid}/jobs", ['job_number' => 'AC-OTHER']);
+check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ? AND job_id = ?', [$tid, $other]) === 1 && (int) (new JobRepository())->find($other)['trip_id'] === $tid, 'a different job is added as before (date and activity optional) and assigned to the trip');
+// the job page's "Add to a trip" still refuses a job that is already on the trip at all
+call('POST', "/jobs/{$jobId}/trip", ['trip' => (string) $tid]);
+check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ? AND job_id = ?', [$tid, $jobId]) === 3, 'the job page\'s "Add to a trip" does not add a second entry (use the trip page for that)');
+$box = call('GET', "/trips/{$tid}")->body();
+check(str_contains($box, 'name="job_date"') && str_contains($box, 'name="activity"') && str_contains($box, 'id="add-job-date"'), 'the Add job box has a Date and an Activity');
+// job assignment: a second entry never steals the assignment
+$tOther = (int) Database::fetchValue("SELECT id FROM trips WHERE trip_number = 'AC-2'");
+Database::execute('UPDATE jobs SET trip_id = ? WHERE id = ?', [$tOther, $jobId]);
+call('POST', "/trips/{$tid}/jobs", ['job_number' => 'B6048649', 'job_date' => '2026-11-09', 'activity' => 'delivery']);
+check((int) (new JobRepository())->find($jobId)['trip_id'] === $tOther, 'a further entry of a job that is already on this trip does not move the job\'s assigned trip');
+// permissions
+fresh_session();
+make_role('Viewer AC', ['trips.view']);
+sign_in(make_user('Viewer AC', 'vac@example.com'));
+check(call('POST', "/trips/{$tid}/jobs", ['job_number' => 'B6048649', 'job_date' => '2026-11-10', 'activity' => 'pickup'])->status() === 403 && !str_contains(call('GET', "/trips/{$tid}")->body(), 'id="add-job-date"'), 'a viewer cannot add entries and sees no box');
+fresh_session();
+make_role('Clerk AC', ['trips.view', 'trips.manage']);
+sign_in(make_user('Clerk AC', 'cac@example.com'));
+$beforeD = (new TripRepository())->rows($tid);
+$rowsC = array_map(static fn (array $r): array => ['id' => (string) $r['id'], 'job_number' => $r['job_number'], 'job_date' => (string) $r['job_date'], 'activity' => (string) $r['activity'], 'from_location' => (string) $r['from_location'], 'to_location' => (string) $r['to_location'], 'foreman_id' => (string) $r['foreman_id'], 'diesel' => '1'], $beforeD);
+Database::execute('UPDATE trips SET updated_at = ? WHERE id = ?', ['2026-10-30 11:00:00', $tid]);
+call('POST', "/trips/{$tid}", ['trip_number' => 'AC-1', 'foreman_id' => (string) $joe, 'loaded_at' => '2026-10-30 11:00:00', 'rows' => $rowsC]);
+$afterD = (new TripRepository())->rows($tid);
+check(count($afterD) === count($beforeD) && n($afterD[0]['diesel']) === 50.0 && n($afterD[1]['diesel']) === 75.5, 'a clerk without trips.financials saves the form: every entry keeps its hidden expenses, and no forged amount is accepted');
+// export
+fresh_session();
+sign_in($mgr);
+$csv = call('GET', '/trips/export', [], ['q' => 'AC-1'])->content();
+$lines = array_map('str_getcsv', array_filter(explode("\n", substr($csv, 3))));
+$h = array_flip($lines[0]);
+check(isset($h['Activity'], $h['To'], $h['Foreman'], $h['BH']) && $h['BH'] + 1 === $h['Foreman'] && !isset($h['Collected By']), 'the export has Activity, To and Foreman (right after BH), and no Collected By');
+$find = static fn (string $act, string $date): ?array => array_values(array_filter(array_slice($lines, 1), static fn (array $l): bool => $l[$h['Activity']] === $act && $l[$h['Date']] === $date))[0] ?? null;
+$pk = $find('Pickup', '2026-10-30');
+$dl = $find('Delivery', '2026-11-01');
+check($pk !== null && $dl !== null && $pk[$h['Job #']] === 'B6048649' && $dl[$h['Job #']] === 'B6048649' && $dl[$h['To']] === 'Denver, CO' && $dl[$h['Foreman']] === 'Sam' && $pk[$h['From']] === 'Atlanta, GA', 'both entries of the same job are in the export, one line each, with activity, date, From, To and Foreman');
+// the trip list search no longer looks at collected by, and still finds by job number
+check(str_contains(call('GET', '/trips', [], ['q' => 'B6048649'])->body(), 'AC-1'), 'searching the trip list by job number still finds the trip');
+
+// migration 014 on a database that already has trip rows
+$dir = sys_get_temp_dir() . '/jt-mig14-' . bin2hex(random_bytes(4));
+mkdir($dir);
+foreach (glob(BASE_PATH . '/database/migrations/0{0[1-9],1[0-3]}_*.sql', GLOB_BRACE) as $f) {
+    copy($f, $dir . '/' . basename($f));
+}
+$pdo = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
+Database::setConnection($pdo);
+(new Migrator($dir))->migrate();
+$now = '2026-01-01 00:00:00';
+$pdo->exec("INSERT INTO foremen (name, phone, active, created_at, updated_at) VALUES ('Joe', NULL, 1, '{$now}', '{$now}')");
+$pdo->exec("INSERT INTO jobs (job_number, customer_first_name, customer_last_name, first_available_date, from_location, to_location, status, created_at, updated_at) VALUES ('OLD-14', 'A', 'B', '2026-01-01', 'X', 'Denver', 'booked', '{$now}', '{$now}')");
+$pdo->exec("INSERT INTO trips (trip_number, foreman_id, begins_on, collected_by, created_at, updated_at) VALUES ('OLD-T', 1, '2026-02-01', 'Somebody', '{$now}', '{$now}')");
+$pdo->exec("INSERT INTO trip_jobs (trip_id, job_id, sort_order, job_number, customer_name, job_date, from_location, diesel, commission) VALUES (1, 1, 0, 'OLD-14', 'A B', '2026-02-01', 'X', 12.5, 99.99)");
+copy(BASE_PATH . '/database/migrations/014_trip_row_activity_to_foreman.sql', $dir . '/014_trip_row_activity_to_foreman.sql');
+check((new Migrator($dir))->migrate() === ['014_trip_row_activity_to_foreman.sql'], 'migration 014 is the only one that runs on an existing database');
+$old = $pdo->query('SELECT * FROM trip_jobs')->fetch();
+check($old['activity'] === null && $old['to_location'] === 'Denver' && (int) $old['foreman_id'] === 1, 'an existing row gets no activity, the job\'s To place and the trip\'s foreman');
+check((float) $old['diesel'] === 12.5 && (float) $old['commission'] === 99.99 && $old['job_date'] === '2026-02-01' && $old['from_location'] === 'X' && $old['job_number'] === 'OLD-14', 'nothing else on the row, and no amount, changed');
+check($pdo->query('SELECT collected_by FROM trips')->fetchColumn() === 'Somebody', 'the old Collected By data is kept in the database');
+check((new Migrator($dir))->migrate() === [], 'running it again does nothing');
+Database::setConnection(null);
+array_map('unlink', glob($dir . '/*'));
+rmdir($dir);
+fresh_db();
+Clock::fake(null);

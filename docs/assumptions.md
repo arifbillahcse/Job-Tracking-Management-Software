@@ -234,6 +234,17 @@ The generated role x route matrix is in `docs/permission-matrix.md` (`php cli/pe
 | Y2 | A job is added to an existing trip by typing its **job number** on the trip page (needs `trips.manage`); the job gets the trip and its foreman, exactly as when the trip is chosen on the job form. | `TripService::addJobByNumber()` |
 | Y3 | A trip with no jobs is **one line in the trip CSV** (empty job columns) so it is not lost from the export, and counts as a trip with 0 jobs in the report. | `TripRepository::jobRows()` |
 
+## Trip entries (version 1.4.2)
+
+| # | Assumption | Where |
+|---|------------|-------|
+| Z1 | A trip row is an **entry** (job + date + activity), not just "a job on the trip". The same existing job may have several entries. The job is still **one Job record**; `jobs.job_number` stays unique. | `trip_jobs` |
+| Z2 | **Duplicate rule:** the exact same **job + date + activity** on one trip is refused. A missing date counts as the job's pickup date; a missing activity counts as "no activity", so two entries with no date and no activity are the same entry. The rule is in the application, not a database unique key (a unique key would treat empty values as different). | `TripService::prepare()` |
+| Z3 | **Activity** is Pickup, Delivery or Other (optional). Rows made by "Add to a trip" on a job page, the job form or an import have no activity. | `TripService::ACTIVITIES` |
+| Z4 | **From / To** on an entry default to the job's own From / To and can be overwritten per entry. **Foreman** on an entry defaults to the trip's foreman and can be another. The foreman *assigned to the job* is still the trip's foreman (W2); the entry's foreman is a record of who did that leg. The foreman report still groups by the trip's foreman. | `trip_jobs.foreman_id` |
+| Z5 | A job's assigned trip (W1) changes only when the job is **first** put on a trip; a further entry of a job already on the trip changes nothing. | `TripService::addJob()` |
+| Z6 | Column order follows the client's sheet: ..., BH, Foreman, then the expenses. Existing rows get no activity, the job's To place and the trip's foreman (migration 014); no amount or other value changes. | migration 014 |
+
 ## Security defaults (can be tuned in `app/Config/app.php` / `.env`)
 
 * Sessions end after **30 minutes idle** or **8 hours** in total.

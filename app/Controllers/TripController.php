@@ -170,14 +170,18 @@ final class TripController extends Controller
     public function addJobToTrip(Request $request, int $id): Response
     {
         $number = trim($request->str('job_number'));
-        $result = $this->trips->addJobByNumber($id, $number);
+        $date = trim($request->str('job_date'));
+        $activity = trim($request->str('activity'));
+        $result = $this->trips->addJobByNumber($id, $number, $date, $activity);
         if ($result === 'no_trip') {
             return ErrorPages::response(404);
         }
         $back = '/trips/' . $id;
         $message = match ($result) {
-            'ok' => ['success', 'Job ' . $number . ' was added to the trip.'],
-            'already' => ['warning', 'Job ' . $number . ' is already on this trip.'],
+            'ok' => ['success', 'Job ' . $number . ' was added to the trip' . ($activity !== '' ? ' as ' . (TripService::ACTIVITIES[$activity] ?? $activity) : '') . ($date !== '' ? ' on ' . $date : '') . '.'],
+            'already' => ['warning', 'Job ' . $number . ' is already on this trip' . ($activity !== '' ? ' as ' . (TripService::ACTIVITIES[$activity] ?? $activity) : '') . ($date !== '' ? ' on ' . $date : '') . '. Use another date or activity for a second entry.'],
+            'bad_date' => ['danger', 'That date is not valid.'],
+            'bad_activity' => ['danger', 'Choose Pickup, Delivery or Other.'],
             default => ['danger', $number === '' ? 'Type the job number to add.' : 'No job with the number "' . mb_substr($number, 0, 40) . '" was found (deleted jobs cannot be added).'],
         };
         $this->flash($message[0], $message[1]);

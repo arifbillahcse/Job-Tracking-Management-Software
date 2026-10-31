@@ -17,7 +17,7 @@
         <div class="row g-2 align-items-end">
             <div class="col-12 col-md-4">
                 <label class="form-label" for="t-q">Search</label>
-                <input type="search" class="form-control" id="t-q" name="q" value="<?= e($criteria->q) ?>" maxlength="100" placeholder="Trip #, foreman, collected by, job # or customer">
+                <input type="search" class="form-control" id="t-q" name="q" value="<?= e($criteria->q) ?>" maxlength="100" placeholder="Trip #, foreman, job # or customer">
             </div>
             <div class="col-12 col-md-3">
                 <label class="form-label" for="t-foreman">Foreman</label>
@@ -55,7 +55,7 @@
             <table class="table table-hover align-middle mb-0 jt-table table-cards">
                 <thead>
                 <tr>
-                    <th scope="col">Trip #</th><th scope="col">Foreman</th><th scope="col">Begins</th><th scope="col">Ends</th><th scope="col">Collected by</th>
+                    <th scope="col">Trip #</th><th scope="col">Foreman</th><th scope="col">Begins</th><th scope="col">Ends</th>
                     <th scope="col" class="text-md-end">Jobs</th>
                     <?php if ($showMoney): ?><th scope="col" class="text-md-end">Total expenses</th><?php endif; ?>
                 </tr>
@@ -67,7 +67,6 @@
                         <td data-label="Foreman"><?= e($t['foreman_name']) ?></td>
                         <td data-label="Begins"><?= e(fmt_date($t['begins_on']) ?: '—') ?></td>
                         <td data-label="Ends"><?= e(fmt_date($t['ends_on']) ?: '—') ?></td>
-                        <td data-label="Collected by"><?= e($t['collected_by'] ?: '—') ?></td>
                         <td data-label="Jobs" class="text-md-end"><?= e($t['job_count']) ?></td>
                         <?php if ($showMoney): ?><td data-label="Total expenses" class="text-md-end jt-money"><?= e(fmt_money($t['total_expenses'])) ?></td><?php endif; ?>
                     </tr>

@@ -32,8 +32,8 @@ final class TripRepository
     public function rows(int $tripId): array
     {
         $rows = Database::fetchAll(
-            'SELECT tj.*, j.customer_phone, CASE WHEN j.deleted_at IS NULL THEN 0 ELSE 1 END AS job_deleted
-             FROM trip_jobs tj LEFT JOIN jobs j ON j.id = tj.job_id WHERE tj.trip_id = ? ORDER BY tj.sort_order ASC, tj.id ASC',
+            'SELECT tj.*, rf.name AS row_foreman, j.customer_phone, CASE WHEN j.deleted_at IS NULL THEN 0 ELSE 1 END AS job_deleted
+             FROM trip_jobs tj LEFT JOIN jobs j ON j.id = tj.job_id LEFT JOIN foremen rf ON rf.id = tj.foreman_id WHERE tj.trip_id = ? ORDER BY tj.sort_order ASC, tj.id ASC',
             [$tripId]
         );
         return $rows;
@@ -82,9 +82,9 @@ final class TripRepository
         Database::transaction(function () use ($tripId, $row, $userId): void {
             $next = (int) Database::fetchValue('SELECT COALESCE(MAX(sort_order), -1) + 1 FROM trip_jobs WHERE trip_id = ?', [$tripId]);
             Database::insert(
-                'INSERT INTO trip_jobs (trip_id, job_id, sort_order, job_number, customer_name, job_date, from_location, bh, diesel, hotels, helper, misc, commission, extra, remark)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)',
-                [$tripId, $row['job_id'], $next, $row['job_number'], $row['customer_name'], $row['job_date'], $row['from_location']]
+                'INSERT INTO trip_jobs (trip_id, job_id, sort_order, job_number, customer_name, job_date, activity, from_location, to_location, foreman_id, bh, diesel, hotels, helper, misc, commission, extra, remark)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)',
+                [$tripId, $row['job_id'], $next, $row['job_number'], $row['customer_name'], $row['job_date'], $row['activity'] ?? null, $row['from_location'], $row['to_location'] ?? null, $row['foreman_id'] ?? null]
             );
             Database::execute('UPDATE trips SET updated_by = ?, updated_at = ? WHERE id = ?', [$userId, gmdate('Y-m-d H:i:s'), $tripId]);
         });
@@ -141,8 +141,8 @@ final class TripRepository
     {
         [$where, $params] = $this->where($c);
         return Database::fetchAll(
-            "SELECT t.trip_number, f.name AS foreman_name, t.begins_on, t.ends_on, t.collected_by, tj.*, j.customer_phone
-             FROM trips t JOIN foremen f ON f.id = t.foreman_id LEFT JOIN trip_jobs tj ON tj.trip_id = t.id LEFT JOIN jobs j ON j.id = tj.job_id
+            "SELECT t.trip_number, COALESCE(rf.name, f.name) AS foreman_name, t.begins_on, t.ends_on, tj.*, j.customer_phone
+             FROM trips t JOIN foremen f ON f.id = t.foreman_id LEFT JOIN trip_jobs tj ON tj.trip_id = t.id LEFT JOIN foremen rf ON rf.id = tj.foreman_id LEFT JOIN jobs j ON j.id = tj.job_id
              WHERE {$where} ORDER BY t.begins_on DESC, t.id DESC, tj.sort_order ASC, tj.id ASC LIMIT ? OFFSET ?",
             [...$params, $limit, $offset]
         );
@@ -188,9 +188,9 @@ final class TripRepository
         $like = static fn (string $text): string => '%' . strtr($text, ['!' => '!!', '%' => '!%', '_' => '!_']) . '%';
 
         foreach (array_slice(preg_split('/\s+/', $c->q, -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 5) as $word) {
-            $sql .= " AND (t.trip_number LIKE ? ESCAPE '!' OR f.name LIKE ? ESCAPE '!' OR t.collected_by LIKE ? ESCAPE '!'
+            $sql .= " AND (t.trip_number LIKE ? ESCAPE '!' OR f.name LIKE ? ESCAPE '!'
                 OR EXISTS (SELECT 1 FROM trip_jobs x WHERE x.trip_id = t.id AND (x.job_number LIKE ? ESCAPE '!' OR x.customer_name LIKE ? ESCAPE '!')))";
-            array_push($params, ...array_fill(0, 5, $like($word)));
+            array_push($params, ...array_fill(0, 4, $like($word)));
         }
         if ($c->foremanId > 0) {
             $sql .= ' AND t.foreman_id = ?';
@@ -216,8 +216,8 @@ final class TripRepository
         return (int) Database::transaction(function () use ($header, $rows, $userId): int {
             $now = gmdate('Y-m-d H:i:s');
             $id = Database::insert(
-                'INSERT INTO trips (trip_number, foreman_id, begins_on, ends_on, collected_by, notes, created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [$header['trip_number'], $header['foreman_id'], $header['begins_on'], $header['ends_on'], $header['collected_by'], $header['notes'], $userId, $userId, $now, $now]
+                'INSERT INTO trips (trip_number, foreman_id, begins_on, ends_on, notes, created_by, updated_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [$header['trip_number'], $header['foreman_id'], $header['begins_on'], $header['ends_on'], $header['notes'], $userId, $userId, $now, $now]
             );
             $this->insertRows($id, $rows);
             return $id;
@@ -234,8 +234,8 @@ final class TripRepository
     {
         Database::transaction(function () use ($id, $header, $rows, $userId): void {
             Database::execute(
-                'UPDATE trips SET trip_number = ?, foreman_id = ?, begins_on = ?, ends_on = ?, collected_by = ?, notes = ?, updated_by = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
-                [$header['trip_number'], $header['foreman_id'], $header['begins_on'], $header['ends_on'], $header['collected_by'], $header['notes'], $userId, gmdate('Y-m-d H:i:s'), $id]
+                'UPDATE trips SET trip_number = ?, foreman_id = ?, begins_on = ?, ends_on = ?, notes = ?, updated_by = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL',
+                [$header['trip_number'], $header['foreman_id'], $header['begins_on'], $header['ends_on'], $header['notes'], $userId, gmdate('Y-m-d H:i:s'), $id]
             );
             Database::execute('DELETE FROM trip_jobs WHERE trip_id = ?', [$id]);
             $this->insertRows($id, $rows);
@@ -254,9 +254,9 @@ final class TripRepository
         $order = 0;
         foreach ($rows as $row) {
             Database::insert(
-                'INSERT INTO trip_jobs (trip_id, job_id, sort_order, job_number, customer_name, job_date, from_location, bh, diesel, hotels, helper, misc, commission, extra, remark)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [$tripId, $row['job_id'], $order++, $row['job_number'], $row['customer_name'], $row['job_date'], $row['from_location'], $row['bh'],
+                'INSERT INTO trip_jobs (trip_id, job_id, sort_order, job_number, customer_name, job_date, activity, from_location, to_location, foreman_id, bh, diesel, hotels, helper, misc, commission, extra, remark)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [$tripId, $row['job_id'], $order++, $row['job_number'], $row['customer_name'], $row['job_date'], $row['activity'] ?? null, $row['from_location'], $row['to_location'] ?? null, $row['foreman_id'] ?? null, $row['bh'],
                     $row['diesel'], $row['hotels'], $row['helper'], $row['misc'], $row['commission'], $row['extra'], $row['remark']]
             );
         }
@@ -267,7 +267,7 @@ final class TripRepository
     {
         $column = Database::driver() === 'sqlite' ? 'job_number COLLATE NOCASE' : 'job_number';
         return Database::fetchOne(
-            "SELECT id, job_number, customer_first_name, customer_last_name, pickup_date, from_location FROM jobs WHERE {$column} = ? AND deleted_at IS NULL",
+            "SELECT id, job_number, customer_first_name, customer_last_name, pickup_date, from_location, to_location FROM jobs WHERE {$column} = ? AND deleted_at IS NULL",
             [$number]
         );
     }

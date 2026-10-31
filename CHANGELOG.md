@@ -2,6 +2,15 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.4.2 - trip entries: Activity, From / To, Foreman; the same job on several dates (client feedback)
+
+* **"Collected by" is gone** from the trip form, trip page, trip list and export (the client does not need it). The Foreman of the trip stays. The old values are kept in the database, untouched.
+* **Each trip entry now has: Job #, Date, Activity (Pickup / Delivery / Other), From, To, BH, Foreman**, then the expenses and a remark. BH and Foreman follow each other as in the client's spreadsheet. From and To default to the job's own places and can be changed per entry (a delivery runs from the warehouse); Foreman defaults to the trip's foreman and can be another.
+* **The same job can be on a trip more than once**, for example *Pickup on 30 October* and *Delivery on 31 October*. No new Job record or Job Number is needed, and Job Numbers stay unique in the Jobs table. **Only the exact same job + date + activity is refused** (message names the date and activity).
+* The **Add job** box on the trip page also takes a date and an activity, so a second entry can be added later. The job page's "Add to a trip" still adds a job once.
+* Trip Details shows every entry with Date, Activity, From, To, BH and Foreman; the CSV export has one line per entry with Activity, To and Foreman (right after BH).
+* **Upgrade:** `git pull origin main`, `php cli/migrate.php` (014 adds three columns to the trip rows and fills them from data already there; nothing is changed or removed), `php cli/doctor.php`.
+
 ## 1.4.1 - create the trip first, assign jobs later (client follow-up)
 
 * **A trip no longer needs a job.** The client creates the trip first (number, foreman, dates, collected by), then creates jobs and chooses that trip on the New Job form. Job Number is still required on the job.

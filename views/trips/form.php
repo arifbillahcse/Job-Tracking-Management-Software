@@ -26,6 +26,14 @@ $cell = static function (int $i, string $field, array $row, array $attrs = []): 
     $bad = has_error('rows.' . $i . '.' . $field);
     return '<input class="form-control form-control-sm' . ($bad ? ' is-invalid' : '') . '" name="' . e($name) . '" value="' . e((string) ($row[$field] ?? '')) . '"' . $html . ' aria-label="' . e(ucfirst(str_replace('_', ' ', $field)) . ' row ' . ($i + 1)) . '">';
 };
+$choice = static function (int $i, string $field, array $row, array $options): string {
+    $current = (string) ($row[$field] ?? '');
+    $html = '<select class="form-select form-select-sm' . (has_error('rows.' . $i . '.' . $field) ? ' is-invalid' : '') . '" name="' . e('rows[' . $i . '][' . $field . ']') . '" aria-label="' . e(ucfirst(str_replace('_', ' ', $field)) . ' row ' . ($i + 1)) . '">';
+    foreach ($options as $value => $label) {
+        $html .= '<option value="' . e((string) $value) . '"' . ((string) $value === $current ? ' selected' : '') . '>' . e((string) $label) . '</option>';
+    }
+    return $html . '</select>';
+};
 ?>
 <form method="post" action="<?= e(url($action)) ?>" novalidate data-loading data-unsaved>
     <?= csrf_field() ?>
@@ -35,13 +43,13 @@ $cell = static function (int $i, string $field, array $row, array $attrs = []): 
         <div class="card-header bg-transparent fw-semibold">Trip</div>
         <div class="card-body">
             <div class="row g-3">
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-6">
                     <label for="trip_number" class="form-label">Trip number <span class="text-danger" aria-hidden="true">*</span></label>
                     <input type="text" class="form-control<?= has_error('trip_number') ? ' is-invalid' : '' ?>" id="trip_number" name="trip_number" value="<?= e($val('trip_number')) ?>" maxlength="40" required>
                     <div class="form-text">Letters, numbers and - _ / . only. Must be unique.</div>
                     <?= error_text('trip_number') ?>
                 </div>
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-6">
                     <label for="foreman_id" class="form-label">Foreman <span class="text-danger" aria-hidden="true">*</span></label>
                     <select class="form-select<?= has_error('foreman_id') ? ' is-invalid' : '' ?>" id="foreman_id" name="foreman_id" required>
                         <option value="">Choose a foreman</option>
@@ -52,17 +60,12 @@ $cell = static function (int $i, string $field, array $row, array $attrs = []): 
                     <?php if (can('foremen.manage')): ?><div class="form-text"><a href="<?= e(url('/foremen/create')) ?>">Add a foreman</a> first if he is not listed.</div><?php endif; ?>
                     <?= error_text('foreman_id') ?>
                 </div>
-                <div class="col-12 col-md-4">
-                    <label for="collected_by" class="form-label">Collected by</label>
-                    <input type="text" class="form-control<?= has_error('collected_by') ? ' is-invalid' : '' ?>" id="collected_by" name="collected_by" value="<?= e($val('collected_by')) ?>" maxlength="150">
-                    <?= error_text('collected_by') ?>
-                </div>
-                <div class="col-6 col-md-4">
+                <div class="col-6 col-md-6">
                     <label for="begins_on" class="form-label">Trip begins</label>
                     <input type="date" class="form-control<?= has_error('begins_on') ? ' is-invalid' : '' ?>" id="begins_on" name="begins_on" value="<?= e($val('begins_on')) ?>">
                     <?= error_text('begins_on') ?>
                 </div>
-                <div class="col-6 col-md-4">
+                <div class="col-6 col-md-6">
                     <label for="ends_on" class="form-label">Trip ends</label>
                     <input type="date" class="form-control<?= has_error('ends_on') ? ' is-invalid' : '' ?>" id="ends_on" name="ends_on" value="<?= e($val('ends_on')) ?>">
                     <?= error_text('ends_on') ?>
@@ -86,7 +89,8 @@ $cell = static function (int $i, string $field, array $row, array $attrs = []): 
             <table class="table align-middle mb-0 jt-table">
                 <thead>
                 <tr>
-                    <th scope="col" class="jt-w9">Job #</th><th scope="col" class="jt-w9">Date</th><th scope="col" class="jt-w6">BH</th>
+                    <th scope="col" class="jt-w9">Job #</th><th scope="col" class="jt-w9">Date</th><th scope="col" class="jt-w9">Activity</th>
+                    <th scope="col" class="jt-w9">From</th><th scope="col" class="jt-w9">To</th><th scope="col" class="jt-w6">BH</th><th scope="col" class="jt-w9">Foreman</th>
                     <?php if ($editMoney): foreach ($money as $label): ?><th scope="col" class="jt-w65"><?= e($label) ?></th><?php endforeach; endif; ?>
                     <th scope="col" class="jt-w12">Remark</th>
                 </tr>
@@ -98,10 +102,14 @@ $cell = static function (int $i, string $field, array $row, array $attrs = []): 
                             <?php if (!empty($row['id'])): ?><input type="hidden" name="rows[<?= e($i) ?>][id]" value="<?= e($row['id']) ?>"><?php endif; ?>
                             <?= $cell($i, 'job_number', $row, ['maxlength' => 40]) ?>
                             <?= error_text('rows.' . $i . '.job_number') ?>
-                            <?php if (!empty($row['customer_name'])): ?><div class="jt-subtle"><?= e($row['customer_name']) ?><?= !empty($row['from_location']) ? ' · ' . e($row['from_location']) : '' ?></div><?php endif; ?>
+                            <?php if (!empty($row['customer_name'])): ?><div class="jt-subtle"><?= e($row['customer_name']) ?></div><?php endif; ?>
                         </td>
                         <td><?= $cell($i, 'job_date', $row, ['type' => 'date']) ?><?= error_text('rows.' . $i . '.job_date') ?></td>
+                        <td><?= $choice($i, 'activity', $row, ['' => '—'] + \App\Services\TripService::ACTIVITIES) ?><?= error_text('rows.' . $i . '.activity') ?></td>
+                        <td><?= $cell($i, 'from_location', $row, ['maxlength' => 190, 'placeholder' => "job's From"]) ?><?= error_text('rows.' . $i . '.from_location') ?></td>
+                        <td><?= $cell($i, 'to_location', $row, ['maxlength' => 190, 'placeholder' => "job's To"]) ?><?= error_text('rows.' . $i . '.to_location') ?></td>
                         <td><?= $cell($i, 'bh', $row, ['maxlength' => 100]) ?></td>
+                        <td><?= $choice($i, 'foreman_id', $row, ['' => "Trip's foreman"] + array_column($foremen, 'name', 'id')) ?><?= error_text('rows.' . $i . '.foreman_id') ?></td>
                         <?php if ($editMoney): foreach ($money as $field => $label): ?>
                             <td><?= $cell($i, $field, $row, ['type' => 'number', 'step' => '0.01', 'min' => '0', 'inputmode' => 'decimal']) ?><?= error_text('rows.' . $i . '.' . $field) ?></td>
                         <?php endforeach; endif; ?>

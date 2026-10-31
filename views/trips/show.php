@@ -22,7 +22,6 @@ $dl = static fn (string $label, string $html): string => '<dt class="col-sm-4 te
             <?= $dl('Foreman', e($trip['foreman_name'])) ?>
             <?= $dl('Trip begins', e(fmt_date($trip['begins_on']) ?: '—')) ?>
             <?= $dl('Trip ends', e(fmt_date($trip['ends_on']) ?: '—')) ?>
-            <?= $dl('Collected by', e($trip['collected_by'] ?: '—')) ?>
             <?php if (!empty($trip['notes'])): ?><?= $dl('Notes', nl2br(e($trip['notes']))) ?><?php endif; ?>
         </dl>
     </div>
@@ -36,6 +35,13 @@ $dl = static fn (string $label, string $html): string => '<dt class="col-sm-4 te
                 <?= csrf_field() ?>
                 <label class="visually-hidden" for="add-job-number">Job number to add</label>
                 <input type="text" class="form-control form-control-sm" id="add-job-number" name="job_number" maxlength="40" placeholder="Job # to add" required>
+                <label class="visually-hidden" for="add-job-date">Date</label>
+                <input type="date" class="form-control form-control-sm" id="add-job-date" name="job_date">
+                <label class="visually-hidden" for="add-job-activity">Activity</label>
+                <select class="form-select form-select-sm" id="add-job-activity" name="activity">
+                    <option value="">Activity</option>
+                    <?php foreach (\App\Services\TripService::ACTIVITIES as $k => $label): ?><option value="<?= e($k) ?>"><?= e($label) ?></option><?php endforeach; ?>
+                </select>
                 <button type="submit" class="btn btn-sm btn-primary">Add job</button>
             </form>
         <?php endif; ?>
@@ -50,7 +56,7 @@ $dl = static fn (string $label, string $html): string => '<dt class="col-sm-4 te
         <table class="table table-hover align-middle mb-0 jt-table">
             <thead>
             <tr>
-                <th scope="col">Job #</th><th scope="col">Customer</th><th scope="col">Date</th><th scope="col">From</th><th scope="col">BH</th>
+                <th scope="col">Job #</th><th scope="col">Customer</th><th scope="col">Date</th><th scope="col">Activity</th><th scope="col">From</th><th scope="col">To</th><th scope="col">BH</th><th scope="col">Foreman</th>
                 <?php if ($showMoney): foreach ($cols as $label): ?><th scope="col" class="text-end"><?= e($label) ?></th><?php endforeach; endif; ?>
                 <th scope="col">Remark</th>
             </tr>
@@ -61,8 +67,11 @@ $dl = static fn (string $label, string $html): string => '<dt class="col-sm-4 te
                     <td><?= can('jobs.view') && empty($row['job_deleted']) ? '<a class="jt-jobno" href="' . e(url('/jobs/' . $row['job_id'])) . '">' . e($row['job_number']) . '</a>' : e($row['job_number']) . (!empty($row['job_deleted']) ? ' <span class="badge text-bg-secondary">job deleted</span>' : '') ?></td>
                     <td><?= e($row['customer_name']) ?><?php if (!empty($row['customer_phone'])): ?><div class="jt-subtle"><?= tel_link($row['customer_phone']) ?></div><?php endif; ?></td>
                     <td><?= e(fmt_date($row['job_date']) ?: '—') ?></td>
+                    <td><?= e(\App\Services\TripService::ACTIVITIES[$row['activity'] ?? ''] ?? '—') ?></td>
                     <td><?= e($row['from_location'] ?: '—') ?></td>
+                    <td><?= e($row['to_location'] ?: '—') ?></td>
                     <td><?= e($row['bh'] ?: '—') ?></td>
+                    <td><?= e($row['row_foreman'] ?: $trip['foreman_name']) ?></td>
                     <?php if ($showMoney): foreach ($cols as $field => $label): ?>
                         <td class="text-end jt-money"><?= ($row[$field] ?? null) === null ? '—' : e(fmt_money($row[$field])) ?></td>
                     <?php endforeach; endif; ?>
@@ -73,12 +82,12 @@ $dl = static fn (string $label, string $html): string => '<dt class="col-sm-4 te
             <?php if ($showMoney && $trip['totals'] !== null): ?>
                 <tfoot>
                 <tr class="fw-semibold">
-                    <td colspan="5" class="text-end">Totals</td>
+                    <td colspan="8" class="text-end">Totals</td>
                     <?php foreach ($cols as $field => $label): ?><td class="text-end jt-money"><?= e(fmt_money($trip['totals'][$field])) ?></td><?php endforeach; ?>
                     <td></td>
                 </tr>
                 <tr class="fw-semibold">
-                    <td colspan="5" class="text-end">Total expenses <span class="jt-subtle fw-normal">(sum of the six columns)</span></td>
+                    <td colspan="8" class="text-end">Total expenses <span class="jt-subtle fw-normal">(sum of the six columns)</span></td>
                     <td colspan="<?= e(count($cols)) ?>" class="text-end jt-money"><?= e(fmt_money($trip['totals']['total'])) ?></td>
                     <td></td>
                 </tr>

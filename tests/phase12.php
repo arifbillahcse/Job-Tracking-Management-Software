@@ -78,9 +78,9 @@ $gone = mk_job(['job_number' => 'TJ-GONE']);
 (new JobRepository())->softDelete($gone, null);
 $form = call('GET', '/trips/create');
 $fb = $form->body();
-check($form->status() === 200 && str_contains($fb, 'name="trip_number"') && str_contains($fb, 'name="foreman_id"') && str_contains($fb, 'name="collected_by"') && str_contains($fb, 'name="begins_on"') && str_contains($fb, 'name="ends_on"') && str_contains($fb, 'name="rows[0][job_number]"') && str_contains($fb, 'name="rows[0][diesel]"') && str_contains($fb, 'name="rows[4][commission]"') && !str_contains($fb, 'name="rows[5][job_number]"'), 'the form has the header, five spare job rows and the expense columns');
+check($form->status() === 200 && str_contains($fb, 'name="trip_number"') && str_contains($fb, 'name="foreman_id"') && !str_contains($fb, 'collected_by') && str_contains($fb, 'name="rows[0][activity]"') && str_contains($fb, 'name="rows[0][to_location]"') && str_contains($fb, 'name="rows[0][foreman_id]"') && str_contains($fb, 'name="begins_on"') && str_contains($fb, 'name="ends_on"') && str_contains($fb, 'name="rows[0][job_number]"') && str_contains($fb, 'name="rows[0][diesel]"') && str_contains($fb, 'name="rows[4][commission]"') && !str_contains($fb, 'name="rows[5][job_number]"'), 'the form has the header, five spare job rows and the expense columns');
 $post = [
-    'trip_number' => 'TRIP-1', 'foreman_id' => (string) $joe, 'begins_on' => '2026-10-20', 'ends_on' => '2026-10-25', 'collected_by' => 'BH Office', 'notes' => 'First run',
+    'trip_number' => 'TRIP-1', 'foreman_id' => (string) $joe, 'begins_on' => '2026-10-20', 'ends_on' => '2026-10-25', 'notes' => 'First run',
     'rows' => [
         ['job_number' => 'tj-11', 'job_date' => '', 'bh' => 'BH', 'diesel' => '120.10', 'hotels' => '80', 'helper' => '50.20', 'misc' => '10', 'commission' => '375', 'extra' => '5', 'remark' => 'ok'],
         ['job_number' => 'TJ-12', 'job_date' => '2026-10-22', 'bh' => '', 'diesel' => '0.2', 'hotels' => '', 'helper' => '', 'misc' => '', 'commission' => '', 'extra' => '', 'remark' => ''],
@@ -91,7 +91,7 @@ $r = call('POST', '/trips', $post);
 $t1 = (int) Database::fetchValue("SELECT id FROM trips WHERE trip_number = 'TRIP-1'");
 check($r->status() === 302 && $t1 > 0, 'a trip with two jobs is created (a blank spare row is ignored)');
 $trip = Database::fetchOne('SELECT * FROM trips WHERE id = ?', [$t1]);
-check((int) $trip['foreman_id'] === $joe && $trip['begins_on'] === '2026-10-20' && $trip['ends_on'] === '2026-10-25' && $trip['collected_by'] === 'BH Office', 'the header is saved');
+check((int) $trip['foreman_id'] === $joe && $trip['begins_on'] === '2026-10-20' && $trip['ends_on'] === '2026-10-25', 'the header is saved');
 $rows = (new TripRepository())->rows($t1);
 check(count($rows) === 2 && $rows[0]['job_number'] === 'TJ-11' && $rows[0]['customer_name'] === 'John smith' && $rows[0]['from_location'] === 'GA', 'the job number is matched case-insensitively; customer name and From are copied from the job');
 check($rows[0]['job_date'] === '2026-10-24' && $rows[1]['job_date'] === '2026-10-22', 'a blank Date defaults to the job\'s pickup date; a typed one is kept');
@@ -99,7 +99,7 @@ check(n($rows[0]['diesel']) === 120.1 && n($rows[0]['hotels']) === 80.0 && n($ro
 check(TripTotals::forRows($rows)['diesel'] === '120.30' && TripTotals::forRows($rows)['total'] === '640.50', 'totals are exact in cents (120.10 + 0.20 = 120.30), total expenses = sum of the six columns');
 check(TripTotals::forRows([['diesel' => '0.29'], ['diesel' => '0.57'], ['diesel' => null, 'misc' => '1.15']])['diesel'] === '0.86' && TripTotals::forRows([['misc' => '1.15'], ['misc' => '2.30']])['total'] === '3.45' && TripTotals::forRows([])['total'] === '0.00', 'totals do not lose a cent to floating point (0.29 + 0.57 = 0.86, 1.15 + 2.30 = 3.45)');
 $page = plain(call('GET', "/trips/{$t1}")->body());
-check(str_contains($page, 'Trip TRIP-1') && str_contains($page, 'Joe') && str_contains($page, 'BH Office') && str_contains($page, 'TJ-11') && str_contains($page, 'John smith') && str_contains($page, 'Totals') && str_contains($page, '$640.50') && str_contains($page, '$120.30'), 'the trip page shows the rows and the totals');
+check(str_contains($page, 'Trip TRIP-1') && str_contains($page, 'Joe') && !str_contains($page, 'Collected by') && str_contains($page, 'TJ-11') && str_contains($page, 'John smith') && str_contains($page, 'Totals') && str_contains($page, '$640.50') && str_contains($page, '$120.30'), 'the trip page shows the rows and the totals');
 $audit = (string) Database::fetchValue("SELECT new_values FROM audit_logs WHERE action = 'trip_created' ORDER BY id DESC LIMIT 1");
 check(str_contains($audit, 'TRIP-1') && str_contains($audit, 'TJ-11') && str_contains($audit, 'TJ-12'), 'creation is audited with the jobs on it');
 (new JobRepository())->update($j1, ['customer_last_name' => 'Changed'], null);
@@ -127,7 +127,7 @@ $bad(['rows' => [['job_number' => 'TJ-11', 'misc' => 'abc']]], 'rows.0.misc', 'a
 $bad(['rows' => [['job_number' => 'TJ-11', 'extra' => '1.234']]], 'rows.0.extra', 'a third decimal is refused (no silent rounding)');
 $bad(['rows' => [['job_number' => 'TJ-11', 'remark' => str_repeat('x', 501)]]], 'rows.0.remark', 'a too-long remark is refused');
 $bad(['rows' => [['job_number' => 'TJ-11', 'job_date' => 'tomorrow']]], 'rows.0.job_date', 'a bad row date is refused');
-$bad(['collected_by' => str_repeat('x', 151)], 'collected_by', 'collected by has a length limit');
+$bad(['notes' => str_repeat('x', 5001)], 'notes', 'notes have a length limit');
 check(call('POST', '/trips', ['trip_number' => 'T-NOCSRF', '_csrf' => 'wrong'] + $post)->status() === 403, 'a request without a valid token is refused');
 check((new TripService())->prepare(['trip_number' => 'MAL-1', 'foreman_id' => (string) $joe, 'rows' => 'not-an-array'])['errors'] === [], 'a malformed rows field is treated as no rows, not a crash');
 $np = (new TripService())->prepare(['trip_number' => 'MAL-2', 'foreman_id' => (string) $joe, 'rows' => ['x' => 'y', ['job_number' => 'TJ-11']]]);
@@ -143,16 +143,16 @@ $loaded = (string) Database::fetchValue('SELECT updated_at FROM trips WHERE id =
 $existing = (new TripRepository())->rows($t1);
 $edited = $post;
 $edited['loaded_at'] = $loaded;
-$edited['collected_by'] = 'New Collector';
+$edited['notes'] = 'New Notes';
 $edited['rows'] = [
     ['id' => (string) $existing[0]['id'], 'job_number' => 'TJ-11', 'job_date' => '', 'bh' => 'BH', 'diesel' => '200', 'hotels' => '80', 'helper' => '50.20', 'misc' => '10', 'commission' => '375', 'extra' => '5', 'remark' => 'ok'],
     ['job_number' => 'TJ-13', 'job_date' => '', 'bh' => '', 'diesel' => '30'],
 ];
 $r = call('POST', "/trips/{$t1}", $edited);
 $rows = (new TripRepository())->rows($t1);
-check($r->status() === 302 && count($rows) === 2 && $rows[0]['job_number'] === 'TJ-11' && $rows[1]['job_number'] === 'TJ-13' && n($rows[0]['diesel']) === 200.0 && Database::fetchValue('SELECT collected_by FROM trips WHERE id = ?', [$t1]) === 'New Collector', 'rows can be changed, one removed and one added; the header can be edited');
+check($r->status() === 302 && count($rows) === 2 && $rows[0]['job_number'] === 'TJ-11' && $rows[1]['job_number'] === 'TJ-13' && n($rows[0]['diesel']) === 200.0 && Database::fetchValue('SELECT notes FROM trips WHERE id = ?', [$t1]) === 'New Notes', 'rows can be changed, one removed and one added; the header can be edited');
 $aud = (string) Database::fetchValue("SELECT new_values FROM audit_logs WHERE action = 'trip_updated' ORDER BY id DESC LIMIT 1");
-check(str_contains($aud, 'New Collector') && str_contains($aud, 'TJ-13') && str_contains($aud, '"total_expenses"'), 'the edit is audited (header changes, jobs, total expenses)');
+check(str_contains($aud, 'New Notes') && str_contains($aud, 'TJ-13') && str_contains($aud, '"total_expenses"'), 'the edit is audited (header changes, jobs, total expenses)');
 Database::execute('UPDATE trips SET updated_at = ? WHERE id = ?', ['2026-10-23 12:00:01', $t1]); // another save, a moment later
 $r = call('POST', "/trips/{$t1}", $edited);
 check(isset($_SESSION['_flash_next']['alert']) && str_contains(json_encode($_SESSION['_flash_next']['alert']), 'Someone else changed this trip'), 'saving with a stale form is refused as a conflict');
@@ -183,7 +183,7 @@ sign_in($mgr);
 $repo = new TripRepository();
 $mk = static function (string $number, int $foreman, ?string $begins, string $jobNumber, string $diesel) use ($repo): int {
     $job = $repo->findJobByNumber($jobNumber);
-    return $repo->create(['trip_number' => $number, 'foreman_id' => $foreman, 'begins_on' => $begins, 'ends_on' => null, 'collected_by' => 'Col-' . $number, 'notes' => null], [[
+    return $repo->create(['trip_number' => $number, 'foreman_id' => $foreman, 'begins_on' => $begins, 'ends_on' => null, 'notes' => null], [[
         'job_id' => (int) $job['id'], 'job_number' => $job['job_number'], 'customer_name' => $job['customer_first_name'] . ' ' . $job['customer_last_name'], 'job_date' => null,
         'from_location' => $job['from_location'], 'bh' => null, 'diesel' => $diesel, 'hotels' => null, 'helper' => null, 'misc' => null, 'commission' => null, 'extra' => null, 'remark' => null,
     ]], null);
@@ -198,7 +198,6 @@ check(str_contains(call('GET', '/trips', [], ['page' => '2'])->body(), 'LT-01') 
 $ids = static fn (array $q): string => implode(',', array_map(static fn (array $r): string => $r['trip_number'], (new TripService())->search(TripCriteria::fromRequest(\App\Core\Request::make('GET', '/trips', [], $q)), 100, 0)));
 check($ids(['q' => 'LT-05']) === 'LT-05', 'search by trip number');
 check(substr_count($ids(['q' => 'Samuel']), 'LT') === 14 && $ids(['q' => 'nomatch']) === '', 'search by foreman name');
-check($ids(['q' => 'Col-LT-09']) === 'LT-09', 'search by collected by');
 check(substr_count($ids(['q' => 'TJ-12']), 'LT') === 9 && substr_count($ids(['q' => 'Mia']), 'LT') === 9, 'search by job number or customer name finds the trips that carry the job');
 check(substr_count($ids(['foreman' => (string) $joe]), 'LT') === 13, 'filter by foreman');
 check($ids(['from' => '2026-09-10', 'to' => '2026-09-12']) === 'LT-12,LT-11,LT-10', 'filter by the date the trip begins');
@@ -224,10 +223,10 @@ $svc = (new TripService())->find($tid);
 check($svc !== null && !array_key_exists('total_expenses', $svc) && $svc['totals'] === null && !array_key_exists('diesel', $svc['rows'][0]), 'the service strips the figures before any template sees them');
 $rowsBefore = (new TripRepository())->rows($tid);
 $loaded = (string) Database::fetchValue('SELECT updated_at FROM trips WHERE id = ?', [$tid]);
-call('POST', "/trips/{$tid}", ['trip_number' => 'LT-03', 'foreman_id' => (string) Database::fetchValue('SELECT foreman_id FROM trips WHERE id = ?', [$tid]), 'collected_by' => 'Changed by clerk', 'loaded_at' => $loaded,
+call('POST', "/trips/{$tid}", ['trip_number' => 'LT-03', 'foreman_id' => (string) Database::fetchValue('SELECT foreman_id FROM trips WHERE id = ?', [$tid]), 'notes' => 'Changed by clerk', 'loaded_at' => $loaded,
     'rows' => [['id' => (string) $rowsBefore[0]['id'], 'job_number' => $rowsBefore[0]['job_number'], 'remark' => 'clerk note', 'diesel' => '9999']]]);
 $after = (new TripRepository())->rows($tid);
-check(Database::fetchValue('SELECT collected_by FROM trips WHERE id = ?', [$tid]) === 'Changed by clerk' && $after[0]['remark'] === 'clerk note', 'a clerk can change the non-money fields');
+check(Database::fetchValue('SELECT notes FROM trips WHERE id = ?', [$tid]) === 'Changed by clerk' && $after[0]['remark'] === 'clerk note', 'a clerk can change the non-money fields');
 check(n($after[0]['diesel']) === 10.0, 'editing a trip never wipes the hidden expenses, and a forged diesel value is ignored');
 call('POST', '/trips', ['trip_number' => 'CLERK-NEW', 'foreman_id' => (string) $joe, 'rows' => [['job_number' => 'TJ-13', 'diesel' => '500', 'commission' => '80']]]);
 $cr = (new TripRepository())->rows((int) Database::fetchValue("SELECT id FROM trips WHERE trip_number = 'CLERK-NEW'"));
@@ -279,7 +278,7 @@ $mkRow = static function (int $jobId, string $num, string $cust, array $over = [
     return $over + ['job_id' => $jobId, 'job_number' => $num, 'customer_name' => $cust, 'job_date' => '2026-10-02', 'from_location' => 'GA', 'bh' => null,
         'diesel' => null, 'hotels' => null, 'helper' => null, 'misc' => null, 'commission' => null, 'extra' => null, 'remark' => null];
 };
-$hdr = static fn (string $n, int $f, ?string $b): array => ['trip_number' => $n, 'foreman_id' => $f, 'begins_on' => $b, 'ends_on' => null, 'collected_by' => 'Col', 'notes' => null];
+$hdr = static fn (string $n, int $f, ?string $b): array => ['trip_number' => $n, 'foreman_id' => $f, 'begins_on' => $b, 'ends_on' => null, 'notes' => null];
 $repo->create($hdr('RP-1', $joe, '2026-10-01'), [$mkRow($ja, 'R-1', 'John smith', ['diesel' => '0.29', 'hotels' => '10', 'remark' => '=HYPERLINK("x")']), $mkRow($jb, 'R-2', 'Mia Lee', ['diesel' => '0.57', 'commission' => '100'])], null);
 $repo->create($hdr('RP-2', $joe, '2026-10-15'), [$mkRow($ja, 'R-1', 'John smith', ['diesel' => '5', 'extra' => '1.15'])], null);
 $repo->create($hdr('RP-3', $sam, '2026-09-10'), [$mkRow($jb, 'R-2', 'Mia Lee', ['misc' => '7.50', 'helper' => '2.30'])], null);
@@ -311,14 +310,14 @@ $csv = call('GET', '/trips/export');
 $text = $csv->content();
 $lines = array_map('str_getcsv', array_filter(explode("\n", substr($text, 3))));
 check($csv->status() === 200 && str_starts_with($text, "\xEF\xBB\xBF") && str_contains((string) $csv->getHeader('Content-Type'), 'text/csv') && str_contains((string) $csv->getHeader('Content-Disposition'), 'attachment; filename="trips-'), 'the export is a UTF-8 CSV with a BOM, sent as a download');
-check($lines[0] === ['Trip Number', 'Foreman', 'Trip Begins', 'Trip Ends', 'Collected By', 'Job #', 'Customer Name', 'Customer Phone', 'Date', 'From', 'BH', 'Diesel', 'Hotels', 'Helper', 'Misc', 'Commission', 'Extra', 'Remark'], 'the headings follow the client\'s sheet (plus the customer phone, for people who may see jobs)');
+check($lines[0] === ['Trip Number', 'Trip Begins', 'Trip Ends', 'Job #', 'Customer Name', 'Customer Phone', 'Date', 'Activity', 'From', 'To', 'BH', 'Foreman', 'Diesel', 'Hotels', 'Helper', 'Misc', 'Commission', 'Extra', 'Remark'], 'the headings follow the client\'s sheet (plus the customer phone, for people who may see jobs)');
 check(count($lines) === 1 + 5, 'one line per job row (5), not per trip; the deleted trip is absent');
 $first = array_column(array_slice($lines, 1), null, 4 - 4 + 0);
 check($lines[1][0] === 'RP-4' || $lines[1][0] === 'RP-2', 'newest trips first');
 $rp1 = array_values(array_filter($lines, static fn (array $l): bool => $l[0] === 'RP-1'));
-check(count($rp1) === 2 && $rp1[0][1] === 'Joe' && $rp1[0][2] === '2026-10-01' && $rp1[0][4] === 'Col' && $rp1[1][1] === 'Joe' && $rp1[0][5] === 'R-1' && $rp1[0][6] === 'John smith' && $rp1[0][11] === '0.29' && $rp1[0][12] === '10.00' && $rp1[1][15] === '100.00', 'the trip details are repeated on each of its job lines; amounts have two decimals');
-check($rp1[0][17] === "'=HYPERLINK(\"x\")", 'a remark that looks like a formula is neutralised (CSV injection)');
-check($rp1[1][12] === '' && $rp1[0][13] === '', 'an empty amount stays empty (not 0.00)');
+check(count($rp1) === 2 && $rp1[0][11] === 'Joe' && $rp1[0][1] === '2026-10-01' && $rp1[1][11] === 'Joe' && $rp1[0][3] === 'R-1' && $rp1[0][4] === 'John smith' && $rp1[0][12] === '0.29' && $rp1[0][13] === '10.00' && $rp1[1][16] === '100.00', 'the trip details are repeated on each of its job lines; amounts have two decimals; the Foreman column follows BH as in the client\'s sheet');
+check($rp1[0][18] === "'=HYPERLINK(\"x\")", 'a remark that looks like a formula is neutralised (CSV injection)');
+check($rp1[1][13] === '' && $rp1[0][14] === '', 'an empty amount stays empty (not 0.00)');
 $filtered = array_filter(explode("\n", substr(call('GET', '/trips/export', [], ['foreman' => (string) $sam])->content(), 3)));
 check(count($filtered) === 1 + 2 && !str_contains(implode("\n", $filtered), 'RP-1'), 'the export follows the same filters as the list');
 check(count(array_filter(explode("\n", substr(call('GET', '/trips/export', [], ['q' => 'Mia'])->content(), 3)))) === 1 + 3, 'and the search (customer Mia is on two trips, so all three of their job lines come out)');
@@ -369,7 +368,7 @@ $jc = mk_job(['job_number' => 'I-3']);
 $repo = new TripRepository();
 $row = static fn (int $jid, string $num, string $cust, array $o = []): array => $o + ['job_id' => $jid, 'job_number' => $num, 'customer_name' => $cust, 'job_date' => null, 'from_location' => 'GA', 'bh' => null,
     'diesel' => null, 'hotels' => null, 'helper' => null, 'misc' => null, 'commission' => null, 'extra' => null, 'remark' => null];
-$hdr = static fn (string $n, ?string $b): array => ['trip_number' => $n, 'foreman_id' => $joe, 'begins_on' => $b, 'ends_on' => null, 'collected_by' => null, 'notes' => null];
+$hdr = static fn (string $n, ?string $b): array => ['trip_number' => $n, 'foreman_id' => $joe, 'begins_on' => $b, 'ends_on' => null, 'notes' => null];
 $tA = $repo->create($hdr('IT-A', '2026-10-10'), [$row($ja, 'I-1', 'John smith', ['diesel' => '40', 'hotels' => '10.50'])], null);
 $tB = $repo->create($hdr('IT-B', '2026-10-12'), [$row($jc, 'I-3', 'Ada Smith', ['diesel' => '5'])], null);
 $tOld = $repo->create($hdr('IT-OLD', '2026-09-01'), [$row($jc, 'I-3', 'Ada Smith', ['diesel' => '999'])], null);
@@ -451,7 +450,7 @@ $xss = '<script>alert(1)</script>';
 $foreman = $fr->create(['name' => 'Joe ' . $xss, 'phone' => null]);
 $sj = mk_job(['job_number' => 'S-1', 'customer_first_name' => 'A' . $xss, 'customer_last_name' => 'B', 'from_location' => '"><img src=x onerror=alert(2)>']);
 sign_in($mgr);
-$r = call('POST', '/trips', ['trip_number' => 'SEC-1', 'foreman_id' => (string) $foreman, 'collected_by' => $xss, 'notes' => $xss,
+$r = call('POST', '/trips', ['trip_number' => 'SEC-1', 'foreman_id' => (string) $foreman, 'notes' => $xss,
     'rows' => [['job_number' => 'S-1', 'bh' => $xss, 'remark' => $xss, 'diesel' => '1']]]);
 $tid = (int) Database::fetchValue("SELECT id FROM trips WHERE trip_number = 'SEC-1'");
 check($r->status() === 302 && $tid > 0, 'a trip full of markup is accepted as plain text');
@@ -510,8 +509,8 @@ for ($i = 0; $i < 60; $i++) {
 check((new TripService())->prepare(['trip_number' => 'LIM-3', 'foreman_id' => (string) $foreman, 'rows' => $sixty])['errors'] === [], 'blank spare rows do not count towards the limit');
 $longs = (new TripService())->prepare(['trip_number' => str_repeat('A', 41), 'foreman_id' => (string) $foreman, 'notes' => str_repeat('é', 5001), 'rows' => [['job_number' => str_repeat('9', 41)]]]);
 check(isset($longs['errors']['trip_number']) && isset($longs['errors']['notes']) && isset($longs['errors']['rows.0.job_number']), 'over-long values are refused');
-$utf = (new TripService())->prepare(['trip_number' => 'UTF-1', 'foreman_id' => (string) $foreman, 'collected_by' => 'Zoë 北京 😀', 'rows' => [['job_number' => 'S-1', 'remark' => 'ça va 😀']]]);
-check($utf['errors'] === [] && $utf['header']['collected_by'] === 'Zoë 北京 😀', 'unicode text is accepted and kept');
+$utf = (new TripService())->prepare(['trip_number' => 'UTF-1', 'foreman_id' => (string) $foreman, 'notes' => 'Zoë 北京 😀', 'rows' => [['job_number' => 'S-1', 'remark' => 'ça va 😀']]]);
+check($utf['errors'] === [] && $utf['header']['notes'] === 'Zoë 北京 😀', 'unicode text is accepted and kept');
 Clock::fake(null);
 
 // ================================================================ version 1.3.1: visible deployment, defaults, role sync

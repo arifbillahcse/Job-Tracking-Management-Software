@@ -19,7 +19,10 @@ use App\Validation\TripRules;
  */
 final class TripService
 {
-    private const TEXT = ['job_number', 'job_date', 'bh', 'remark'];
+    /** What a row records: the same job can be on a trip several times, once per activity and date. */
+    public const ACTIVITIES = ['pickup' => 'Pickup', 'delivery' => 'Delivery', 'other' => 'Other'];
+
+    private const TEXT = ['job_number', 'job_date', 'activity', 'from_location', 'to_location', 'foreman_id', 'bh', 'remark'];
 
     /** Job rows one trip may hold. Each row posts up to 12 fields and PHP drops everything past max_input_vars (default 1000), so more would be cut off silently. */
     public const MAX_ROWS = 60;
@@ -164,11 +167,12 @@ final class TripService
      *
      * @return string 'ok', 'no_trip', 'no_job' or 'already'
      */
-    public function addJob(int $tripId, int $jobId): string
+    public function addJob(int $tripId, int $jobId, ?string $date = null, ?string $activity = null, bool $allowRepeat = false): string
     {
-        $result = $this->addJobRow($tripId, $jobId);
-        if ($result === 'ok') {
-            // The job is now assigned to this trip, and to its foreman.
+        $firstEntry = !array_filter($this->trips->rows($tripId), static fn (array $r): bool => (int) $r['job_id'] === $jobId);
+        $result = $this->addJobRow($tripId, $jobId, $date, $activity, $allowRepeat);
+        if ($result === 'ok' && $firstEntry) {
+            // The job is now assigned to this trip, and to its foreman (a second entry of the same job changes nothing).
             \App\Core\Database::execute('UPDATE jobs SET trip_id = ?, foreman_id = ? WHERE id = ?', [$tripId, (int) $this->trips->find($tripId)['foreman_id'], $jobId]);
         }
         return $result;
@@ -179,37 +183,53 @@ final class TripService
      *
      * @return string 'ok', 'no_trip', 'no_job' (unknown number) or 'already'
      */
-    public function addJobByNumber(int $tripId, string $jobNumber): string
+    public function addJobByNumber(int $tripId, string $jobNumber, ?string $date = null, ?string $activity = null): string
     {
         $job = trim($jobNumber) === '' ? null : $this->trips->findJobByNumber(trim($jobNumber));
         if ($job === null) {
             return $this->trips->find($tripId) === null ? 'no_trip' : 'no_job';
         }
-        return $this->addJob($tripId, (int) $job['id']);
+        $date = ($date === null || trim($date) === '') ? null : trim($date);
+        if ($date !== null && (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) !== 1 || !checkdate((int) substr($date, 5, 2), (int) substr($date, 8, 2), (int) substr($date, 0, 4)))) {
+            return 'bad_date';
+        }
+        $activity = ($activity === null || $activity === '') ? null : $activity;
+        if ($activity !== null && !isset(self::ACTIVITIES[$activity])) {
+            return 'bad_activity';
+        }
+        return $this->addJob($tripId, (int) $job['id'], $date, $activity, true);
     }
 
-    /** @return string 'ok', 'no_trip', 'no_job' or 'already' */
-    private function addJobRow(int $tripId, int $jobId): string
+    /**
+     * @param bool $allowRepeat true: refuse only the same job + date + activity; false: refuse a job that is on the trip at all
+     * @return string 'ok', 'no_trip', 'no_job' or 'already'
+     */
+    private function addJobRow(int $tripId, int $jobId, ?string $date = null, ?string $activity = null, bool $allowRepeat = false): string
     {
         $trip = $this->trips->find($tripId);
         if ($trip === null) {
             return 'no_trip';
         }
-        $job = \App\Core\Database::fetchOne('SELECT id, job_number, customer_first_name, customer_last_name, pickup_date, from_location FROM jobs WHERE id = ? AND deleted_at IS NULL', [$jobId]);
+        $job = \App\Core\Database::fetchOne('SELECT id, job_number, customer_first_name, customer_last_name, pickup_date, from_location, to_location FROM jobs WHERE id = ? AND deleted_at IS NULL', [$jobId]);
         if ($job === null) {
             return 'no_job';
         }
+        $date = $date ?: ($job['pickup_date'] ?? null);
         foreach ($this->trips->rows($tripId) as $row) {
-            if ((int) $row['job_id'] === $jobId) {
+            if ((int) $row['job_id'] !== $jobId) {
+                continue;
+            }
+            if (!$allowRepeat || ((string) ($row['job_date'] ?? '') === (string) $date && (string) ($row['activity'] ?? '') === (string) $activity)) {
                 return 'already';
             }
         }
         $this->trips->appendRow($tripId, [
             'job_id' => $jobId, 'job_number' => (string) $job['job_number'],
             'customer_name' => trim($job['customer_first_name'] . ' ' . $job['customer_last_name']),
-            'job_date' => $job['pickup_date'], 'from_location' => $job['from_location'],
+            'job_date' => $date, 'activity' => $activity, 'from_location' => $job['from_location'],
+            'to_location' => $job['to_location'] ?? null, 'foreman_id' => (int) $trip['foreman_id'],
         ], Auth::id());
-        AuditService::record('trip_updated', 'trip', $tripId, ['jobs' => (int) $trip['job_count']], ['jobs_added' => [(string) $job['job_number']]]);
+        AuditService::record('trip_updated', 'trip', $tripId, ['jobs' => (int) $trip['job_count']], ['jobs_added' => [(string) $job['job_number'] . ($activity !== null ? ' (' . self::ACTIVITIES[$activity] . ($date !== null ? ' ' . $date : '') . ')' : '')]]);
         return 'ok';
     }
 
@@ -305,19 +325,29 @@ final class TripService
                 $errors[$key . 'job_number'][] = "Row {$number}: job \"{$valid['job_number']}\" was not found (check the job number; deleted jobs cannot be added).";
                 continue;
             }
-            if (isset($seen[(int) $job['id']])) {
-                $errors[$key . 'job_number'][] = "Row {$number}: job {$job['job_number']} is already on this trip.";
+            $date = ($valid['job_date'] ?? null) ?: ($job['pickup_date'] ?? null);
+            $activity = ($valid['activity'] ?? null) ?: null;
+            // The same job may appear again on another date or for another activity; only the exact same job + date + activity is refused.
+            $entry = (int) $job['id'] . '|' . (string) $date . '|' . (string) $activity;
+            if (isset($seen[$entry])) {
+                $what = ($date !== null && $date !== '' ? ' on ' . $date : '') . ($activity !== null ? ' as ' . self::ACTIVITIES[$activity] : '');
+                $errors[$key . 'job_number'][] = "Row {$number}: job {$job['job_number']} is already on this trip{$what}. Use another date or activity for a second entry.";
                 continue;
             }
-            $seen[(int) $job['id']] = true;
+            $seen[$entry] = true;
 
             $keep = $existing[(int) ($raw['id'] ?? 0)] ?? null;
             $row = [
                 'job_id' => (int) $job['id'],
                 'job_number' => (string) $job['job_number'],
                 'customer_name' => trim($job['customer_first_name'] . ' ' . $job['customer_last_name']),
-                'job_date' => ($valid['job_date'] ?? null) ?: ($job['pickup_date'] ?? null),
-                'from_location' => $job['from_location'],
+                'job_date' => $date,
+                'activity' => $activity,
+                // From and To default to the job's own places; each entry can say otherwise (a delivery runs from the warehouse).
+                'from_location' => ($valid['from_location'] ?? null) ?: $job['from_location'],
+                'to_location' => ($valid['to_location'] ?? null) ?: ($job['to_location'] ?? null),
+                // The foreman of an entry defaults to the trip's foreman.
+                'foreman_id' => ($valid['foreman_id'] ?? null) !== null && ($valid['foreman_id'] ?? '') !== '' ? (int) $valid['foreman_id'] : ((int) ($post['foreman_id'] ?? 0) ?: null),
                 'bh' => $valid['bh'] ?? null,
                 'remark' => $valid['remark'] ?? null,
             ];
@@ -372,7 +402,7 @@ final class TripService
             }
         }
         $sig = static fn (array $list): array => array_map(static fn (array $r): array => [
-            (int) $r['job_id'], (string) ($r['job_date'] ?? ''), (string) ($r['bh'] ?? ''), (string) ($r['remark'] ?? ''),
+            (int) $r['job_id'], (string) ($r['job_date'] ?? ''), (string) ($r['activity'] ?? ''), (string) ($r['from_location'] ?? ''), (string) ($r['to_location'] ?? ''), (int) ($r['foreman_id'] ?? 0), (string) ($r['bh'] ?? ''), (string) ($r['remark'] ?? ''),
             ...array_map(static fn (string $f): string => ($r[$f] ?? null) === null ? '' : number_format((float) $r[$f], 2, '.', ''), TripRepository::MONEY),
         ], $list);
         $rowsChanged = $sig($oldRows) !== $sig($rows);
@@ -476,7 +506,6 @@ final class TripService
             'foreman_id' => (int) ($header['foreman_id'] ?? 0),
             'begins_on' => $text($header['begins_on'] ?? null),
             'ends_on' => $text($header['ends_on'] ?? null),
-            'collected_by' => $text($header['collected_by'] ?? null),
             'notes' => $text($header['notes'] ?? null),
         ];
     }

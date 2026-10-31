@@ -19,6 +19,7 @@ final class TripExportService
     public const MAX_ROWS = 50000;
     private const CHUNK = 500;
 
+    private const ACTIVITY_LABELS = ['pickup' => 'Pickup', 'delivery' => 'Delivery', 'other' => 'Other'];
     private const MONEY_LABELS = ['diesel' => 'Diesel', 'hotels' => 'Hotels', 'helper' => 'Helper', 'misc' => 'Misc', 'commission' => 'Commission', 'extra' => 'Extra'];
 
     public function __construct(private TripRepository $trips = new TripRepository())
@@ -29,8 +30,9 @@ final class TripExportService
     public static function columns(bool $money, bool $phone = false): array
     {
         $columns = [
-            'trip_number' => 'Trip Number', 'foreman_name' => 'Foreman', 'begins_on' => 'Trip Begins', 'ends_on' => 'Trip Ends', 'collected_by' => 'Collected By',
-            'job_number' => 'Job #', 'customer_name' => 'Customer Name', 'customer_phone' => 'Customer Phone', 'job_date' => 'Date', 'from_location' => 'From', 'bh' => 'BH',
+            'trip_number' => 'Trip Number', 'begins_on' => 'Trip Begins', 'ends_on' => 'Trip Ends',
+            'job_number' => 'Job #', 'customer_name' => 'Customer Name', 'customer_phone' => 'Customer Phone', 'job_date' => 'Date', 'activity' => 'Activity',
+            'from_location' => 'From', 'to_location' => 'To', 'bh' => 'BH', 'foreman_name' => 'Foreman',
         ];
         if (!$phone) {
             unset($columns['customer_phone']);
@@ -125,6 +127,9 @@ final class TripExportService
                     $v = $row[$k] ?? null;
                     if ($v === null) {
                         return null;
+                    }
+                    if ($k === 'activity') {
+                        return self::ACTIVITY_LABELS[$v] ?? (string) $v;
                     }
                     return isset(self::MONEY_LABELS[$k]) ? number_format((float) $v, 2, '.', '') : (string) $v;
                 }, $keys);
