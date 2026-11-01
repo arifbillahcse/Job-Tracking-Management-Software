@@ -9,6 +9,7 @@ use App\Core\ErrorPages;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Session;
+use App\Repositories\JobRepository;
 use App\Services\JobService;
 use App\Services\JobWorkflowService;
 use App\Services\TripService;
@@ -74,12 +75,15 @@ final class JobController extends Controller
     {
         $data = $this->validate(
             $request,
-            JobRules::rules(null, $this->jobs->canEditFinancials(), false, true, $this->jobs->canAssign()),
+            JobRules::rules(null, $this->jobs->canEditFinancials(), false, false, $this->jobs->canAssign()),
             '/jobs/create',
             JobRules::labels()
         );
         if ($data instanceof Response) {
             return $data;
+        }
+        if (($taken = (new JobRepository())->findByNumberAnyState((string) $data['job_number'])) !== null) {
+            return $this->redirectWithErrors($request, ['job_number' => [$this->duplicateMessage((string) $data['job_number'], $taken)]], '/jobs/create');
         }
         $note = null;
         if ($this->jobs->canAssign()) {
@@ -96,7 +100,7 @@ final class JobController extends Controller
             $id = $this->jobs->create($data);
         } catch (PDOException $e) {
             if ($this->isDuplicateJobNumber($e)) {
-                return $this->redirectWithErrors($request, ['job_number' => [$this->duplicateMessage()]], '/jobs/create');
+                return $this->redirectWithErrors($request, ['job_number' => [$this->duplicateMessage((string) $data['job_number'], null)]], '/jobs/create');
             }
             throw $e;
         }
@@ -132,12 +136,15 @@ final class JobController extends Controller
         $editUrl = '/jobs/' . $id . '/edit';
         $data = $this->validate(
             $request,
-            JobRules::rules($id, $this->jobs->canEditFinancials(), $job['status'] === 'in_transit', true, $this->jobs->canAssign()) + JobRules::dateRules((string) $job['status']),
+            JobRules::rules($id, $this->jobs->canEditFinancials(), $job['status'] === 'in_transit', false, $this->jobs->canAssign()) + JobRules::dateRules((string) $job['status']),
             $editUrl,
             JobRules::labels()
         );
         if ($data instanceof Response) {
             return $data;
+        }
+        if (($taken = (new JobRepository())->findByNumberAnyState((string) $data['job_number'], $id)) !== null) {
+            return $this->redirectWithErrors($request, ['job_number' => [$this->duplicateMessage((string) $data['job_number'], $taken)]], $editUrl);
         }
         $note = null;
         if ($this->jobs->canAssign()) {
@@ -157,7 +164,7 @@ final class JobController extends Controller
             $result = $this->jobs->update($id, $data, $request->str('loaded_at'));
         } catch (PDOException $e) {
             if ($this->isDuplicateJobNumber($e)) {
-                return $this->redirectWithErrors($request, ['job_number' => [$this->duplicateMessage()]], $editUrl);
+                return $this->redirectWithErrors($request, ['job_number' => [$this->duplicateMessage((string) $data['job_number'], null)]], $editUrl);
             }
             throw $e;
         }
@@ -244,9 +251,18 @@ final class JobController extends Controller
         return (string) $e->getCode() === '23000' && str_contains($e->getMessage(), 'job_number');
     }
 
-    private function duplicateMessage(): string
+    /**
+     * A Job Number belongs to exactly one job, ever. Says which job has it, and what to do instead: a deleted job is restored,
+     * and another day for the same job is an entry on its trip, never a second job.
+     *
+     * @param array{id:int,job_number:string,deleted:bool}|null $taken
+     */
+    private function duplicateMessage(string $number, ?array $taken): string
     {
-        return 'That job number is already in use (it may belong to a deleted job).';
+        if ($taken !== null && $taken['deleted']) {
+            return 'Job # ' . $taken['job_number'] . ' already exists: it belongs to a deleted job in the Trash. Restore that job from the Trash page, or use a different Job #.';
+        }
+        return 'Job # ' . ($taken['job_number'] ?? $number) . ' already exists. A Job # can only be used for one job, so a second job with the same number cannot be created. To record another day for the same job, add an entry to its trip instead.';
     }
 
     /**

@@ -18,6 +18,7 @@ use App\Services\ExportService;
 use App\Services\ImportService;
 use App\Services\JobCriteria;
 use App\Services\TripService;
+use App\Services\TripTotals;
 
 section('Job assignment: migration 012 maps what is already there');
 $dir = sys_get_temp_dir() . '/jt-mig12-' . bin2hex(random_bytes(4));
@@ -419,7 +420,7 @@ check($show->status() === 200 && str_contains(plain($show->body()), 'No jobs on 
 check(str_contains(plain(call('GET', '/trips')->body()), 'WF-1'), 'the empty trip is in the trip list');
 // 2. the new job form offers the trip
 $jf = call('GET', '/jobs/create')->body();
-check(str_contains($jf, '<option value="' . $tid . '">WF-1 &middot; Joe</option>'), '2. the trip number is in the Trip drop-down of the New Job form (with its foreman)');
+check(preg_match('~<option value="' . $tid . '" data-foreman="' . $joe . '">WF-1 &middot; Joe</option>~', $jf) === 1, '2. the trip number is in the Trip drop-down of the New Job form (with its foreman)');
 $r = call('POST', '/jobs', job_input(['job_number' => 'WF-JOB-1', 'trip_id' => (string) $tid, 'customer_first_name' => 'Eden', 'customer_last_name' => 'Cruz', 'customer_phone' => '(555) 010-2231']));
 $jid = (int) Database::fetchValue("SELECT id FROM jobs WHERE job_number = 'WF-JOB-1'");
 $job = (new JobRepository())->find($jid);
@@ -672,4 +673,133 @@ Database::setConnection(null);
 array_map('unlink', glob($dir . '/*'));
 rmdir($dir);
 fresh_db();
+Clock::fake(null);
+
+// ================================================================ a new Job vs a daily entry for an existing Job
+
+section('New Job: the Job Number is unique, the form keeps its layout, the trip fills in the foreman');
+fresh_db();
+fresh_session();
+Clock::fake('2026-10-30');
+$mgr = make_user('Manager', 'dj-mgr@example.com');
+$fr = new ForemanRepository();
+$joe = $fr->create(['name' => 'Joe', 'phone' => null]);
+$sam = $fr->create(['name' => 'Sam', 'phone' => null]);
+$repo = new TripRepository();
+sign_in($mgr);
+call('POST', '/trips', ['trip_number' => 'DJ-T1', 'foreman_id' => (string) $joe, 'begins_on' => '2026-10-30']);
+call('POST', '/trips', ['trip_number' => 'DJ-T2', 'foreman_id' => (string) $sam, 'begins_on' => '2026-10-31']);
+$t1 = (int) Database::fetchValue("SELECT id FROM trips WHERE trip_number = 'DJ-T1'");
+$t2 = (int) Database::fetchValue("SELECT id FROM trips WHERE trip_number = 'DJ-T2'");
+
+$form = call('GET', '/jobs/create')->body();
+$order = ['job_number', 'customer_first_name', 'trip_id', 'foreman_id', 'color', 'customer_phone', 'from_location', 'to_location', 'job_location', 'pickup_date', 'first_available_date'];
+$last = -1;
+$inOrder = true;
+foreach ($order as $name) {
+    $pos = strpos($form, 'name="' . $name . '"');
+    $inOrder = $inOrder && $pos !== false && $pos > $last;
+    $last = $pos === false ? $last : $pos;
+}
+check($inOrder, 'the New Job form keeps all its fields in their order: Job #, Customer first name, Trip, Foreman, Color, Customer phone, From, To, Job location, Pickup date, 1st available date');
+check(preg_match('~<select[^>]*name="trip_id"[^>]*data-trip-select[^>]*data-foreman-target="#foreman_id"~', $form) === 1 && preg_match('~<select[^>]*id="foreman_id"~', $form) === 1, 'the Trip choice is wired to the Foreman choice');
+check(preg_match('~<option value="' . $t1 . '" data-foreman="' . $joe . '">DJ-T1~', $form) === 1 && preg_match('~<option value="' . $t2 . '" data-foreman="' . $sam . '">DJ-T2~', $form) === 1, 'each trip in the drop-down carries its foreman, so choosing it can fill the Foreman in');
+check(str_contains($form, 'Filled in automatically from the trip you choose.') && str_contains($form, 'add an entry to its trip'), 'the help texts say so (foreman comes from the trip; another day is a trip entry)');
+$js = (string) file_get_contents(BASE_PATH . '/public/assets/js/app.js');
+check(str_contains($js, '[data-trip-select]') && str_contains($js, 'data-foreman') && str_contains($js, 'target.value = foremanId'), 'the browser script copies the trip\'s foreman into the Foreman choice when a trip is picked');
+$r = call('POST', '/jobs', job_input(['job_number' => 'DX-100', 'trip_id' => (string) $t2, 'foreman_id' => (string) $joe]));
+$jid = (int) Database::fetchValue("SELECT id FROM jobs WHERE job_number = 'DX-100'");
+$job = (new JobRepository())->find($jid);
+check($r->status() === 302 && (int) $job['foreman_id'] === $sam && (int) $job['trip_id'] === $t2, 'saving applies the same rule on the server: the job gets the trip\'s foreman (Sam), whatever else was posted');
+
+// the Job Number is globally unique
+$jobsBefore = (int) Database::fetchValue('SELECT COUNT(*) FROM jobs');
+foreach (['DX-100', 'dx-100', 'Dx-100', '  DX-100  '] as $variant) {
+    call('POST', '/jobs', job_input(['job_number' => $variant, 'customer_first_name' => 'Second', 'trip_id' => (string) $t1]));
+    $err = $_SESSION['_flash_next']['errors']['job_number'] ?? [];
+    check((int) Database::fetchValue('SELECT COUNT(*) FROM jobs') === $jobsBefore && (int) Database::fetchValue("SELECT COUNT(*) FROM jobs WHERE LOWER(job_number) = 'dx-100'") === 1 && $err !== [], 'a second job with the Job # ' . json_encode($variant) . ' is refused and not created');
+}
+$msg = implode(' ', $_SESSION['_flash_next']['errors']['job_number'] ?? []);
+check(str_contains($msg, 'DX-100') && str_contains($msg, 'already exists') && str_contains($msg, 'only be used for one job') && str_contains($msg, 'entry to its trip'), 'the error is clear: the number already exists, one job per number, and what to do instead (an entry on its trip)');
+check(preg_match('~is-invalid~', (function () { call('GET', '/jobs/create'); return call('GET', '/jobs/create')->body(); })()) === 0, 'the form is clean again on the next visit');
+call('POST', '/jobs', job_input(['job_number' => 'DX-100', 'customer_first_name' => 'Second']));
+$redirected = call('GET', '/jobs/create');
+check(str_contains($redirected->body(), 'value="Second"') && str_contains($redirected->body(), 'already exists'), 'after the refusal the form is shown again with what was typed and the message next to the Job #');
+// deleted job keeps its number
+$del = mk_job(['job_number' => 'DX-GONE']);
+(new JobRepository())->softDelete($del, null);
+call('POST', '/jobs', job_input(['job_number' => 'dx-gone']));
+$msg2 = implode(' ', $_SESSION['_flash_next']['errors']['job_number'] ?? []);
+check((int) Database::fetchValue("SELECT COUNT(*) FROM jobs WHERE LOWER(job_number) = 'dx-gone'") === 1 && str_contains($msg2, 'Trash') && str_contains($msg2, 'Restore'), 'the number of a deleted job is still taken, and the message says it is in the Trash and can be restored');
+// editing
+$other = mk_job(['job_number' => 'DX-200']);
+Database::execute('UPDATE jobs SET updated_at = ? WHERE id = ?', ['2026-10-30 08:00:00', $other]);
+call('POST', "/jobs/{$other}", job_input(['job_number' => 'dx-100', 'loaded_at' => '2026-10-30 08:00:00']));
+check((new JobRepository())->find($other)['job_number'] === 'DX-200' && isset($_SESSION['_flash_next']['errors']['job_number']), 'renaming a job to another job\'s number is refused too');
+call('POST', "/jobs/{$other}", job_input(['job_number' => 'dx-200', 'loaded_at' => '2026-10-30 08:00:00']));
+check(!isset($_SESSION['_flash_next']['errors']['job_number']) && (new JobRepository())->find($other)['job_number'] === 'dx-200', 'a job may change the letter case of its own number');
+// the database itself
+$threw = false;
+try {
+    (new JobRepository())->create(['job_number' => 'DX-100', 'customer_first_name' => 'A', 'customer_last_name' => 'B', 'first_available_date' => '2026-12-01', 'from_location' => 'X', 'to_location' => 'Y', 'status' => 'booked'], null);
+} catch (\PDOException $e) {
+    $threw = true;
+}
+check($threw, 'even bypassing the application, the database refuses a second job with the same number');
+
+section('Trip daily entries: the same job on many dates, each with its own expenses, all in the total');
+$jobsBefore = (int) Database::fetchValue('SELECT COUNT(*) FROM jobs');
+$e = static fn (string $date, string $act, array $money): array => ['job_number' => 'DX-100', 'job_date' => $date, 'activity' => $act] + $money;
+$r = call('POST', '/trips', ['trip_number' => 'DJ-DAYS', 'foreman_id' => (string) $joe, 'begins_on' => '2026-10-30', 'rows' => [
+    $e('2026-10-30', 'pickup', ['diesel' => '50', 'hotels' => '80', 'helper' => '20', 'remark' => 'day 1']),
+    $e('2026-10-31', 'delivery', ['diesel' => '75.50', 'misc' => '10.25', 'commission' => '100', 'remark' => 'day 2']),
+    $e('2026-11-01', 'other', ['diesel' => '0.25', 'extra' => '5', 'remark' => 'day 3']),
+    $e('2026-10-31', 'delivery', ['diesel' => '1', 'remark' => 'same day again']),
+]]);
+$td = (int) Database::fetchValue("SELECT id FROM trips WHERE trip_number = 'DJ-DAYS'");
+$rows = $repo->rows($td);
+check($r->status() === 302 && count($rows) === 4 && count(array_unique(array_column($rows, 'job_id'))) === 1 && (int) $rows[0]['job_id'] === $jid, 'four entries of the same existing job on one trip (three dates, one repeated)');
+check((int) Database::fetchValue('SELECT COUNT(*) FROM jobs') === $jobsBefore && (int) Database::fetchValue("SELECT COUNT(*) FROM jobs WHERE job_number = 'DX-100'") === 1, 'no Master Job record was created or duplicated');
+check(n($rows[0]['diesel']) === 50.0 && n($rows[0]['hotels']) === 80.0 && n($rows[1]['diesel']) === 75.5 && n($rows[1]['commission']) === 100.0 && n($rows[2]['extra']) === 5.0 && n($rows[3]['diesel']) === 1.0 && $rows[0]['commission'] === null && $rows[2]['hotels'] === null, 'each entry keeps its own expenses (and nothing leaks between entries)');
+// 50+80+20 = 150 ; 75.50+10.25+100 = 185.75 ; 0.25+5 = 5.25 ; 1 = 1  => 342.00
+$tpl = plain(call('GET', "/trips/{$td}")->body());
+check(str_contains($tpl, '$342.00') && str_contains($tpl, 'Jobs on this trip (4)'), 'the Trip\'s total expenses include every daily entry: $342.00 (150.00 + 185.75 + 5.25 + 1.00)');
+check(str_contains($tpl, '$126.75') && str_contains($tpl, '$80.00') && str_contains($tpl, '$20.00') && str_contains($tpl, '$10.25') && str_contains($tpl, '$100.00') && str_contains($tpl, '$5.00'), '...and each column total adds all the entries (diesel 50 + 75.50 + 0.25 + 1 = $126.75)');
+check(TripTotals::forRows($rows)['total'] === '342.00' && TripTotals::forRows($rows)['diesel'] === '126.75', 'the calculation itself (TripTotals) gives the same');
+$list = $repo->find($td);
+check(n($list['total_expenses']) === 342.0 && (int) $list['job_count'] === 4, 'the trip list figure counts all entries too (342.00, 4 entries)');
+check(str_contains(plain(call('GET', '/trips', [], ['q' => 'DJ-DAYS'])->body()), '$342.00'), '...as shown on the trip list');
+$rep = (new TripService())->foremanReport(\App\Services\TripCriteria::fromRequest(\App\Core\Request::make('GET', '/trips/report', [], ['foreman' => (string) $joe])));
+check($rep['rows'][0]['total'] === '342.00' && $rep['rows'][0]['jobs'] === 4, 'the foreman report includes all entries (jobs counted as entries: 4)');
+check((new TripService())->dashboardFigures()['expenses'] === '342.00', 'and so does the dashboard');
+$csv = call('GET', '/trips/export', [], ['q' => 'DJ-DAYS'])->content();
+$lines = array_map('str_getcsv', array_filter(explode("\n", substr($csv, 3))));
+$h = array_flip($lines[0]);
+$sum = 0.0;
+foreach (array_slice($lines, 1) as $l) {
+    foreach (['Diesel', 'Hotels', 'Helper', 'Misc', 'Commission', 'Extra'] as $c) {
+        $sum += (float) $l[$h[$c]];
+    }
+}
+check(count($lines) === 5 && abs($sum - 342.0) < 0.001, 'the CSV has one line per entry and its amounts add up to the same $342.00');
+// editing one day changes the total by exactly that amount
+Database::execute('UPDATE trips SET updated_at = ? WHERE id = ?', ['2026-10-31 07:00:00', $td]);
+$er = $repo->rows($td);
+call('POST', "/trips/{$td}", ['trip_number' => 'DJ-DAYS', 'foreman_id' => (string) $joe, 'begins_on' => '2026-10-30', 'loaded_at' => '2026-10-31 07:00:00', 'rows' => array_map(static fn (array $r): array => [
+    'id' => (string) $r['id'], 'job_number' => $r['job_number'], 'job_date' => (string) $r['job_date'], 'activity' => (string) $r['activity'],
+    'diesel' => $r['remark'] === 'day 2' ? '100' : (string) ($r['diesel'] ?? ''), 'hotels' => (string) ($r['hotels'] ?? ''), 'helper' => (string) ($r['helper'] ?? ''), 'misc' => (string) ($r['misc'] ?? ''),
+    'commission' => (string) ($r['commission'] ?? ''), 'extra' => (string) ($r['extra'] ?? ''), 'remark' => (string) $r['remark']], $er)]);
+check(n($repo->find($td)['total_expenses']) === 366.5 && (int) Database::fetchValue("SELECT COUNT(*) FROM jobs WHERE job_number = 'DX-100'") === 1, 'changing one day\'s diesel from 75.50 to 100.00 raises the total by exactly 24.50 (366.50); still one job');
+
+// a trip entry is not a new job
+$jobsBefore = (int) Database::fetchValue('SELECT COUNT(*) FROM jobs');
+call('POST', '/trips', ['trip_number' => 'DJ-NEW', 'foreman_id' => (string) $joe, 'rows' => [['job_number' => 'DX-NOT-CREATED', 'job_date' => '2026-10-30', 'diesel' => '9']]]);
+$em = implode(' ', $_SESSION['_flash_next']['errors']['rows.0.job_number'] ?? []);
+check((int) Database::fetchValue("SELECT COUNT(*) FROM trips WHERE trip_number = 'DJ-NEW'") === 0 && (int) Database::fetchValue('SELECT COUNT(*) FROM jobs') === $jobsBefore && str_contains($em, 'never creates a job'), 'a trip entry with an unknown Job # is refused and does not create a job ("create the job first")');
+call('POST', "/trips/{$td}/jobs", ['job_number' => 'DX-ALSO-NOT', 'job_date' => '2026-11-05', 'activity' => 'pickup']);
+check((int) Database::fetchValue('SELECT COUNT(*) FROM jobs') === $jobsBefore && (int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_id = ?', [$td]) === 4, 'the Add job box does not create a job either');
+// the job page still shows it once
+check(substr_count(plain(call('GET', "/jobs/{$jid}")->body()), 'DX-100') >= 1 && (int) Database::fetchValue("SELECT COUNT(*) FROM jobs WHERE job_number = 'DX-100'") === 1, 'the job itself is listed once');
+$jl = call('GET', '/jobs', [], ['q' => 'DX-100'])->body();
+check(preg_match_all('#class="jt-jobno"[^>]*>DX-100<#', $jl) === 1, 'the Jobs list shows DX-100 once, however many daily entries it has');
 Clock::fake(null);

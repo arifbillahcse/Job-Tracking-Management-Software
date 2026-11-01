@@ -26,6 +26,20 @@
         }
     });
 
+    // Job form: choosing a trip fills in the trip's foreman (the server applies the same rule when saving).
+    document.addEventListener('change', function (event) {
+        var select = event.target.closest('[data-trip-select]');
+        if (!select) {
+            return;
+        }
+        var option = select.options[select.selectedIndex];
+        var foremanId = option ? option.getAttribute('data-foreman') : '';
+        var target = document.querySelector(select.getAttribute('data-foreman-target') || '');
+        if (target && foremanId) {
+            target.value = foremanId;
+        }
+    });
+
     // Show / hide a password field: <button data-toggle-password="#password">
     document.addEventListener('click', function (event) {
         var button = event.target.closest('[data-toggle-password]');

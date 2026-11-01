@@ -33,16 +33,16 @@ $input = static function (string $name, string $label, array $opts = []) use ($v
                 <div class="card-header bg-transparent fw-semibold">Job &amp; customer</div>
                 <div class="card-body">
                     <div class="row g-3">
-                        <div class="col-12 col-md-4"><?= $input('job_number', 'Job #', ['required' => true, 'maxlength' => 40, 'help' => 'Letters, numbers and - _ / . only. Must be unique.']) ?></div>
+                        <div class="col-12 col-md-4"><?= $input('job_number', 'Job #', ['required' => true, 'maxlength' => 40, 'help' => 'Letters, numbers and - _ / . only. Each job is created once: the Job # must be unique. For another day of an existing job, add an entry to its trip.']) ?></div>
                         <div class="col-12 col-md-4"><?= $input('customer_first_name', 'Customer first name', ['required' => true, 'maxlength' => 100]) ?></div>
                         <div class="col-12 col-md-4"><?= $input('customer_last_name', 'Customer last name', ['required' => true, 'maxlength' => 100]) ?></div>
                         <?php if (!empty($canAssign)): ?>
                             <div class="col-12 col-md-4">
                                 <label for="trip_id" class="form-label">Trip</label>
-                                <select class="form-select<?= has_error('trip_id') ? ' is-invalid' : '' ?>" id="trip_id" name="trip_id" aria-describedby="trip_id-help">
+                                <select class="form-select<?= has_error('trip_id') ? ' is-invalid' : '' ?>" id="trip_id" name="trip_id" aria-describedby="trip_id-help" data-trip-select data-foreman-target="#foreman_id">
                                     <option value="">No trip</option>
                                     <?php foreach ($trips as $t): ?>
-                                        <option value="<?= e($t['id']) ?>"<?= $val('trip_id') === (string) $t['id'] ? ' selected' : '' ?>><?= e($t['trip_number']) ?> &middot; <?= e($t['foreman_name']) ?></option>
+                                        <option value="<?= e($t['id']) ?>" data-foreman="<?= e($t['foreman_id'] ?? '') ?>"<?= $val('trip_id') === (string) $t['id'] ? ' selected' : '' ?>><?= e($t['trip_number']) ?> &middot; <?= e($t['foreman_name']) ?></option>
                                     <?php endforeach; ?>
                                 </select>
                                 <div class="form-text" id="trip_id-help">The job is added to the trip and gets its foreman.</div>
@@ -56,7 +56,7 @@ $input = static function (string $name, string $label, array $opts = []) use ($v
                                         <option value="<?= e($f['id']) ?>"<?= $val('foreman_id') === (string) $f['id'] ? ' selected' : '' ?>><?= e($f['name']) ?><?= (int) $f['active'] === 1 ? '' : ' (inactive)' ?></option>
                                     <?php endforeach; ?>
                                 </select>
-                                <div class="form-text" id="foreman_id-help">If a trip is chosen, its foreman is used.</div>
+                                <div class="form-text" id="foreman_id-help">Filled in automatically from the trip you choose.</div>
                                 <?= error_text('foreman_id') ?>
                             </div>
                         <?php elseif ($job !== null && (!empty($job['foreman']) || !empty($job['trip_number']))): ?>

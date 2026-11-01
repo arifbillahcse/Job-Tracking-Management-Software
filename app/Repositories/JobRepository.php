@@ -298,6 +298,19 @@ final class JobRepository
         return $found;
     }
 
+    /**
+     * The job that already uses this Job Number, live or in the Trash, compared without regard to letter case on every database
+     * (so "se1" cannot sneak in beside "SE1"). Null when the number is free.
+     *
+     * @return array{id:int,job_number:string,deleted:bool}|null
+     */
+    public function findByNumberAnyState(string $jobNumber, ?int $exceptId = null): ?array
+    {
+        $column = Database::driver() === 'sqlite' ? 'job_number COLLATE NOCASE' : 'job_number';
+        $row = Database::fetchOne("SELECT id, job_number, deleted_at FROM jobs WHERE {$column} = ? AND id <> ? ORDER BY id LIMIT 1", [trim($jobNumber), $exceptId ?? 0]);
+        return $row === null ? null : ['id' => (int) $row['id'], 'job_number' => (string) $row['job_number'], 'deleted' => $row['deleted_at'] !== null];
+    }
+
     public function jobNumberExists(string $jobNumber): bool
     {
         return (int) Database::fetchValue('SELECT COUNT(*) FROM jobs WHERE job_number = ?', [$jobNumber]) > 0;

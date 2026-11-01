@@ -326,7 +326,7 @@ final class TripService
 
             $job = $this->trips->findJobByNumber((string) $valid['job_number']);
             if ($job === null) {
-                $errors[$key . 'job_number'][] = "Row {$number}: job \"{$valid['job_number']}\" was not found (check the job number; deleted jobs cannot be added).";
+                $errors[$key . 'job_number'][] = "Row {$number}: job \"{$valid['job_number']}\" was not found (check the job number; deleted jobs cannot be added). A trip entry is for a job that already exists; it never creates a job, so create the job first under Jobs.";
                 continue;
             }
             $date = ($valid['job_date'] ?? null) ?: ($job['pickup_date'] ?? null);

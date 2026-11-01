@@ -245,6 +245,14 @@ The generated role x route matrix is in `docs/permission-matrix.md` (`php cli/pe
 | Z5 | A job's assigned trip (W1) changes only when the job is **first** put on a trip; a further entry of a job already on the trip changes nothing. | `TripService::addJob()` |
 | Z6 | Column order follows the client's sheet: ..., BH, Foreman, then the expenses. Existing rows get no activity, the job's To place and the trip's foreman (migration 014); no amount or other value changes. | migration 014 |
 
+## A new Job vs a daily entry (version 1.4.4)
+
+| # | Assumption | Where |
+|---|------------|-------|
+| AA1 | **Creating a job and recording a day for an existing job are different actions.** *New Job* creates the one Master Job record; its Job # is unique among all jobs, live or in the Trash, regardless of letter case. A *trip entry* (a row on a trip) refers to an existing job by its number and never creates a job. | `JobRepository::findByNumberAnyState()`, `TripService::prepare()` |
+| AA2 | Every trip entry has its **own expenses**; a trip's total is the sum of **all** its entries, including several entries of the same job. The job itself carries no trip expenses. | `TripTotals` |
+| AA3 | Choosing a trip on the New Job / Edit Job form **fills in that trip's foreman** in the form (browser script); the server enforces the same rule on save (W2), so the form cannot save a job on one foreman's trip with another foreman. | `public/assets/js/app.js`, `TripService::resolveAssignment()` |
+
 ## Security defaults (can be tuned in `app/Config/app.php` / `.env`)
 
 * Sessions end after **30 minutes idle** or **8 hours** in total.

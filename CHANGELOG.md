@@ -2,6 +2,13 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.4.4 - a new Job and a daily entry are two different things (client clarification)
+
+* **New Job: the Job Number is unique, always.** A second job with the same Job # can never be created, in any letter case (`se1` and `SE1` are the same number), including a number that belongs to a deleted job in the Trash. The error is now clear: it names the number, says a Job # can only be used for one job, and tells the user to **add an entry to the job's trip** instead (for a deleted job: that it is in the Trash and can be restored). The database also refuses it on its own.
+* **Trip daily entries never create a job.** An entry needs an existing Job #; an unknown number is refused with "a trip entry never creates a job, create the job first". The same existing job can have any number of entries on different dates, **each with its own expenses**, and **all of them are in the Trip's total** (trip page, trip list, foreman report, dashboard and CSV all agree). The Jobs list still shows the job once.
+* **New Job form unchanged in fields and order** (Job #, Customer first name, Trip, Foreman, Color, Customer phone, From, To, Job location, Pickup date, 1st available date). **Choosing a Trip now fills in the Foreman on the form itself** (it used to be applied only when saving); the server applies the same rule when saving.
+* **Upgrade:** `git pull origin main`, `php cli/doctor.php`. No migration.
+
 ## 1.4.3 - the same job number as many times as needed on a trip
 
 * **A job number can be used on a trip as many times as the client likes**, with or without a date and an activity. The previous release refused the second row when nothing distinguished it (the job's pickup date was filled in for both), which is what the client hit. **Nothing is refused any more.**

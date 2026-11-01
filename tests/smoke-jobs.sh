@@ -66,7 +66,7 @@ check "details page shows the job, customer, money and a success message" 'grep 
 check "status is Booked and the carrier section says details are optional" 'grep -q "jt-badge-booked" <<<"$D" && grep -q "Carrier details are optional" <<<"$D"'
 R=$(post_job "$AJ" /jobs "$RUN" "Dup" "1")
 check "a duplicate job # goes back to the form" 'grep -qi "^location: .*/jobs/create" <<<"$R"'
-check "...with a field error" 'form_flash | grep -q "already in use"'
+check "...with a field error" 'form_flash | grep -q "already exists"'
 R=$(post_job "$AJ" /jobs "BAD NUMBER!" "Ada" "1")
 check "an invalid job # is rejected with a clear message" 'grep -qi "^location: .*/jobs/create" <<<"$R" && form_flash | grep -q "may only contain"'
 R=$(post_job "$AJ" /jobs "$RUN-NEG" "Ada" "-5")
@@ -126,7 +126,7 @@ check "a deleted job cannot be updated via a forged POST" 'post_job "$AJ" "/jobs
 TR=$(curl -s -b "$AJ" "$BASE/jobs/trash")
 check "the trash lists it with a Restore button" 'grep -q "$RUN-S" <<<"$TR" && grep -q "Restore" <<<"$TR"'
 R=$(post_job "$AJ" /jobs "$RUN-S" "Again" "1")
-check "its job # stays reserved while it is deleted" 'grep -qi "^location: .*/jobs/create" <<<"$R" && form_flash | grep -q "already in use"'
+check "its job # stays reserved while it is deleted" 'grep -qi "^location: .*/jobs/create" <<<"$R" && form_flash | grep -q "already exists"'
 curl -s -o /dev/null -b "$AJ" -c "$AJ" --data-urlencode "_csrf=$(tok "$AJ")" "$BASE/jobs/$SID/restore"
 check "restore brings it back" '[[ $(code -b "$AJ" "$BASE/jobs/$SID") == 200 ]]'
 

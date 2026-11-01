@@ -98,7 +98,7 @@ async function createJob(page, number, availableOffset, extra = {}) {
     await step('a duplicate job number is refused with a message next to the field', async () => {
         await createJob(page, RUN + '-A', 10);
         must(page.url().includes('/jobs/create'), 'was not sent back to the form');
-        must(/already in use/.test(await page.textContent('main')), 'no duplicate message');
+        must(/already exists/.test(await page.textContent('main')), 'no duplicate message');
         must((await page.inputValue('#customer_first_name')) === 'Ada', 'typed values were lost');
     });
     await step('money must be a plain amount', async () => {
@@ -359,9 +359,24 @@ async function createJob(page, number, availableOffset, extra = {}) {
         await page.fill('#from_location', 'Austin, TX');
         await page.fill('#to_location', 'Denver, CO');
         await page.fill('#first_available_date', day(10));
+        must((await page.$eval('#foreman_id', (el) => el.options[el.selectedIndex].text)) === 'No foreman', 'the Foreman should start empty');
         await page.selectOption('#trip_id', { label: RUN + '-EMPTY \u00b7 ' + RUN + ' Foreman' });
+        must((await page.$eval('#foreman_id', (el) => el.options[el.selectedIndex].text)) === RUN + ' Foreman', 'choosing the trip did not fill in the trip\'s foreman');
         await Promise.all([page.waitForNavigation(), page.click('main form button[type=submit]')]);
         must((await page.textContent('main')).includes(RUN + '-EMPTY'), 'the new job does not show its trip');
+        // the same Job # cannot create a second job (any letter case), and says what to do instead
+        await page.goto(BASE + '/jobs/create');
+        await page.fill('#job_number', (RUN + '-ontrip').toLowerCase());
+        await page.fill('#customer_first_name', 'Second');
+        await page.fill('#customer_last_name', 'Try');
+        await page.fill('#from_location', 'X');
+        await page.fill('#to_location', 'Y');
+        await page.fill('#first_available_date', day(10));
+        await Promise.all([page.waitForNavigation(), page.click('main form button[type=submit]')]);
+        const dupText = (await page.textContent('main')).replace(/\s+/g, ' ');
+        must(page.url().includes('/jobs/create') && dupText.includes('already exists') && dupText.includes('entry to its trip'), 'duplicate Job # was not refused clearly: ' + dupText.slice(0, 200));
+        await page.goto(BASE + '/jobs?q=' + RUN + '-ONTRIP');
+        must((await page.locator('a.jt-jobno').count()) === 1, 'a second job with the same number appeared in the list');
         await page.goto(tripUrl);
         must((await page.textContent('main')).includes(RUN + '-ONTRIP') && !(await page.textContent('main')).includes('No jobs on this trip yet'), 'the trip page does not list the new job');
         await createJob(page, RUN + '-ADDLATER', 10);
