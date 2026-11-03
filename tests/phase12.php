@@ -78,7 +78,7 @@ $gone = mk_job(['job_number' => 'TJ-GONE']);
 (new JobRepository())->softDelete($gone, null);
 $form = call('GET', '/trips/create');
 $fb = $form->body();
-check($form->status() === 200 && str_contains($fb, 'name="trip_number"') && str_contains($fb, 'name="foreman_id"') && !str_contains($fb, 'collected_by') && str_contains($fb, 'name="rows[0][activity]"') && str_contains($fb, 'name="rows[0][to_location]"') && str_contains($fb, 'name="rows[0][foreman_id]"') && str_contains($fb, 'name="begins_on"') && str_contains($fb, 'name="ends_on"') && str_contains($fb, 'name="rows[0][job_number]"') && str_contains($fb, 'name="rows[0][diesel]"') && str_contains($fb, 'name="rows[4][commission]"') && !str_contains($fb, 'name="rows[5][job_number]"'), 'the form has the header, five spare job rows and the expense columns');
+check($form->status() === 200 && str_contains($fb, 'name="trip_number"') && str_contains($fb, 'name="foreman_id"') && !str_contains($fb, 'collected_by') && str_contains($fb, 'name="rows[0][activity]"') && str_contains($fb, 'name="rows[0][to_location]"') && str_contains($fb, 'name="rows[0][foreman_pay]"') && str_contains($fb, 'name="begins_on"') && str_contains($fb, 'name="ends_on"') && str_contains($fb, 'name="rows[0][job_number]"') && str_contains($fb, 'name="rows[0][diesel]"') && str_contains($fb, 'name="rows[4][commission]"') && !str_contains($fb, 'name="rows[5][job_number]"'), 'the form has the header, five spare job rows and the expense columns');
 $post = [
     'trip_number' => 'TRIP-1', 'foreman_id' => (string) $joe, 'begins_on' => '2026-10-20', 'ends_on' => '2026-10-25', 'notes' => 'First run',
     'rows' => [
@@ -94,7 +94,7 @@ $trip = Database::fetchOne('SELECT * FROM trips WHERE id = ?', [$t1]);
 check((int) $trip['foreman_id'] === $joe && $trip['begins_on'] === '2026-10-20' && $trip['ends_on'] === '2026-10-25', 'the header is saved');
 $rows = (new TripRepository())->rows($t1);
 check(count($rows) === 2 && $rows[0]['job_number'] === 'TJ-11' && $rows[0]['customer_name'] === 'John smith' && $rows[0]['from_location'] === 'GA', 'the job number is matched case-insensitively; customer name and From are copied from the job');
-check($rows[0]['job_date'] === '2026-10-24' && $rows[1]['job_date'] === '2026-10-22', 'a blank Date defaults to the job\'s pickup date; a typed one is kept');
+check($rows[0]['job_date'] === null && $rows[1]['job_date'] === '2026-10-22', 'a blank Date stays blank (it is never filled in); a typed one is kept');
 check(n($rows[0]['diesel']) === 120.1 && n($rows[0]['hotels']) === 80.0 && n($rows[0]['helper']) === 50.2 && n($rows[0]['commission']) === 375.0 && $rows[0]['bh'] === 'BH' && $rows[1]['hotels'] === null, 'the expenses are saved exactly as typed (empty = NULL, not 0)');
 check(TripTotals::forRows($rows)['diesel'] === '120.30' && TripTotals::forRows($rows)['total'] === '640.50', 'totals are exact in cents (120.10 + 0.20 = 120.30), total expenses = sum of the six columns');
 check(TripTotals::forRows([['diesel' => '0.29'], ['diesel' => '0.57'], ['diesel' => null, 'misc' => '1.15']])['diesel'] === '0.86' && TripTotals::forRows([['misc' => '1.15'], ['misc' => '2.30']])['total'] === '3.45' && TripTotals::forRows([])['total'] === '0.00', 'totals do not lose a cent to floating point (0.29 + 0.57 = 0.86, 1.15 + 2.30 = 3.45)');
@@ -311,14 +311,14 @@ $csv = call('GET', '/trips/export');
 $text = $csv->content();
 $lines = array_map('str_getcsv', array_filter(explode("\n", substr($text, 3))));
 check($csv->status() === 200 && str_starts_with($text, "\xEF\xBB\xBF") && str_contains((string) $csv->getHeader('Content-Type'), 'text/csv') && str_contains((string) $csv->getHeader('Content-Disposition'), 'attachment; filename="trips-'), 'the export is a UTF-8 CSV with a BOM, sent as a download');
-check($lines[0] === ['Trip Number', 'Trip Begins', 'Trip Ends', 'Job #', 'Customer Name', 'Customer Phone', 'Date', 'Activity', 'From', 'To', 'BH', 'Foreman', 'Diesel', 'Hotels', 'Helper', 'Misc', 'Commission', 'Extra', 'Remark'], 'the headings follow the client\'s sheet (plus the customer phone, for people who may see jobs)');
+check($lines[0] === ['Trip Number', 'Trip Begins', 'Trip Ends', 'Job #', 'Customer Name', 'Customer Phone', 'Date', 'Activity', 'From', 'To', 'Broker', 'Grand', 'Job Beg', 'Depo', 'Addio', 'Total to BH', 'BH', 'Foreman', 'Diesel', 'Hotels', 'Helpers', 'MISC', 'Commission', 'Extra', 'Remarks', 'Foreman Name'], 'the headings follow the client\'s sheet labels (Grand, Job Beg, Depo, Addio, Total to BH, BH, Foreman, then the expenses), plus the customer phone for people who may see jobs');
 check(count($lines) === 1 + 5, 'one line per job row (5), not per trip; the deleted trip is absent');
 $first = array_column(array_slice($lines, 1), null, 4 - 4 + 0);
 check($lines[1][0] === 'RP-4' || $lines[1][0] === 'RP-2', 'newest trips first');
 $rp1 = array_values(array_filter($lines, static fn (array $l): bool => $l[0] === 'RP-1'));
-check(count($rp1) === 2 && $rp1[0][11] === 'Joe' && $rp1[0][1] === '2026-10-01' && $rp1[1][11] === 'Joe' && $rp1[0][3] === 'R-1' && $rp1[0][4] === 'John smith' && $rp1[0][12] === '0.29' && $rp1[0][13] === '10.00' && $rp1[1][16] === '100.00', 'the trip details are repeated on each of its job lines; amounts have two decimals; the Foreman column follows BH as in the client\'s sheet');
-check($rp1[0][18] === "'=HYPERLINK(\"x\")", 'a remark that looks like a formula is neutralised (CSV injection)');
-check($rp1[1][13] === '' && $rp1[0][14] === '', 'an empty amount stays empty (not 0.00)');
+check(count($rp1) === 2 && $rp1[0][25] === 'Joe' && $rp1[0][1] === '2026-10-01' && $rp1[1][25] === 'Joe' && $rp1[0][3] === 'R-1' && $rp1[0][4] === 'John smith' && $rp1[0][18] === '0.29' && $rp1[0][19] === '10.00' && $rp1[1][22] === '100.00', 'the trip details are repeated on each of its job lines; amounts have two decimals; the Foreman column follows BH as in the client\'s sheet');
+check($rp1[0][24] === "'=HYPERLINK(\"x\")", 'a remark that looks like a formula is neutralised (CSV injection)');
+check($rp1[1][19] === '' && $rp1[0][20] === '', 'an empty amount stays empty (not 0.00)');
 $filtered = array_filter(explode("\n", substr(call('GET', '/trips/export', [], ['foreman' => (string) $sam])->content(), 3)));
 check(count($filtered) === 1 + 2 && !str_contains(implode("\n", $filtered), 'RP-1'), 'the export follows the same filters as the list');
 check(count(array_filter(explode("\n", substr(call('GET', '/trips/export', [], ['q' => 'Mia'])->content(), 3)))) === 1 + 3, 'and the search (customer Mia is on two trips, so all three of their job lines come out)');
@@ -328,7 +328,7 @@ check(str_contains($aud, '"rows":3') && str_contains($aud, 'csv'), 'every export
 // CSV of the report
 $rc = call('GET', '/trips/report/export');
 $rl = array_map('str_getcsv', array_filter(explode("\n", substr($rc->content(), 3))));
-check($rc->status() === 200 && $rl[0] === ['Foreman', 'Trips', 'Jobs', 'Diesel', 'Hotels', 'Helper', 'Misc', 'Commission', 'Extra', 'Total Expenses'] && $rl[1][0] === 'Joe' && $rl[1][9] === '117.01' && end($rl)[0] === 'Total' && end($rl)[9] === '1126.81', 'the report CSV has a line per foreman and a Total line');
+check($rc->status() === 200 && $rl[0] === ['Foreman', 'Trips', 'Jobs', 'Diesel', 'Hotels', 'Helpers', 'MISC', 'Commission', 'Extra', 'Total Expenses'] && $rl[1][0] === 'Joe' && $rl[1][9] === '117.01' && end($rl)[0] === 'Total' && end($rl)[9] === '1126.81', 'the report CSV has a line per foreman and a Total line');
 check(str_contains((string) $rc->getHeader('Content-Disposition'), 'trips-by-foreman-'), '...named for what it is');
 
 // people without the money or the export permission
@@ -387,7 +387,7 @@ $before = (int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE trip_
 Database::execute('UPDATE trips SET updated_at = ? WHERE id = ?', ['2026-10-23 08:00:00', $tB]);
 $r = call('POST', "/jobs/{$ja}/trip", ['trip' => (string) $tB]);
 $rows = $repo->rows($tB);
-check($r->status() === 302 && count($rows) === $before + 1 && $rows[1]['job_number'] === 'I-1' && $rows[1]['customer_name'] === 'John smith' && $rows[1]['from_location'] === 'GA' && $rows[1]['job_date'] === '2026-10-02', 'adding appends a row at the end with the job\'s number, customer, From and pickup date');
+check($r->status() === 302 && count($rows) === $before + 1 && $rows[1]['job_number'] === 'I-1' && $rows[1]['customer_name'] === 'John smith' && $rows[1]['from_location'] === 'GA' && $rows[1]['job_date'] === null, 'adding appends a row at the end with the job\'s number, customer and From (no date: a date is only what the user types)');
 check($rows[1]['diesel'] === null && $rows[1]['commission'] === null && (int) $rows[1]['sort_order'] === 1, '...and no expenses (they are entered on the trip)');
 check(Database::fetchValue('SELECT updated_at FROM trips WHERE id = ?', [$tB]) !== '2026-10-23 08:00:00', 'the trip counts as changed, so an edit form opened earlier gets the conflict warning');
 $aud = (string) Database::fetchValue("SELECT new_values FROM audit_logs WHERE action = 'trip_updated' AND entity_id = ? ORDER BY id DESC LIMIT 1", [$tB]);

@@ -4,7 +4,7 @@
  * @var \App\Services\TripCriteria $criteria  @var array<int,array<string,mixed>> $foremen
  */
 $money = $report['money'];
-$cols = ['diesel' => 'Diesel', 'hotels' => 'Hotels', 'helper' => 'Helper', 'misc' => 'Misc', 'commission' => 'Commission', 'extra' => 'Extra'];
+$cols = ['diesel' => 'Diesel', 'hotels' => 'Hotels', 'helper' => 'Helpers', 'misc' => 'MISC', 'commission' => 'Commission', 'extra' => 'Extra'];
 $params = ['foreman' => $criteria->foremanId > 0 ? $criteria->foremanId : '', 'from' => $criteria->from, 'to' => $criteria->to];
 ?>
 <div class="jt-page-actions">

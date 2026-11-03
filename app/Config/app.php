@@ -40,6 +40,12 @@ return [
         'days' => Env::int('REMEMBER_ME_DAYS', 14),
     ],
 
+    // Trips: may one job have several daily entries on the SAME date? Off = one entry per job per day (the client's rule); the
+    // database never forbids it, so turning this on later needs no migration.
+    'trips' => [
+        'same_day_entries' => Env::bool('TRIP_SAME_DAY_ENTRIES', false),
+    ],
+
     'auth' => [
         'max_failed_attempts' => 5,   // per account before a temporary lock
         'lockout_minutes' => 15,

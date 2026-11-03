@@ -20,27 +20,35 @@ final class TripExportService
     private const CHUNK = 500;
 
     private const ACTIVITY_LABELS = ['pickup' => 'Pickup', 'delivery' => 'Delivery', 'other' => 'Other'];
-    private const MONEY_LABELS = ['diesel' => 'Diesel', 'hotels' => 'Hotels', 'helper' => 'Helper', 'misc' => 'Misc', 'commission' => 'Commission', 'extra' => 'Extra'];
+    private const MONEY_LABELS = ['diesel' => 'Diesel', 'hotels' => 'Hotels', 'helper' => 'Helpers', 'misc' => 'MISC', 'commission' => 'Commission', 'extra' => 'Extra'];
+    private const SHEET_LABELS = ['grand' => 'Grand', 'job_beg' => 'Job Beg', 'depo' => 'Depo', 'addio' => 'Addio', 'total_to_bh' => 'Total to BH'];
 
     public function __construct(private TripRepository $trips = new TripRepository())
     {
     }
 
-    /** @return array<string,string> column key => heading, in file order */
+    /** @return array<string,string> column key => heading, in file order (the client's sheet labels) */
     public static function columns(bool $money, bool $phone = false): array
     {
         $columns = [
             'trip_number' => 'Trip Number', 'begins_on' => 'Trip Begins', 'ends_on' => 'Trip Ends',
             'job_number' => 'Job #', 'customer_name' => 'Customer Name', 'customer_phone' => 'Customer Phone', 'job_date' => 'Date', 'activity' => 'Activity',
-            'from_location' => 'From', 'to_location' => 'To', 'bh' => 'BH', 'foreman_name' => 'Foreman',
+            'from_location' => 'From', 'to_location' => 'To', 'broker' => 'Broker',
         ];
         if (!$phone) {
             unset($columns['customer_phone']);
         }
         if ($money) {
+            $columns += self::SHEET_LABELS;
+        }
+        $columns += ['bh' => 'BH'];
+        if ($money) {
+            $columns['foreman_pay'] = 'Foreman';
+        }
+        if ($money) {
             $columns += self::MONEY_LABELS;
         }
-        return $columns + ['remark' => 'Remark'];
+        return $columns + ['remark' => 'Remarks', 'foreman_name' => 'Foreman Name'];
     }
 
     public function tooLarge(TripCriteria $criteria): bool
@@ -131,7 +139,7 @@ final class TripExportService
                     if ($k === 'activity') {
                         return self::ACTIVITY_LABELS[$v] ?? (string) $v;
                     }
-                    return isset(self::MONEY_LABELS[$k]) ? number_format((float) $v, 2, '.', '') : (string) $v;
+                    return (isset(self::MONEY_LABELS[$k]) || in_array($k, ['grand', 'job_beg', 'depo', 'addio', 'total_to_bh', 'foreman_pay'], true)) ? number_format((float) $v, 2, '.', '') : (string) $v;
                 }, $keys);
                 $sent++;
             }

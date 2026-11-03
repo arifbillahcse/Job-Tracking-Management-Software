@@ -55,7 +55,7 @@ final class DeployCheck
             'foremen' => ['id', 'name', 'phone', 'active'],
             'trips' => ['id', 'trip_number', 'foreman_id', 'begins_on', 'ends_on', 'deleted_at'],
             'remember_tokens' => ['user_id', 'selector', 'token_hash', 'pw_marker', 'expires_at'],
-            'trip_jobs' => ['id', 'trip_id', 'job_id', 'job_number', 'customer_name', 'activity', 'to_location', 'foreman_id', 'diesel', 'hotels', 'helper', 'misc', 'commission', 'extra', 'remark'],
+            'trip_jobs' => ['id', 'trip_id', 'job_id', 'job_number', 'customer_name', 'activity', 'to_location', 'foreman_id', 'grand', 'job_beg', 'depo', 'addio', 'total_to_bh', 'foreman_pay', 'broker', 'diesel', 'hotels', 'helper', 'misc', 'commission', 'extra', 'remark'],
         ];
         foreach ($schema as $table => $columns) {
             $try("Table {$table} has its columns", static function () use ($table, $columns): string {

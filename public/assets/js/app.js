@@ -40,6 +40,15 @@
         }
     });
 
+    // <a data-open-details="#id"> opens a <details> block and moves to it.
+    document.addEventListener('click', function (event) {
+        var trigger = event.target.closest('[data-open-details]');
+        var block = trigger ? document.querySelector(trigger.getAttribute('data-open-details')) : null;
+        if (block) {
+            block.open = true;
+        }
+    });
+
     // Show / hide a password field: <button data-toggle-password="#password">
     document.addEventListener('click', function (event) {
         var button = event.target.closest('[data-toggle-password]');

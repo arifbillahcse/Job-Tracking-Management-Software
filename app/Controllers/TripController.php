@@ -87,7 +87,12 @@ final class TripController extends Controller
         if ($trip === null) {
             return ErrorPages::response(404);
         }
-        return $this->view('trips/show', ['title' => 'Trip ' . $trip['trip_number'], 'trip' => $trip, 'showMoney' => $this->trips->canSeeFinancials()]);
+        return $this->view('trips/show', [
+            'title' => 'Trip ' . $trip['trip_number'],
+            'trip' => $trip,
+            'showMoney' => $this->trips->canSeeFinancials(),
+            'foremen' => (new ForemanRepository())->options((int) $trip['foreman_id']),
+        ]);
     }
 
     public function create(Request $request): Response
@@ -166,26 +171,24 @@ final class TripController extends Controller
         return $this->redirect($back);
     }
 
-    /** The "Add job" box on the trip page: a job typed by its number joins this trip (and gets its foreman). */
+    /** The "Add daily entry" form on the trip page: one day of an existing job, with that day's own expenses. */
     public function addJobToTrip(Request $request, int $id): Response
     {
-        $number = trim($request->str('job_number'));
-        $date = trim($request->str('job_date'));
-        $activity = trim($request->str('activity'));
-        $result = $this->trips->addJobByNumber($id, $number, $date, $activity);
-        if ($result === 'no_trip') {
+        $result = $this->trips->addEntry($id, $request->allPost());
+        if ($result['result'] === 'no_trip') {
             return ErrorPages::response(404);
         }
-        $back = '/trips/' . $id;
-        $message = match ($result) {
-            'ok' => ['success', 'Job ' . $number . ' was added to the trip' . ($activity !== '' ? ' as ' . (TripService::ACTIVITIES[$activity] ?? $activity) : '') . ($date !== '' ? ' on ' . $date : '') . '.'],
-            'ok_same' => ['warning', 'Job ' . $number . ' was added again' . ($activity !== '' ? ' as ' . (TripService::ACTIVITIES[$activity] ?? $activity) : '') . ($date !== '' ? ' on ' . $date : '') . ' (an entry exactly like it was already on the trip). Check that this is what you meant.'],
-            'bad_date' => ['danger', 'That date is not valid.'],
-            'bad_activity' => ['danger', 'Choose Pickup, Delivery or Other.'],
-            default => ['danger', $number === '' ? 'Type the job number to add.' : 'No job with the number "' . mb_substr($number, 0, 40) . '" was found (deleted jobs cannot be added).'],
+        $number = $result['job'];
+        $date = $result['date'];
+        $message = match ($result['result']) {
+            'ok' => ['success', 'Daily entry for job ' . $number . ($date !== null ? ' on ' . $date : '') . ' was added to the trip.'],
+            'same_day' => ['danger', 'Job ' . $number . ' already has an entry on ' . $date . ' in this trip. Each day is one entry: edit that day\'s entry (Edit), or choose another date.'],
+            'no_number' => ['danger', 'Type the job number to add.'],
+            'no_job' => ['danger', 'No job with the number "' . mb_substr($number, 0, 40) . '" was found (deleted jobs cannot be added). A trip entry never creates a job: create the job first under Jobs.'],
+            default => ['danger', implode(' ', $result['errors'])],
         };
         $this->flash($message[0], $message[1]);
-        return $this->redirect($back);
+        return $this->redirect('/trips/' . $id);
     }
 
     public function destroy(Request $request, int $id): Response

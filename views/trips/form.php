@@ -5,7 +5,8 @@
  * @var array<int,array<string,mixed>> $foremen  @var bool $editMoney  @var string $prefillJob job number to put in the first row ("New trip with this job")
  */
 $val = static fn (string $key): string => old_or($key, $trip[$key] ?? '');
-$money = ['diesel' => 'Diesel', 'hotels' => 'Hotels', 'helper' => 'Helper', 'misc' => 'Misc', 'commission' => 'Commission', 'extra' => 'Extra'];
+$sheet = ['grand' => 'Grand', 'job_beg' => 'Job Beg', 'depo' => 'Depo', 'addio' => 'Addio', 'total_to_bh' => 'Total to BH'];
+$money = ['diesel' => 'Diesel', 'hotels' => 'Hotels', 'helper' => 'Helpers', 'misc' => 'MISC', 'commission' => 'Commission', 'extra' => 'Extra'];
 
 // Rows: what the user typed (after a validation error), else the saved rows; then spare rows.
 $old = \App\Core\Session::flashed('old', []);
@@ -90,9 +91,11 @@ $choice = static function (int $i, string $field, array $row, array $options): s
                 <thead>
                 <tr>
                     <th scope="col" class="jt-w9">Job #</th><th scope="col" class="jt-w9">Date</th><th scope="col" class="jt-w9">Activity</th>
-                    <th scope="col" class="jt-w9">From</th><th scope="col" class="jt-w9">To</th><th scope="col" class="jt-w6">BH</th><th scope="col" class="jt-w9">Foreman</th>
+                    <th scope="col" class="jt-w9">From</th><th scope="col" class="jt-w9">To</th><th scope="col" class="jt-w9">Broker</th>
+                    <?php if ($editMoney): foreach ($sheet as $label): ?><th scope="col" class="jt-w65"><?= e($label) ?></th><?php endforeach; endif; ?>
+                    <th scope="col" class="jt-w6">BH</th><th scope="col" class="jt-w9">Foreman</th>
                     <?php if ($editMoney): foreach ($money as $label): ?><th scope="col" class="jt-w65"><?= e($label) ?></th><?php endforeach; endif; ?>
-                    <th scope="col" class="jt-w12">Remark</th>
+                    <th scope="col" class="jt-w12">Remarks</th>
                 </tr>
                 </thead>
                 <tbody>
@@ -108,8 +111,12 @@ $choice = static function (int $i, string $field, array $row, array $options): s
                         <td><?= $choice($i, 'activity', $row, ['' => '—'] + \App\Services\TripService::ACTIVITIES) ?><?= error_text('rows.' . $i . '.activity') ?></td>
                         <td><?= $cell($i, 'from_location', $row, ['maxlength' => 190, 'placeholder' => "job's From"]) ?><?= error_text('rows.' . $i . '.from_location') ?></td>
                         <td><?= $cell($i, 'to_location', $row, ['maxlength' => 190, 'placeholder' => "job's To"]) ?><?= error_text('rows.' . $i . '.to_location') ?></td>
+                        <td><?= $cell($i, 'broker', $row, ['maxlength' => 100]) ?></td>
+                        <?php if ($editMoney): foreach ($sheet as $field => $label): ?>
+                            <td><?= $cell($i, $field, $row, ['type' => 'number', 'step' => '0.01', 'min' => '0', 'inputmode' => 'decimal']) ?><?= error_text('rows.' . $i . '.' . $field) ?></td>
+                        <?php endforeach; endif; ?>
                         <td><?= $cell($i, 'bh', $row, ['maxlength' => 100]) ?></td>
-                        <td><?= $choice($i, 'foreman_id', $row, ['' => "Trip's foreman"] + array_column($foremen, 'name', 'id')) ?><?= error_text('rows.' . $i . '.foreman_id') ?></td>
+                        <td><?php if ($editMoney): ?><?= $cell($i, 'foreman_pay', $row, ['type' => 'number', 'step' => '0.01', 'min' => '0', 'inputmode' => 'decimal']) ?><?= error_text('rows.' . $i . '.foreman_pay') ?><?php else: ?>&mdash;<?php endif; ?></td>
                         <?php if ($editMoney): foreach ($money as $field => $label): ?>
                             <td><?= $cell($i, $field, $row, ['type' => 'number', 'step' => '0.01', 'min' => '0', 'inputmode' => 'decimal']) ?><?= error_text('rows.' . $i . '.' . $field) ?></td>
                         <?php endforeach; endif; ?>
