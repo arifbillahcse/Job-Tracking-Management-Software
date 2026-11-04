@@ -40,6 +40,32 @@
         }
     });
 
+    // Trip entries: Addio = Grand - Job Beg, Total to BH = Job Beg - Depo + Addio (the client's sheet formulas), live while typing.
+    document.addEventListener('input', function (event) {
+        var input = event.target;
+        var kind = input && input.getAttribute ? input.getAttribute('data-calc') : null;
+        if (kind !== 'grand' && kind !== 'job_beg' && kind !== 'depo') {
+            return;
+        }
+        var scope = input.closest('tr') || input.closest('form');
+        if (!scope) {
+            return;
+        }
+        var cents = function (name) {
+            var el = scope.querySelector('[data-calc="' + name + '"]');
+            return el && el.value !== '' ? Math.round(parseFloat(el.value) * 100) || 0 : 0;
+        };
+        var set = function (name, value) {
+            var el = scope.querySelector('[data-calc="' + name + '"]');
+            if (el) {
+                el.value = (value / 100).toFixed(2);
+            }
+        };
+        var addio = cents('grand') - cents('job_beg');
+        set('addio', addio);
+        set('total_to_bh', cents('job_beg') - cents('depo') + addio);
+    });
+
     // <a data-open-details="#id"> opens a <details> block and moves to it.
     document.addEventListener('click', function (event) {
         var trigger = event.target.closest('[data-open-details]');

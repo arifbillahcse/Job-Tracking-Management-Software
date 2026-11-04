@@ -82,6 +82,7 @@ final class JobListController extends Controller
             'shortcuts' => $shortcuts,
             'showFinancials' => $financials,
             'foremen' => (new \App\Repositories\ForemanRepository())->allForFilter(),
+            'brokers' => (new \App\Repositories\JobRepository())->brokers(),
         ]);
     }
 }

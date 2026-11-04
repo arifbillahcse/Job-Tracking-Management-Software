@@ -62,9 +62,9 @@ check($pr['broker'] === 'Top Nation' && (float) $pr['foreman_pay'] === 2151.5, '
 check((float) $pr['addio'] === 1387.75 && (float) $pr['total_to_bh'] === 2490.5, 'Additional = Grand - Job Begins (1387.75) and Total to BH = Job Begins - Deposit + Additional (2490.50), as the sheet row for this job shows');
 call('POST', "/trips/{$tid}/jobs", ['job_number' => 'A1677613', 'job_date' => '2026-10-03', 'grand' => '100', 'job_beg' => '60', 'addio' => '5', 'total_to_bh' => '9']);
 $typed = Database::fetchAll("SELECT addio, total_to_bh FROM trip_jobs WHERE job_id = ? AND job_date = '2026-10-03'", [$peg])[0];
-check((float) $typed['addio'] === 5.0 && (float) $typed['total_to_bh'] === 9.0, 'a figure typed by the user is never overwritten by the formula');
+check((float) $typed['addio'] === 40.0 && (float) $typed['total_to_bh'] === 100.0, 'the sheet formulas always apply: Addio = 100 - 60 = 40, Total to BH = 60 - 0 + 40 = 100 (a typed 5 and 9 are replaced)');
 $pg = plain(call('GET', "/trips/{$tid}")->body());
-check(str_contains($pg, 'Broker') && str_contains($pg, 'Top Nation') && str_contains($pg, 'Foreman') && str_contains($pg, 'All expenses as on the closing sheet (Diesel + Hotels + Helpers + MISC): $') && str_contains($pg, 'Paid to foreman'), 'the trip page shows Broker, the Foreman amount and the closing-sheet totals');
+check(str_contains($pg, 'Foreman') && str_contains($pg, 'All expenses as on the closing sheet (Diesel + Hotels + Helpers + MISC): $') && str_contains($pg, 'Paid to foreman'), 'the trip page shows the Foreman amount and the closing-sheet totals');
 check(preg_match('~Helpers \+ MISC\): \$([\d,.]+)~', $pg, $mm) === 1 && $mm[1] === '655.09', 'sheet "ALL EXP" = Diesel+Hotels+Helpers+MISC over every entry (255 + 400.09 = 655.09)');
 
 section('Foreman column in the trip form is a number');
@@ -79,3 +79,17 @@ foreach (Database::fetchAll('SELECT * FROM trip_jobs WHERE trip_id = ? ORDER BY 
 call('POST', "/trips/{$tid}", $post);
 $after = Database::fetchAll('SELECT foreman_pay, foreman_id FROM trip_jobs WHERE trip_id = ? AND job_id = ? AND job_date = ?', [$tid, $jid, $trow['job_date']])[0] ?? ['foreman_pay' => null, 'foreman_id' => null];
 check((float) $after['foreman_pay'] === 1234.5 && (int) $after['foreman_id'] === (int) $trow['foreman_id'], 'a number typed in the Foreman box is saved, and the entry keeps its foreman');
+
+section('Broker, Grand, Job Beg and Depo are hidden but kept');
+$ef = call('GET', "/trips/{$tid}/edit")->body();
+$pt2 = plain(call('GET', "/trips/{$tid}")->body());
+check(!str_contains($ef, '[broker]') && !str_contains($ef, '[grand]') && !str_contains($ef, '[job_beg]') && !str_contains($ef, '[depo]') && !preg_match('~\\b(Broker|Grand|Job Beg|Depo)\\b~', $pt2), 'the four columns are not in the trip table or the edit form');
+check(str_contains($ef, 'name="rows[0][addio]"') && !preg_match('~name="rows\\[\\d+\\]\\[addio\\]"[^>]*readonly~', $ef), 'Addio and Total to BH are plain amount boxes');
+$e1 = Database::fetchAll('SELECT * FROM trip_jobs WHERE trip_id = ? AND job_id = ? AND job_date = ?', [$tid, $peg, '2026-10-02'])[0];
+$post = ['trip_number' => 'P15-T', 'foreman_id' => (string) $joe, 'begins_on' => '2026-10-27', 'loaded_at' => (string) Database::fetchValue('SELECT updated_at FROM trips WHERE id = ?', [$tid]), 'rows' => []];
+foreach (Database::fetchAll('SELECT * FROM trip_jobs WHERE trip_id = ? ORDER BY sort_order, id', [$tid]) as $i => $r) {
+    $post['rows'][$i] = ['id' => (string) $r['id'], 'job_number' => $r['job_number'], 'job_date' => (string) $r['job_date'], 'activity' => (string) $r['activity']];
+}
+call('POST', "/trips/{$tid}", $post);
+$e2 = Database::fetchAll('SELECT broker, grand, job_beg, depo FROM trip_jobs WHERE trip_id = ? AND job_id = ? AND job_date = ?', [$tid, $peg, '2026-10-02'])[0] ?? [];
+check(($e2['broker'] ?? null) === 'Top Nation' && (float) ($e2['grand'] ?? 0) === 4016.5 && (float) ($e2['job_beg'] ?? 0) === 2628.75 && (float) ($e2['depo'] ?? 0) === 1526.0, 'saving the trip form keeps the stored Broker, Grand, Job Beg and Depo');

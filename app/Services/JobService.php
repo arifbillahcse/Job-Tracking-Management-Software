@@ -18,7 +18,7 @@ final class JobService
     private const EDITABLE = [
         'job_number', 'customer_first_name', 'customer_last_name', 'pickup_date', 'first_available_date',
         'from_location', 'to_location', 'job_location', 'cf', 'estimated_cf', 'notes', 'customer_phone',
-        'job_lot', 'color',
+        'job_lot', 'color', 'broker',
     ];
 
     /** Columns only users with jobs.edit_financials may write. */

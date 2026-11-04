@@ -41,6 +41,7 @@ async function createJob(page, number, availableOffset, extra = {}) {
     if (extra.balance) await page.fill('#balance', extra.balance);
     if (extra.cf) await page.fill('#cf', extra.cf);
     if (extra.phone) await page.fill('#customer_phone', extra.phone);
+    if (extra.broker) await page.fill('#broker', extra.broker);
     await Promise.all([page.waitForNavigation(), page.click('main form button[type=submit]')]);
 }
 
@@ -431,6 +432,18 @@ async function createJob(page, number, availableOffset, extra = {}) {
         await page.goto(tripUrl);
         page.once('dialog', (d) => d.accept());
         await Promise.all([page.waitForNavigation(), page.click('button[data-confirm]')]);
+    });
+    await step('broker: the same broker on many jobs, sorted and filtered in the Jobs list', async () => {
+        await createJob(page, RUN + '-BRK1', 10, { broker: RUN + ' Top Nation' });
+        await createJob(page, RUN + '-BRK2', 10, { broker: RUN + ' Top Nation' });
+        await createJob(page, RUN + '-BRK3', 10, { broker: RUN + ' Prime' });
+        await page.goto(BASE + '/jobs?q=' + RUN + '-BRK');
+        must((await page.textContent('main')).includes(RUN + ' Prime') && (await page.locator('a.jt-jobno').count()) === 3, 'the three broker jobs are not all listed');
+        await Promise.all([page.waitForNavigation(), page.click('th a[href*="sort=broker"]')]);
+        const first = await page.locator('a.jt-jobno').first().textContent();
+        must(first.trim() === RUN + '-BRK3', 'sorted A-Z by broker, Prime should come first, got ' + first);
+        await page.goto(BASE + '/jobs?q=' + RUN + '-BRK&broker=' + encodeURIComponent(RUN + ' Top Nation'));
+        must((await page.locator('a.jt-jobno').count()) === 2, 'the Broker filter did not show exactly the two Top Nation jobs');
     });
     await step('a trip can be deleted', async () => {
         await page.goto(BASE + '/trips?q=' + RUN + '-TR');

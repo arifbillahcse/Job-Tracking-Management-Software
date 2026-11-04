@@ -68,6 +68,13 @@ $advanced = $criteria->activeFilterCount() - ($criteria->q !== '' ? 1 : 0);
                     </div>
                 <?php endif; ?>
                 <div class="col-12 col-sm-6 col-lg-3">
+                    <label class="form-label" for="f-broker">Broker</label>
+                    <select class="form-select" id="f-broker" name="broker">
+                        <option value="">Any broker</option>
+                        <?php foreach (($brokers ?? []) as $b): ?><option value="<?= e($b) ?>"<?= $criteria->broker === $b ? ' selected' : '' ?>><?= e($b) ?></option><?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-12 col-sm-6 col-lg-3">
                     <label class="form-label" for="f-foreman">Foreman</label>
                     <select class="form-select" id="f-foreman" name="foreman">
                         <option value="">Any foreman</option>

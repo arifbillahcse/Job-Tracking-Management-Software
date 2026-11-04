@@ -27,7 +27,7 @@ final class ExportService
     public const XLSX_MAX_ROWS = 20000;
     private const CHUNK = 500;
 
-    private const BASE = ['job_number', 'customer_first_name', 'customer_last_name', 'customer_phone', 'pickup_date', 'first_available_date', 'from_location', 'to_location', 'cf', 'balance', 'storage_fee'];
+    private const BASE = ['job_number', 'customer_first_name', 'customer_last_name', 'customer_phone', 'pickup_date', 'first_available_date', 'from_location', 'to_location', 'broker', 'cf', 'balance', 'storage_fee'];
 
     public function __construct(private JobRepository $jobs = new JobRepository())
     {

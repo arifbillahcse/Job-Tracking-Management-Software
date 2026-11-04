@@ -459,6 +459,7 @@ final class ImportService
             'trip_id' => $tripId,
             'job_lot' => $clean['job_lot'] ?? null,
             'color' => $clean['color'] ?? null,
+            'broker' => $clean['broker'] ?? null,
             'balance' => $decimal($clean['balance'] ?? null) ?? '0.00',
             'storage_fee' => '0.00',
             'storage_fee_override' => $decimal($clean['storage_fee'] ?? null),

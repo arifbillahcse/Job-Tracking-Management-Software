@@ -71,6 +71,17 @@ final class JobRepository
         );
     }
 
+    /**
+     * Brokers already used on a live job, for the suggestions in the job form and the filter.
+     *
+     * @return array<int,string>
+     */
+    public function brokers(): array
+    {
+        $rows = Database::fetchAll("SELECT DISTINCT broker FROM jobs WHERE broker IS NOT NULL AND broker <> '' AND deleted_at IS NULL ORDER BY broker ASC");
+        return array_map('strval', array_column($rows, 'broker'));
+    }
+
     public function softDelete(int $id, ?int $userId): bool
     {
         $now = gmdate('Y-m-d H:i:s');
@@ -124,7 +135,7 @@ final class JobRepository
 
         if ($c->q !== '') {
             $fields = ['j.job_number', 'j.customer_first_name', 'j.customer_last_name', 'j.from_location', 'j.to_location',
-                'j.job_location', 'j.carrier_name', 'j.driver_name', 'j.driver_phone', 'j.customer_phone', 'af.name', 'atr.trip_number', 'j.job_lot'];
+                'j.job_location', 'j.carrier_name', 'j.driver_name', 'j.driver_phone', 'j.customer_phone', 'af.name', 'atr.trip_number', 'j.job_lot', 'j.broker'];
             // Every word must match somewhere, so "ada smith" finds first name Ada + last name Smith.
             foreach (array_slice(preg_split('/\s+/', $c->q, -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 5) as $word) {
                 $sql .= ' AND (' . implode(' OR ', array_map(static fn (string $f): string => "{$f} LIKE ? ESCAPE '!'", $fields)) . ')';
@@ -169,6 +180,10 @@ final class JobRepository
         } elseif ($c->foremanId > 0) {
             $sql .= ' AND j.foreman_id = ?';
             $params[] = $c->foremanId;
+        }
+        if ($c->broker !== '') {
+            $sql .= ' AND j.broker = ?';
+            $params[] = $c->broker;
         }
         if ($c->trip !== '') {
             $sql .= " AND atr.trip_number LIKE ? ESCAPE '!'";

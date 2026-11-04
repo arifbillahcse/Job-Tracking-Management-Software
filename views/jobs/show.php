@@ -77,6 +77,7 @@ $dl = static function (string $label, string $valueHtml): string {
                     <?= $dl('Trip', empty($job['trip_id']) || empty($job['trip_number']) ? '—' : (can('trips.view') ? '<a class="jt-jobno" href="' . e(url('/trips/' . $job['trip_id'])) . '">' . e($job['trip_number']) . '</a>' : e($job['trip_number']))) ?>
                     <?= $dl('Job lot', e($job['job_lot'] ?? '') ?: '—') ?>
                     <?= $dl('Color', e($job['color'] ?? '') ?: '—') ?>
+                    <?= $dl('Broker', e($job['broker'] ?? '') ?: '—') ?>
                     <?php if ($showFinancials): ?>
                         <?php foreach (['estimated_total' => 'E-Total', 'deposit' => 'Deposit', 'grand_total' => 'Grand total', 'bh_total' => 'BH total', 'paid' => 'Paid'] as $field => $label): ?>
                             <?= $dl($label, ($job[$field] ?? null) === null ? '—' : e(fmt_money($job[$field]))) ?>

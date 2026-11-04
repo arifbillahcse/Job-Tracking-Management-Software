@@ -2,6 +2,12 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.6.0 - Broker on every job; sheet formulas; Foreman as an amount
+
+* **Broker** on the New Job / Edit Job form (free text with suggestions from the brokers already used), on Job details, as a **sortable column in every Jobs list**, a **Broker filter**, in search, in the CSV export and as an optional Import column. The same broker can be on any number of jobs. Migration **016** adds an empty `jobs.broker` column and an index; existing jobs are untouched.
+* **Trip entries:** the Foreman column is an amount (number box); Broker, Grand, Job Beg and Depo are no longer shown on trip screens or in the trip CSV (stored values are kept); Addio and Total to BH are typed amounts. When Grand / Job Beg / Depo are supplied through a form post, the sheet formulas apply on every save (Addio = Grand - Job Beg; Total to BH = Job Beg - Depo + Addio).
+* **Upgrade:** `git pull origin main`, `php cli/migrate.php` (013 to 016), `php cli/doctor.php`, `php cli/verify.php`.
+
 ## 1.5.0 - daily entries with sheet fields (client requirements, complete)
 
 * **Daily entry form on Trip Details** ("Add daily entry"): Job #, Date, Activity, Foreman, From, To, the sheet fields and expenses in one step. An entry never creates a job.

@@ -537,7 +537,7 @@ $tp = call('GET', "/trips/{$tid}");
 $tb = $tp->body();
 $pt = plain($tb);
 check(substr_count($pt, 'B6048649') >= 2 && str_contains($pt, 'Pickup') && str_contains($pt, 'Delivery') && str_contains($pt, 'Warehouse A') && str_contains($pt, 'Atlanta, GA') && str_contains($pt, 'Denver, CO') && str_contains($pt, 'Oct 30, 2026') && str_contains($pt, 'Oct 31, 2026'), 'Trip Details shows both entries with date, activity, From and To');
-check(preg_match('~Job # Customer Date Activity From To Broker Grand Job Beg Depo Addio Total to BH BH Foreman Diesel Hotels Helpers MISC Commission Extra Remarks~', $pt) === 1, 'the table columns are Job #, Customer, Date, Activity, From, To, Grand, Job Beg, Depo, Addio, Total to BH, BH, Foreman, then Diesel, Hotels, Helpers, MISC, Commission, Extra, Remarks');
+check(preg_match('~Job # Customer Date Activity From To Addio Total to BH BH Foreman Diesel Hotels Helpers MISC Commission Extra Remarks~', $pt) === 1, 'the table columns are Job #, Customer, Date, Activity, From, To, Grand, Job Beg, Depo, Addio, Total to BH, BH, Foreman, then Diesel, Hotels, Helpers, MISC, Commission, Extra, Remarks');
 check(str_contains($pt, 'Joe') && str_contains($pt, 'Jobs on this trip (2)') && !str_contains($pt, 'Collected by'), 'the Foreman column shows each entry\'s foreman; the count is 2 entries; no "Collected by"');
 check(str_contains($pt, '$125.50') && substr_count($tb, 'href="/jobs/' . $jobId . '"') >= 2, 'the totals add both entries ($50 + $75.50), and each entry links to the job');
 

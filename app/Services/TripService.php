@@ -280,8 +280,9 @@ final class TripService
     }
 
     /**
-     * The client's own sheet formulas (Forman_Closing.xlsx), applied only to a cell left empty so a typed figure always wins:
-     * Addio (Additional) = Grand - Job Beg;  Total to BH = Job Beg - Depo + Addio.
+     * The client's sheet formulas (Forman_Closing.xlsx), always applied, a blank cell counting as 0 like the sheet:
+     * Addio (Additional) = Grand - Job Beg;   Total to BH = Job Beg - Depo + Addio.
+     * When Grand, Job Beg and Depo are all empty nothing is calculated and any figure typed in Addio / Total to BH is kept.
      *
      * @param array<string,mixed> $row
      * @return array<string,mixed>
@@ -291,17 +292,13 @@ final class TripService
         $n = static fn ($v): ?int => ($v === null || $v === '') ? null : (int) round((float) $v * 100);
         $grand = $n($row['grand'] ?? null);
         $beg = $n($row['job_beg'] ?? null);
-        $depo = $n($row['depo'] ?? null) ?? 0;
-        $addio = $n($row['addio'] ?? null);
-        if ($addio === null && $grand !== null && $beg !== null) {
-            $addio = $grand - $beg;
-            $row['addio'] = number_format($addio / 100, 2, '.', '');
+        $depo = $n($row['depo'] ?? null);
+        if ($grand === null && $beg === null && $depo === null) {
+            return $row;
         }
-        if (($row['total_to_bh'] ?? null) === null || $row['total_to_bh'] === '') {
-            if ($beg !== null) {
-                $row['total_to_bh'] = number_format(($beg - $depo + ($addio ?? 0)) / 100, 2, '.', '');
-            }
-        }
+        $addio = ($grand ?? 0) - ($beg ?? 0);
+        $row['addio'] = number_format($addio / 100, 2, '.', '');
+        $row['total_to_bh'] = number_format((($beg ?? 0) - ($depo ?? 0) + $addio) / 100, 2, '.', '');
         return $row;
     }
 
@@ -484,8 +481,9 @@ final class TripService
                     ? $this->decimal($valid[$field] ?? null)
                     : ($keep !== null && ($keep[$field] ?? null) !== null ? $this->decimal($keep[$field]) : null);
             }
-            if ($withMoney) {
-                $row = self::deriveSheet($row);
+            // Broker, Grand, Job Beg and Depo are no longer shown or edited; whatever is stored stays as it is.
+            foreach (['broker', 'grand', 'job_beg', 'depo'] as $hidden) {
+                $row[$hidden] = $keep[$hidden] ?? null;
             }
             $rows[] = $row;
         }

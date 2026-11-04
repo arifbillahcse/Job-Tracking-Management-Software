@@ -34,6 +34,7 @@ final class JobRules
             'estimated_cf' => 'nullable|money|min_value:0|max_value:99999999.99',
             'job_lot' => 'nullable|max:60',
             'color' => 'nullable|max:60',
+            'broker' => 'nullable|max:100',
             'notes' => 'nullable|max:5000',
         ];
 
@@ -134,6 +135,7 @@ final class JobRules
             'trip_number' => 'Trip Number',
             'job_lot' => 'Job lot',
             'color' => 'Color',
+            'broker' => 'Broker',
             'balance' => 'Balance',
             'storage_fee' => 'Storage fee',
             'storage_fee_override' => 'Storage fee override',

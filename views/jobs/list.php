@@ -15,6 +15,7 @@ $threshold = JobBucket::threshold();
 $all = [
     'job' => ['Job #', 'job', ''],
     'customer' => ['Customer', 'customer', ''],
+    'broker' => ['Broker', 'broker', ''],
     'pickup' => ['Pickup', 'pickup', ''],
     'available' => ['1st available', 'available', ''],
     'route' => ['Route', 'from', ''],
@@ -31,11 +32,11 @@ $all = [
     'delivered' => ['Delivered on', 'delivered', ''],
 ];
 $layouts = [
-    JobBucket::ALL => ['job', 'customer', 'pickup', 'available', 'route', 'assign', 'cf', 'balance', 'storage', 'status'],
-    JobBucket::READY => ['job', 'customer', 'pickup', 'available', 'route', 'assign', 'cf', 'balance', 'storage'],
-    JobBucket::LATER => ['job', 'customer', 'pickup', 'available', 'route', 'assign', 'cf', 'balance', 'storage'],
-    JobBucket::TRANSIT => ['job', 'customer', 'route', 'assign', 'cf', 'balance', 'storage', 'dispatched', 'carrierblock'],
-    JobBucket::DELIVERED => ['job', 'customer', 'pickup', 'available', 'route', 'assign', 'cf', 'balance', 'storage', 'delivered'],
+    JobBucket::ALL => ['job', 'customer', 'broker', 'pickup', 'available', 'route', 'assign', 'cf', 'balance', 'storage', 'status'],
+    JobBucket::READY => ['job', 'customer', 'broker', 'pickup', 'available', 'route', 'assign', 'cf', 'balance', 'storage'],
+    JobBucket::LATER => ['job', 'customer', 'broker', 'pickup', 'available', 'route', 'assign', 'cf', 'balance', 'storage'],
+    JobBucket::TRANSIT => ['job', 'customer', 'broker', 'route', 'assign', 'cf', 'balance', 'storage', 'dispatched', 'carrierblock'],
+    JobBucket::DELIVERED => ['job', 'customer', 'broker', 'pickup', 'available', 'route', 'assign', 'cf', 'balance', 'storage', 'delivered'],
 ];
 $columns = array_values(array_filter(
     $layouts[$bucket],
@@ -99,7 +100,7 @@ $sortHeader = static function (string $label, ?string $sortKey) use ($criteria, 
     <?php endif; ?>
 </div>
 
-<?= \App\Core\View::partial('jobs/_filters', ['bucket' => $bucket, 'criteria' => $criteria, 'showFinancials' => $showFinancials, 'foremen' => $foremen]) ?>
+<?= \App\Core\View::partial('jobs/_filters', ['bucket' => $bucket, 'criteria' => $criteria, 'showFinancials' => $showFinancials, 'foremen' => $foremen, 'brokers' => $brokers ?? []]) ?>
 
 <div class="small text-body-secondary mb-2" aria-live="polite">
     <?php if ($paginator->total === 0): ?>
@@ -183,6 +184,9 @@ $sortHeader = static function (string $label, ?string $sortKey) use ($criteria, 
                                                 <div class="jt-subtle"><?= can('trips.view') ? '<a href="' . e(url('/trips/' . $job['trip_id'])) . '">' . e($job['trip_number']) . '</a>' : e($job['trip_number']) ?></div>
                                             <?php endif; ?>
                                         </div>
+                                        <?php break;
+                                    case 'broker': ?>
+                                        <?= e($job['broker'] ?? '') ?: '<span class="text-body-secondary">—</span>' ?>
                                         <?php break;
                                     case 'cf': ?>
                                         <?= e(fmt_number($job['cf']) ?: '—') ?>

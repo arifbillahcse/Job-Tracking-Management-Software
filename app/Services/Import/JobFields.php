@@ -67,6 +67,8 @@ final class JobFields
             'example' => 'A-12', 'help' => ''],
         'color' => ['label' => 'Color', 'pattern' => '/^colou?r$/', 'type' => self::TEXT, 'required' => false, 'financial' => false, 'workflow' => false,
             'example' => 'Blue', 'help' => ''],
+        'broker' => ['label' => 'Broker', 'pattern' => '/^broker$/', 'type' => self::TEXT, 'required' => false, 'financial' => false, 'workflow' => false,
+            'example' => 'Top Nation', 'help' => 'The same broker can be on many jobs.'],
         'status' => ['label' => 'Status', 'pattern' => '/^status$/', 'type' => self::STATUS, 'required' => false, 'financial' => false, 'workflow' => true,
             'example' => 'Booked', 'help' => 'Booked (default), In Transit, Delivered, On Hold or Cancelled. Needs permission to change status.'],
         'carrier_name' => ['label' => 'Carrier Name', 'pattern' => '/^(carrier|carriername)$/', 'type' => self::TEXT, 'required' => false, 'financial' => false, 'workflow' => true,

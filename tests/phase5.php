@@ -554,7 +554,7 @@ fresh_session();
 sign_in($mgr);
 $tmpl = call('GET', '/jobs/import/template/csv');
 $tt = str_getcsv(explode("\n", substr($tmpl->content(), 3))[0]);
-check(in_array('Balance', $tt, true) && in_array('Storage Fee', $tt, true) && count($tt) === 29, 'template for a Manager has all 29 columns incl. money');
+check(in_array('Balance', $tt, true) && in_array('Storage Fee', $tt, true) && count($tt) === 30, 'template for a Manager has all 30 columns incl. money');
 check(call('GET', '/jobs/import/template/pdf')->status() === 404, 'unknown template format -> 404');
 $x = tmp_file(call('GET', '/jobs/import/template/xlsx')->content(), 'xlsx');
 $xr = XlsxReader::read($x, 10, 30);
@@ -641,17 +641,17 @@ $csvOf = static function (string $bucket, array $query = [], bool $financials = 
     }
     return [$text, $rows];
 };
-foreach ([['ready', ['Job #', 'Customer First Name', 'Customer Last Name', 'Customer Phone', 'Pickup Date', '1st Available Date', 'From', 'To', 'A-CF', 'Balance', 'Storage Fee']],
-    ['later', ['Job #', 'Customer First Name', 'Customer Last Name', 'Customer Phone', 'Pickup Date', '1st Available Date', 'From', 'To', 'A-CF', 'Balance', 'Storage Fee']],
-    ['transit', ['Job #', 'Customer First Name', 'Customer Last Name', 'Customer Phone', 'Pickup Date', '1st Available Date', 'From', 'To', 'A-CF', 'Balance', 'Storage Fee', 'Loaded Date', 'Carrier Name', 'Driver Name', 'Phone']],
-    ['delivered', ['Job #', 'Customer First Name', 'Customer Last Name', 'Customer Phone', 'Pickup Date', '1st Available Date', 'From', 'To', 'A-CF', 'Balance', 'Storage Fee', 'Loaded Date', 'Delivered Date']]] as [$bucket, $expected]) {
+foreach ([['ready', ['Job #', 'Customer First Name', 'Customer Last Name', 'Customer Phone', 'Pickup Date', '1st Available Date', 'From', 'To', 'Broker', 'A-CF', 'Balance', 'Storage Fee']],
+    ['later', ['Job #', 'Customer First Name', 'Customer Last Name', 'Customer Phone', 'Pickup Date', '1st Available Date', 'From', 'To', 'Broker', 'A-CF', 'Balance', 'Storage Fee']],
+    ['transit', ['Job #', 'Customer First Name', 'Customer Last Name', 'Customer Phone', 'Pickup Date', '1st Available Date', 'From', 'To', 'Broker', 'A-CF', 'Balance', 'Storage Fee', 'Loaded Date', 'Carrier Name', 'Driver Name', 'Phone']],
+    ['delivered', ['Job #', 'Customer First Name', 'Customer Last Name', 'Customer Phone', 'Pickup Date', '1st Available Date', 'From', 'To', 'Broker', 'A-CF', 'Balance', 'Storage Fee', 'Loaded Date', 'Delivered Date']]] as [$bucket, $expected]) {
     [$text, $rows] = $csvOf($bucket);
     check($rows[0] === $expected, "{$bucket}: headings follow the client's sheet for that section");
 }
 [$text, $rows] = $csvOf('all');
 check(str_starts_with($text, "\xEF\xBB\xBF") && $rows[0] === array_map([JobFields::class, 'label'], array_keys(JobFields::all())), 'All Jobs: BOM first (Excel reads UTF-8), then every importable column in template order');
 [, $rows] = $csvOf('all', [], false);
-check(!in_array('Balance', $rows[0], true) && !in_array('Storage Fee', $rows[0], true) && count($rows[0]) === 22, 'without access to money the Balance and Storage Fee columns are not even in the file');
+check(!in_array('Balance', $rows[0], true) && !in_array('Storage Fee', $rows[0], true) && count($rows[0]) === 23, 'without access to money the Balance and Storage Fee columns are not even in the file');
 check(!str_contains(implode(',', array_merge(...$csvOf('all', [], false)[1])), '120.50') && !str_contains($csvOf('later', [], false)[0], '45.00'), '...and none of the amounts appear anywhere in it');
 
 [, $rows] = $csvOf('ready');
@@ -673,7 +673,7 @@ check(count($csvOf('all', ['q' => 'ex'])[1]) - 1 === (new JobRepository())->coun
 
 [, $rows] = $csvOf('ready');
 $r1 = $rows[2];
-check($r1[0] === 'EX-R1' && $r1[1] === 'Zoë' && $r1[2] === "O'Brien, Jr." && $r1[3] === '' && $r1[4] === '' && $r1[5] === '2026-10-28' && $r1[8] === '' && $r1[9] === '120.50', 'accents, apostrophes, commas, empty cells, ISO dates and plain amounts');
+check($r1[0] === 'EX-R1' && $r1[1] === 'Zoë' && $r1[2] === "O'Brien, Jr." && $r1[3] === '' && $r1[4] === '' && $r1[5] === '2026-10-28' && $r1[9] === '' && $r1[10] === '120.50', 'accents, apostrophes, commas, empty cells, ISO dates and plain amounts');
 [, $rows] = $csvOf('all');
 $byNumber = array_column($rows, null, 0);
 check($byNumber['EX-R1'][array_search('Notes', $rows[0], true)] === "line1\nline2 \"quoted\"", 'line breaks and quotes in a cell survive');
