@@ -45,3 +45,22 @@ $row = (new JobRepository())->find($jid);
 call('POST', "/jobs/{$jid}", job_input(['job_number' => 'P17-A', 'grand_total' => '9', 'deposit' => '1', 'paid' => '0', 'loaded_at' => (string) $row['updated_at']]));
 $after = (new JobRepository())->find($jid);
 check((float) $after['bh_total'] === 3800.0 && (float) $after['balance'] === 0.0 && (float) $after['grand_total'] === 5000.0, 'Staff cannot change the money; the stored figures stay');
+
+section('Money rules: the calculated boxes can be negative and must not block saving');
+sign_in($mgr);
+// exactly what the browser posts for the screenshot case: Grand 0, Deposit 0.14, Paid 222 -> Total to BH -0.14, Balance due -222.14
+$before = (int) Database::fetchValue('SELECT COUNT(*) FROM jobs');
+call('POST', '/jobs', job_input(['job_number' => 'P17-NEG', 'grand_total' => '0', 'deposit' => '0.14', 'paid' => '222', 'bh_total' => '-0.14', 'balance' => '-222.14', 'storage_fee_override' => '34']));
+$neg = (new JobRepository())->find((int) Database::fetchValue("SELECT id FROM jobs WHERE job_number = 'P17-NEG'"));
+check((int) Database::fetchValue('SELECT COUNT(*) FROM jobs') === $before + 1 && (float) $neg['bh_total'] === -0.14 && (float) $neg['balance'] === -222.14, 'a job whose calculated Total to BH is -0.14 and Balance due -222.14 is saved (it used to fail with "must be an amount")');
+$nid = (int) $neg['id'];
+call('POST', "/jobs/{$nid}", job_input(['job_number' => 'P17-NEG', 'grand_total' => '10', 'deposit' => '0.14', 'paid' => '222', 'bh_total' => '9.86', 'balance' => '-212.14', 'loaded_at' => (string) $neg['updated_at']]));
+$neg = (new JobRepository())->find($nid);
+check((float) $neg['bh_total'] === 9.86 && (float) $neg['balance'] === -212.14, 'the same on edit');
+// a garbage value in a calculated box is ignored, not trusted
+call('POST', '/jobs', job_input(['job_number' => 'P17-JUNK', 'grand_total' => '100', 'deposit' => '40', 'paid' => '10', 'bh_total' => 'abc', 'balance' => '<b>']));
+$junk = (new JobRepository())->find((int) Database::fetchValue("SELECT id FROM jobs WHERE job_number = 'P17-JUNK'"));
+check((float) $junk['bh_total'] === 60.0 && (float) $junk['balance'] === 50.0, 'whatever is posted in the calculated boxes is replaced by the calculation (100 - 40 = 60, 60 - 10 = 50)');
+// with nothing to calculate from, a negative typed balance is still refused
+call('POST', '/jobs', job_input(['job_number' => 'P17-NB', 'balance' => '-5']));
+check((int) Database::fetchValue("SELECT COUNT(*) FROM jobs WHERE job_number = 'P17-NB'") === 0, 'a negative balance typed with no Grand total / Deposit / Total to BH is still refused');

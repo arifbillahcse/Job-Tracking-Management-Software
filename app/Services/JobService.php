@@ -251,6 +251,28 @@ final class JobService
     }
 
     /**
+     * Total to BH and Balance due are calculated here, so whatever the form posted for them is not validated or used
+     * (the form shows calculated values, which can be negative: a refund or a credit).
+     *
+     * @param array<string,mixed> $post
+     * @return array<string,mixed>
+     */
+    public static function withoutCalculated(array $post): array
+    {
+        $filled = static fn (string $k): bool => isset($post[$k]) && is_scalar($post[$k]) && trim((string) $post[$k]) !== '';
+        $bhAvailable = $filled('grand_total') || $filled('deposit');
+        if ($bhAvailable) {
+            unset($post['bh_total']);
+        } else {
+            $bhAvailable = $filled('bh_total');
+        }
+        if ($bhAvailable) {
+            unset($post['balance']);
+        }
+        return $post;
+    }
+
+    /**
      * The client's money rules, always applied (a blank amount counts as 0):
      *   Total to BH (bh_total) = Grand total - Deposit;   Balance due = Total to BH - Paid.
      * Nothing is calculated when there is nothing to calculate from: with no Grand total and no Deposit a typed Total to BH is kept,

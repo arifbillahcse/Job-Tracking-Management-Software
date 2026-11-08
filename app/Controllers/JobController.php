@@ -77,7 +77,9 @@ final class JobController extends Controller
             $request,
             JobRules::rules(null, $this->jobs->canEditFinancials(), false, false, $this->jobs->canAssign()),
             '/jobs/create',
-            JobRules::labels()
+            JobRules::labels(),
+            [],
+            $this->jobs->canEditFinancials() ? [\App\Services\JobService::class, 'withoutCalculated'] : null
         );
         if ($data instanceof Response) {
             return $data;
@@ -138,7 +140,9 @@ final class JobController extends Controller
             $request,
             JobRules::rules($id, $this->jobs->canEditFinancials(), $job['status'] === 'in_transit', false, $this->jobs->canAssign()) + JobRules::dateRules((string) $job['status']),
             $editUrl,
-            JobRules::labels()
+            JobRules::labels(),
+            [],
+            $this->jobs->canEditFinancials() ? [\App\Services\JobService::class, 'withoutCalculated'] : null
         );
         if ($data instanceof Response) {
             return $data;

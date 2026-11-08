@@ -41,9 +41,10 @@ abstract class Controller
      * @param array<int,string> $sensitive field names that must not be flashed back
      * @return array<string,mixed>|Response validated data, or a redirect response on failure
      */
-    protected function validate(Request $request, array $rules, string $backTo, array $labels = [], array $sensitive = []): array|Response
+    protected function validate(Request $request, array $rules, string $backTo, array $labels = [], array $sensitive = [], ?callable $prepare = null): array|Response
     {
-        $validator = Validator::make($request->allPost(), $rules, $labels);
+        $input = $request->allPost();
+        $validator = Validator::make($prepare === null ? $input : $prepare($input), $rules, $labels);
         if ($validator->passes()) {
             return $validator->validated();
         }
