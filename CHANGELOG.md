@@ -2,6 +2,12 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.6.5 - the Jobs lists fit on one screen
+
+* **Related fields are stacked in one column** (21 columns became 14): Job lot / Color, Pickup / 1st available, Route / Job location, E-CF / A-CF, Deposit / Grand total, Total to BH / Paid. Each field in a stacked heading keeps its own sort link, and an empty field still shows a dash.
+* **The Jobs tables are set smaller and tighter** (13px text, less padding, headings wrap to two lines), so on a 1920 px screen every column is visible without scrolling. Narrower screens still scroll sideways. No migration.
+* **Upgrade:** `git pull origin main`.
+
 ## 1.6.4 - every job field is a column in the Jobs lists
 
 * **All Jobs, Ready, More Than 30 Days, In Transit and Delivered now show every field of the job form as a column**, with a dash when nothing is entered: Broker, Job lot, Color, Job location, E-CF, A-CF, and (for people who may see money) E-Total, Deposit, Grand total, Total to BH, Paid, Balance due, Storage fee. Each new column is sortable. The table is wider than a screen now, so it scrolls sideways.

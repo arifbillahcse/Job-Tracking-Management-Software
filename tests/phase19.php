@@ -27,8 +27,12 @@ preg_match_all('~<th[^>]*scope="col"[^>]*>(.*?)</th>~s', $html, $m);
 foreach ($m[1] as $h) {
     $heads[] = trim(preg_replace('/\s+/', ' ', strip_tags($h)));
 }
-foreach (['Job #', 'Customer', 'Broker', 'Job lot', 'Color', 'Pickup', '1st available', 'Route', 'Job location', 'Foreman / trip', 'E-CF', 'A-CF', 'E-Total', 'Deposit', 'Grand total', 'Total to BH', 'Paid', 'Balance due', 'Storage fee', 'Status'] as $want) {
-    check(in_array($want, $heads, true), "All Jobs has a \"{$want}\" column");
+foreach (['Job #', 'Customer', 'Broker', 'Job lot / Color', 'Pickup / 1st available', 'Route / Job location', 'Foreman / trip', 'E-CF / A-CF', 'E-Total', 'Deposit / Grand total', 'Total to BH / Paid', 'Balance due', 'Storage fee', 'Status'] as $want) {
+    check(in_array($want, $heads, true), "All Jobs has a \"{$want}\" column heading");
+}
+check(count($heads) === 15, 'the list has 14 columns (related fields are stacked) plus the actions column: ' . count($heads));
+foreach (['lot', 'color', 'pickup', 'available', 'from', 'location', 'ecf', 'cf', 'deposit', 'grand', 'tobh', 'paid', 'etotal', 'balance', 'storage'] as $key) {
+    check(str_contains($html, 'sort=' . $key . '&') || str_contains($html, 'sort=' . $key . '"') || str_contains($html, 'sort=' . $key . '&amp;'), "...and each stacked field keeps its own sort link ({$key})");
 }
 $rowOf = static function (string $n) use ($html): string {
     preg_match('~<tr>(?:(?!</tr>).)*?>' . preg_quote($n, '~') . '</a>.*?</tr>~s', $html, $r);
@@ -49,4 +53,4 @@ foreach (['lot', 'color', 'location', 'ecf', 'etotal', 'deposit', 'grand', 'tobh
 }
 sign_in(make_user('Staff', 'p19-stf@example.com'));
 $staff = call('GET', '/jobs')->body();
-check(!str_contains($staff, 'Grand total') && !str_contains($staff, 'Deposit') && !str_contains($staff, 'Total to BH') && !str_contains($staff, '$2,500.00') && str_contains($staff, 'Job lot'), 'Staff see the lot, color and location columns but no money column');
+check(!str_contains($staff, 'Deposit / Grand total') && !str_contains($staff, 'Total to BH / Paid') && !str_contains($staff, 'E-Total') && !str_contains($staff, '$2,500.00') && str_contains($staff, 'Job lot'), 'Staff see the lot, color and location columns but no money column');

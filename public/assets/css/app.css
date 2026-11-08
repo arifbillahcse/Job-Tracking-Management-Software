@@ -858,3 +858,16 @@ summary:focus-visible {
 .jt-w65 { min-width: 6.5rem; }
 .jt-w9 { min-width: 9rem; }
 .jt-w12 { min-width: 12rem; }
+
+
+/* The Jobs lists carry every field of a job, so they are set smaller and tighter than other tables: all columns on one screen. */
+@media (min-width: 768px) {
+    .jt-table.jt-compact { font-size: 0.8125rem; }
+    .jt-table.jt-compact thead th { padding: 0.55rem 0.5rem; font-size: 0.66rem; letter-spacing: 0.02em; white-space: normal; vertical-align: bottom; }
+    .jt-table.jt-compact thead th .jt-sort { display: inline; }
+    .jt-table.jt-compact tbody td { padding: 0.5rem 0.5rem; }
+    .jt-table.jt-compact .jt-subtle { font-size: 0.72rem; }
+    .jt-table.jt-compact .badge, .jt-table.jt-compact .jt-chip { font-size: 0.68rem; }
+    .jt-table.jt-compact td.jt-actions .btn { padding: 0.2rem 0.45rem; font-size: 0.75rem; }
+    .jt-table.jt-compact .jt-sort-sep { opacity: 0.5; }
+}

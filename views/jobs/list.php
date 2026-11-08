@@ -16,42 +16,38 @@ $all = [
     'job' => ['Job #', 'job', ''],
     'customer' => ['Customer', 'customer', ''],
     'broker' => ['Broker', 'broker', ''],
-    'lot' => ['Job lot', 'lot', ''],
-    'color' => ['Color', 'color', ''],
-    'location' => ['Job location', 'location', ''],
-    'ecf' => ['E-CF', 'ecf', 'text-md-end'],
-    'etotal' => ['E-Total', 'etotal', 'text-md-end'],
-    'deposit' => ['Deposit', 'deposit', 'text-md-end'],
-    'grand' => ['Grand total', 'grand', 'text-md-end'],
-    'tobh' => ['Total to BH', 'tobh', 'text-md-end'],
-    'paid' => ['Paid', 'paid', 'text-md-end'],
-    'pickup' => ['Pickup', 'pickup', ''],
-    'available' => ['1st available', 'available', ''],
-    'route' => ['Route', 'from', ''],
+    'lotcolor' => ['Job lot / Color', [['Job lot', 'lot'], ['Color', 'color']], ''],
+    'dates' => ['Pickup / 1st available', [['Pickup', 'pickup'], ['1st available', 'available']], ''],
+    'routeloc' => ['Route / Job location', [['Route', 'from'], ['Job location', 'location']], ''],
     'assign' => ['Foreman / trip', 'assign', ''],
-    'cf' => ['A-CF', 'cf', 'text-md-end'],
+    'cfs' => ['E-CF / A-CF', [['E-CF', 'ecf'], ['A-CF', 'cf']], 'text-md-end'],
+    'etotal' => ['E-Total', 'etotal', 'text-md-end'],
+    'depgrand' => ['Deposit / Grand total', [['Deposit', 'deposit'], ['Grand total', 'grand']], 'text-md-end'],
+    'bhpaid' => ['Total to BH / Paid', [['Total to BH', 'tobh'], ['Paid', 'paid']], 'text-md-end'],
     'balance' => ['Balance due', 'balance', 'text-md-end'],
     'storage' => ['Storage fee', 'storage', 'text-md-end'],
     'status' => ['Status', 'status', ''],
-    'carrier' => ['Carrier', 'carrier', ''],
     'carrierblock' => ['Carrier / driver', 'carrier', ''],
-    'driver' => ['Driver', 'driver', ''],
-    'phone' => ['Phone', null, ''],
     'dispatched' => ['Loaded', 'dispatched', ''],
     'delivered' => ['Delivered on', 'delivered', ''],
+    // building blocks of the stacked columns above (never a column on their own)
+    'pickup' => ['Pickup', 'pickup', ''], 'available' => ['1st available', 'available', ''], 'route' => ['Route', 'from', ''],
+    'lot' => ['Job lot', 'lot', ''], 'color' => ['Color', 'color', ''], 'location' => ['Job location', 'location', ''],
+    'ecf' => ['E-CF', 'ecf', ''], 'cf' => ['A-CF', 'cf', ''], 'deposit' => ['Deposit', 'deposit', ''], 'grand' => ['Grand total', 'grand', ''],
+    'tobh' => ['Total to BH', 'tobh', ''], 'paid' => ['Paid', 'paid', ''],
 ];
-$core = ['job', 'customer', 'broker', 'lot', 'color'];
-$money = ['ecf', 'cf', 'etotal', 'deposit', 'grand', 'tobh', 'paid', 'balance', 'storage'];
+$core = ['job', 'customer', 'broker', 'lotcolor'];
+$money = ['cfs', 'etotal', 'depgrand', 'bhpaid', 'balance', 'storage'];
 $layouts = [
-    JobBucket::ALL => [...$core, 'pickup', 'available', 'route', 'location', 'assign', ...$money, 'status'],
-    JobBucket::READY => [...$core, 'pickup', 'available', 'route', 'location', 'assign', ...$money],
-    JobBucket::LATER => [...$core, 'pickup', 'available', 'route', 'location', 'assign', ...$money],
-    JobBucket::TRANSIT => [...$core, 'route', 'location', 'assign', ...$money, 'dispatched', 'carrierblock'],
-    JobBucket::DELIVERED => [...$core, 'pickup', 'available', 'route', 'location', 'assign', ...$money, 'delivered'],
+    JobBucket::ALL => [...$core, 'dates', 'routeloc', 'assign', ...$money, 'status'],
+    JobBucket::READY => [...$core, 'dates', 'routeloc', 'assign', ...$money],
+    JobBucket::LATER => [...$core, 'dates', 'routeloc', 'assign', ...$money],
+    JobBucket::TRANSIT => [...$core, 'routeloc', 'assign', ...$money, 'dispatched', 'carrierblock'],
+    JobBucket::DELIVERED => [...$core, 'dates', 'routeloc', 'assign', ...$money, 'delivered'],
 ];
 $columns = array_values(array_filter(
     $layouts[$bucket],
-    static fn (string $key): bool => $showFinancials || !in_array($key, ['etotal', 'deposit', 'grand', 'tobh', 'paid', 'balance', 'storage'], true)
+    static fn (string $key): bool => $showFinancials || !in_array($key, ['etotal', 'depgrand', 'bhpaid', 'balance', 'storage'], true)
 ));
 
 $descriptions = [
@@ -73,6 +69,135 @@ $emptyBucket = [
     JobBucket::TRANSIT => ['truck', 'No jobs in transit', 'Jobs appear here when you press Move to In Transit.'],
     JobBucket::DELIVERED => ['check-circle', 'No deliveries yet', 'Completed deliveries will appear here.'],
 ];
+
+$stack = static fn (string $a, string $b): string => '<div class="jt-stack"><div>' . trim($a) . '</div><div class="jt-subtle">' . trim($b) . '</div></div>';
+$render = function (string $key, array $job) use ($bucket, $threshold, $stack, &$render): string {
+    ob_start(); ?>
+                                <?php switch ($key):
+                                    case 'job': ?>
+                                        <a class="jt-jobno" href="<?= e(url('/jobs/' . $job['id'])) ?>"><?= e($job['job_number']) ?></a>
+                                        <?php break;
+                                    case 'customer': ?>
+                                        <div class="jt-stack">
+                                            <?= e($job['customer_first_name'] . ' ' . $job['customer_last_name']) ?>
+                                            <?php if (!empty($job['customer_phone'])): ?>
+                                                <div class="jt-subtle"><?= tel_link($job['customer_phone']) ?></div>
+                                            <?php endif; ?>
+                                        </div>
+                                        <?php break;
+                                    case 'pickup': ?>
+                                        <?= e(fmt_date($job['pickup_date']) ?: '—') ?>
+                                        <?php if ($bucket === JobBucket::LATER || $bucket === JobBucket::READY): if (JobBucket::usesFallback($job)): ?><div class="jt-subtle">no pickup date: using 1st available</div><?php endif; endif; ?>
+                                        <?php break;
+                                    case 'available': ?>
+                                        <span class="jt-date"><?= e(fmt_date($job['first_available_date'])) ?></span>
+                                        <?= availability_chip($job) ?>
+                                        <?php if ($bucket === JobBucket::LATER && JobBucket::basis() === 'first_available' && (string) $job['first_available_date'] > JobBucket::cutoff()): ?>
+                                            <div class="jt-subtle">Moves to Ready on <?= e(fmt_date(JobBucket::movesToReadyOn((string) $job['first_available_date']))) ?></div>
+                                        <?php elseif ($bucket === JobBucket::LATER): ?>
+                                            <div class="jt-subtle">Waiting more than <?= e($threshold) ?> days</div>
+                                        <?php endif; ?>
+                                        <?php break;
+                                    case 'route': ?>
+                                        <?= e($job['from_location']) ?> <?= icon('arrow-right', 'text-body-secondary') ?> <?= e($job['to_location']) ?>
+                                        <?php break;
+                                    case 'assign': ?>
+                                        <div class="jt-stack">
+                                            <?= !empty($job['foreman']) ? e($job['foreman']) : '<span class="text-body-secondary">—</span>' ?>
+                                            <?php if (!empty($job['trip_number'])): ?>
+                                                <div class="jt-subtle"><?= can('trips.view') ? '<a href="' . e(url('/trips/' . $job['trip_id'])) . '">' . e($job['trip_number']) . '</a>' : e($job['trip_number']) ?></div>
+                                            <?php endif; ?>
+                                        </div>
+                                        <?php break;
+                                    case 'lotcolor': ?>
+                                        <?= $stack($render('lot', $job), $render('color', $job)) ?>
+                                        <?php break;
+                                    case 'dates': ?>
+                                        <?= $stack($render('pickup', $job), $render('available', $job)) ?>
+                                        <?php break;
+                                    case 'routeloc': ?>
+                                        <?= $stack($render('route', $job), $render('location', $job)) ?>
+                                        <?php break;
+                                    case 'cfs': ?>
+                                        <?= $stack($render('ecf', $job), $render('cf', $job)) ?>
+                                        <?php break;
+                                    case 'depgrand': ?>
+                                        <?= $stack($render('deposit', $job), $render('grand', $job)) ?>
+                                        <?php break;
+                                    case 'bhpaid': ?>
+                                        <?= $stack($render('tobh', $job), $render('paid', $job)) ?>
+                                        <?php break;
+                                    case 'broker': ?>
+                                        <?= e($job['broker'] ?? '') ?: '<span class="text-body-secondary">—</span>' ?>
+                                        <?php break;
+                                    case 'lot': ?>
+                                        <?= e($job['job_lot'] ?? '') ?: '<span class="text-body-secondary">—</span>' ?>
+                                        <?php break;
+                                    case 'color': ?>
+                                        <?= e($job['color'] ?? '') ?: '<span class="text-body-secondary">—</span>' ?>
+                                        <?php break;
+                                    case 'location': ?>
+                                        <?= e($job['job_location'] ?? '') ?: '<span class="text-body-secondary">—</span>' ?>
+                                        <?php break;
+                                    case 'ecf': ?>
+                                        <?= e(fmt_number($job['estimated_cf'] ?? null) ?: '—') ?>
+                                        <?php break;
+                                    case 'etotal': ?>
+                                        <?= e(fmt_money($job['estimated_total'] ?? null) ?: '—') ?>
+                                        <?php break;
+                                    case 'deposit': ?>
+                                        <?= e(fmt_money($job['deposit'] ?? null) ?: '—') ?>
+                                        <?php break;
+                                    case 'grand': ?>
+                                        <?= e(fmt_money($job['grand_total'] ?? null) ?: '—') ?>
+                                        <?php break;
+                                    case 'tobh': ?>
+                                        <?= e(fmt_money($job['bh_total'] ?? null) ?: '—') ?>
+                                        <?php break;
+                                    case 'paid': ?>
+                                        <?= e(fmt_money($job['paid'] ?? null) ?: '—') ?>
+                                        <?php break;
+                                    case 'cf': ?>
+                                        <?= e(fmt_number($job['cf']) ?: '—') ?>
+                                        <?php break;
+                                    case 'balance': ?>
+                                        <?= e(fmt_money($job['balance'])) ?>
+                                        <?php break;
+                                    case 'storage': ?>
+                                        <?= e(fmt_money($job['storage_fee'])) ?>
+                                        <?php break;
+                                    case 'status': ?>
+                                        <?= status_badge((string) $job['status']) ?>
+                                        <?php break;
+                                    case 'carrier': ?>
+                                        <?= e($job['carrier_name'] ?: '—') ?>
+                                        <?php break;
+                                    case 'carrierblock': ?>
+                                        <div class="jt-stack">
+                                            <?php if (empty($job['carrier_name']) && empty($job['driver_name']) && empty($job['driver_phone'])): ?>
+                                                <span class="text-body-secondary">—</span>
+                                            <?php else: ?>
+                                                <?= e($job['carrier_name'] ?: '—') ?>
+                                                <?php if (!empty($job['driver_name'])): ?><div class="jt-subtle"><?= e($job['driver_name']) ?></div><?php endif; ?>
+                                                <?php if (!empty($job['driver_phone'])): ?><div class="jt-subtle"><?= tel_link($job['driver_phone']) ?></div><?php endif; ?>
+                                            <?php endif; ?>
+                                        </div>
+                                        <?php break;
+                                    case 'driver': ?>
+                                        <?= e($job['driver_name'] ?: '—') ?>
+                                        <?php break;
+                                    case 'phone': ?>
+                                        <?= tel_link($job['driver_phone']) ?>
+                                        <?php break;
+                                    case 'dispatched': ?>
+                                        <?= e(fmt_date($job['loaded_date'] ? (string) $job['loaded_date'] : null) ?: '—') ?>
+                                        <?php break;
+                                    case 'delivered': ?>
+                                        <?= e(fmt_date($job['delivery_date'] ? (string) $job['delivery_date'] : null) ?: '—') ?>
+                                        <?php break;
+                                endswitch; ?>
+<?php return (string) ob_get_clean();
+};
 
 $sortHeader = static function (string $label, ?string $sortKey) use ($criteria, $path): string {
     if ($sortKey === null) {
@@ -146,11 +271,12 @@ $sortHeader = static function (string $label, ?string $sortKey) use ($criteria, 
 <?php else: ?>
     <div class="card jt-card">
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0 jt-table table-cards">
+            <table class="table table-hover align-middle mb-0 jt-table jt-compact table-cards">
                 <thead>
                 <tr>
                     <?php foreach ($columns as $key): [$label, $sortKey, $class] = $all[$key]; ?>
-                        <th scope="col" class="<?= e($class) ?>"<?= $sortKey !== null && $criteria->sort === $sortKey ? ' aria-sort="' . ($criteria->dir === 'asc' ? 'ascending' : 'descending') . '"' : '' ?>><?= $sortHeader($label, $sortKey) ?></th>
+                        <?php $keys = is_array($sortKey) ? array_column($sortKey, 1) : [$sortKey]; ?>
+                        <th scope="col" class="<?= e($class) ?>"<?= in_array($criteria->sort, $keys, true) ? ' aria-sort="' . ($criteria->dir === 'asc' ? 'ascending' : 'descending') . '"' : '' ?>><?php if (is_array($sortKey)): ?><?= implode('<span class="jt-sort-sep"> / </span>', array_map(static fn (array $part): string => $sortHeader($part[0], $part[1]), $sortKey)) ?><?php else: ?><?= $sortHeader($label, $sortKey) ?><?php endif; ?></th>
                     <?php endforeach; ?>
                     <th scope="col"><span class="visually-hidden">Actions</span></th>
                 </tr>
@@ -160,111 +286,7 @@ $sortHeader = static function (string $label, ?string $sortKey) use ($criteria, 
                     <tr>
                         <?php foreach ($columns as $key): [$label, , $class] = $all[$key]; ?>
                             <td data-label="<?= e($label) ?>" class="<?= e($class) ?>">
-                                <?php switch ($key):
-                                    case 'job': ?>
-                                        <a class="jt-jobno" href="<?= e(url('/jobs/' . $job['id'])) ?>"><?= e($job['job_number']) ?></a>
-                                        <?php break;
-                                    case 'customer': ?>
-                                        <div class="jt-stack">
-                                            <?= e($job['customer_first_name'] . ' ' . $job['customer_last_name']) ?>
-                                            <?php if (!empty($job['customer_phone'])): ?>
-                                                <div class="jt-subtle"><?= tel_link($job['customer_phone']) ?></div>
-                                            <?php endif; ?>
-                                        </div>
-                                        <?php break;
-                                    case 'pickup': ?>
-                                        <?= e(fmt_date($job['pickup_date']) ?: '—') ?>
-                                        <?php if ($bucket === JobBucket::LATER || $bucket === JobBucket::READY): if (JobBucket::usesFallback($job)): ?><div class="jt-subtle">no pickup date: using 1st available</div><?php endif; endif; ?>
-                                        <?php break;
-                                    case 'available': ?>
-                                        <span class="jt-date"><?= e(fmt_date($job['first_available_date'])) ?></span>
-                                        <?= availability_chip($job) ?>
-                                        <?php if ($bucket === JobBucket::LATER && JobBucket::basis() === 'first_available' && (string) $job['first_available_date'] > JobBucket::cutoff()): ?>
-                                            <div class="jt-subtle">Moves to Ready on <?= e(fmt_date(JobBucket::movesToReadyOn((string) $job['first_available_date']))) ?></div>
-                                        <?php elseif ($bucket === JobBucket::LATER): ?>
-                                            <div class="jt-subtle">Waiting more than <?= e($threshold) ?> days</div>
-                                        <?php endif; ?>
-                                        <?php break;
-                                    case 'route': ?>
-                                        <?= e($job['from_location']) ?> <?= icon('arrow-right', 'text-body-secondary') ?> <?= e($job['to_location']) ?>
-                                        <?php break;
-                                    case 'assign': ?>
-                                        <div class="jt-stack">
-                                            <?= !empty($job['foreman']) ? e($job['foreman']) : '<span class="text-body-secondary">—</span>' ?>
-                                            <?php if (!empty($job['trip_number'])): ?>
-                                                <div class="jt-subtle"><?= can('trips.view') ? '<a href="' . e(url('/trips/' . $job['trip_id'])) . '">' . e($job['trip_number']) . '</a>' : e($job['trip_number']) ?></div>
-                                            <?php endif; ?>
-                                        </div>
-                                        <?php break;
-                                    case 'broker': ?>
-                                        <?= e($job['broker'] ?? '') ?: '<span class="text-body-secondary">—</span>' ?>
-                                        <?php break;
-                                    case 'lot': ?>
-                                        <?= e($job['job_lot'] ?? '') ?: '<span class="text-body-secondary">—</span>' ?>
-                                        <?php break;
-                                    case 'color': ?>
-                                        <?= e($job['color'] ?? '') ?: '<span class="text-body-secondary">—</span>' ?>
-                                        <?php break;
-                                    case 'location': ?>
-                                        <?= e($job['job_location'] ?? '') ?: '<span class="text-body-secondary">—</span>' ?>
-                                        <?php break;
-                                    case 'ecf': ?>
-                                        <?= e(fmt_number($job['estimated_cf'] ?? null) ?: '—') ?>
-                                        <?php break;
-                                    case 'etotal': ?>
-                                        <?= e(fmt_money($job['estimated_total'] ?? null) ?: '—') ?>
-                                        <?php break;
-                                    case 'deposit': ?>
-                                        <?= e(fmt_money($job['deposit'] ?? null) ?: '—') ?>
-                                        <?php break;
-                                    case 'grand': ?>
-                                        <?= e(fmt_money($job['grand_total'] ?? null) ?: '—') ?>
-                                        <?php break;
-                                    case 'tobh': ?>
-                                        <?= e(fmt_money($job['bh_total'] ?? null) ?: '—') ?>
-                                        <?php break;
-                                    case 'paid': ?>
-                                        <?= e(fmt_money($job['paid'] ?? null) ?: '—') ?>
-                                        <?php break;
-                                    case 'cf': ?>
-                                        <?= e(fmt_number($job['cf']) ?: '—') ?>
-                                        <?php break;
-                                    case 'balance': ?>
-                                        <?= e(fmt_money($job['balance'])) ?>
-                                        <?php break;
-                                    case 'storage': ?>
-                                        <?= e(fmt_money($job['storage_fee'])) ?>
-                                        <?php break;
-                                    case 'status': ?>
-                                        <?= status_badge((string) $job['status']) ?>
-                                        <?php break;
-                                    case 'carrier': ?>
-                                        <?= e($job['carrier_name'] ?: '—') ?>
-                                        <?php break;
-                                    case 'carrierblock': ?>
-                                        <div class="jt-stack">
-                                            <?php if (empty($job['carrier_name']) && empty($job['driver_name']) && empty($job['driver_phone'])): ?>
-                                                <span class="text-body-secondary">—</span>
-                                            <?php else: ?>
-                                                <?= e($job['carrier_name'] ?: '—') ?>
-                                                <?php if (!empty($job['driver_name'])): ?><div class="jt-subtle"><?= e($job['driver_name']) ?></div><?php endif; ?>
-                                                <?php if (!empty($job['driver_phone'])): ?><div class="jt-subtle"><?= tel_link($job['driver_phone']) ?></div><?php endif; ?>
-                                            <?php endif; ?>
-                                        </div>
-                                        <?php break;
-                                    case 'driver': ?>
-                                        <?= e($job['driver_name'] ?: '—') ?>
-                                        <?php break;
-                                    case 'phone': ?>
-                                        <?= tel_link($job['driver_phone']) ?>
-                                        <?php break;
-                                    case 'dispatched': ?>
-                                        <?= e(fmt_date($job['loaded_date'] ? (string) $job['loaded_date'] : null) ?: '—') ?>
-                                        <?php break;
-                                    case 'delivered': ?>
-                                        <?= e(fmt_date($job['delivery_date'] ? (string) $job['delivery_date'] : null) ?: '—') ?>
-                                        <?php break;
-                                endswitch; ?>
+                                <?= $render($key, $job) ?>
                             </td>
                         <?php endforeach; ?>
                         <td data-label="" class="jt-actions text-md-end">
