@@ -133,6 +133,9 @@ final class TripExportService
             foreach ($chunk as $row) {
                 yield array_map(static function (string $k) use ($row): ?string {
                     $v = $row[$k] ?? null;
+                    if ($k === 'total_to_bh' && $v === null && (\App\Core\Auth::can('jobs.view_financials') || \App\Core\Auth::can('jobs.edit_financials'))) {
+                        $v = $row['job_bh_total'] ?? null; // the job's own Total to BH by default, as on the trip page
+                    }
                     if ($v === null) {
                         return null;
                     }

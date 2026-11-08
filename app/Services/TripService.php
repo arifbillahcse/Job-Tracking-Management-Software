@@ -53,18 +53,39 @@ final class TripService
         }
         $rows = $this->trips->rows($id);
         $trip = $this->forViewer($trip);
-        $trip['rows'] = array_map(fn (array $r): array => $this->rowForViewer($r), $rows);
+        // Total to BH comes from the job's own Total to BH by default (an entry's own figure wins). Only for people who may see job money.
+        $jobMoney = Auth::can('jobs.view_financials') || Auth::can('jobs.edit_financials');
+        $shown = array_map(static function (array $r) use ($jobMoney): array {
+            $r['total_to_bh_from_job'] = false;
+            if (($r['total_to_bh'] ?? null) === null && $jobMoney && ($r['job_bh_total'] ?? null) !== null) {
+                $r['total_to_bh'] = $r['job_bh_total'];
+                $r['total_to_bh_from_job'] = true;
+            }
+            return $r;
+        }, $rows);
+        $trip['rows'] = array_map(fn (array $r): array => $this->rowForViewer($r), $shown);
         $trip['totals'] = $this->canSeeFinancials() ? TripTotals::forRows($rows) : null;
         $trip['sheet_totals'] = null;
         if ($trip['totals'] !== null) {
             // The client's closing sheet: "ALL EXP" = Diesel + Hotels + Helpers + MISC; the Foreman column is summed on its own.
             $pay = 0;
-            foreach ($rows as $r) {
+            $addio = 0;
+            $toBh = 0;
+            $bh = 0;
+            foreach ($shown as $r) {
                 $pay += ($r['foreman_pay'] ?? null) === null ? 0 : (int) round((float) $r['foreman_pay'] * 100);
+                $addio += ($r['addio'] ?? null) === null ? 0 : (int) round((float) $r['addio'] * 100);
+                $toBh += ($r['total_to_bh'] ?? null) === null ? 0 : (int) round((float) $r['total_to_bh'] * 100);
+                // BH is free text; only an amount (1000, 970.15, $1,815.00) is added up, a note such as "cash" is not.
+                $text = str_replace([',', '$', ' '], '', (string) ($r['bh'] ?? ''));
+                $bh += preg_match('/^-?\d+(\.\d+)?$/', $text) === 1 ? (int) round((float) $text * 100) : 0;
             }
             $t = $trip['totals'];
             $trip['sheet_totals'] = [
                 'foreman_pay' => number_format($pay / 100, 2, '.', ''),
+                'addio' => number_format($addio / 100, 2, '.', ''),
+                'total_to_bh' => number_format($toBh / 100, 2, '.', ''),
+                'bh' => number_format($bh / 100, 2, '.', ''),
                 'all_exp' => number_format(((int) round((float) $t['diesel'] * 100) + (int) round((float) $t['hotels'] * 100) + (int) round((float) $t['helper'] * 100) + (int) round((float) $t['misc'] * 100)) / 100, 2, '.', ''),
             ];
         }
@@ -624,6 +645,7 @@ final class TripService
         if (!Auth::can('jobs.view')) {
             unset($row['customer_phone']); // a customer's phone number goes with seeing jobs
         }
+        unset($row['job_bh_total']);
         if (!$this->canSeeFinancials()) {
             foreach ([...TripRepository::MONEY, ...TripRepository::SHEET_AMOUNTS, ...TripRepository::SHEET_TEXT] as $field) {
                 unset($row[$field]);

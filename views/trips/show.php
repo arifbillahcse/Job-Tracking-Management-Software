@@ -98,7 +98,7 @@ $dl = static fn (string $label, string $html): string => '<dt class="col-sm-4 te
                     <td><?= e($row['from_location'] ?: '—') ?></td>
                     <td><?= e($row['to_location'] ?: '—') ?></td>
                     <?php if ($showMoney): foreach ($sheet as $field => $label): ?>
-                        <td class="text-end jt-money"><?= ($row[$field] ?? null) === null || $row[$field] === '' ? '—' : e(fmt_money($row[$field])) ?></td>
+                        <td class="text-end jt-money"<?= $field === 'total_to_bh' && !empty($row['total_to_bh_from_job']) ? ' title="From the job\'s Total to BH"' : '' ?>><?= ($row[$field] ?? null) === null || $row[$field] === '' ? '—' : e(fmt_money($row[$field])) ?></td>
                     <?php endforeach; endif; ?>
                     <td><?= e($row['bh'] ?: '—') ?></td>
                     <td class="text-end jt-money"><?= !$showMoney || ($row['foreman_pay'] ?? null) === null || $row['foreman_pay'] === '' ? '—' : e(fmt_money($row['foreman_pay'])) ?></td>
@@ -112,7 +112,10 @@ $dl = static fn (string $label, string $html): string => '<dt class="col-sm-4 te
             <?php if ($showMoney && $trip['totals'] !== null): ?>
                 <tfoot>
                 <tr class="fw-semibold">
-                    <td colspan="<?= e(8 + ($showMoney ? count($sheet) : 0)) ?>" class="text-end">Totals</td>
+                    <td colspan="6" class="text-end">Totals</td>
+                    <?php $st = $trip['sheet_totals'] ?? []; foreach ($sheet as $field => $label): ?><td class="text-end jt-money"><?= e(fmt_money($st[$field] ?? '0')) ?></td><?php endforeach; ?>
+                    <td class="text-end jt-money"><?= e(fmt_money($st['bh'] ?? '0')) ?></td>
+                    <td class="text-end jt-money"><?= e(fmt_money($st['foreman_pay'] ?? '0')) ?></td>
                     <?php foreach ($cols as $field => $label): ?><td class="text-end jt-money"><?= e(fmt_money($trip['totals'][$field])) ?></td><?php endforeach; ?>
                     <td></td>
                 </tr>

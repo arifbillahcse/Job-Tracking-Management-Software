@@ -2,6 +2,12 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.6.2 - Trip Details: Total to BH from the job, and a full Totals row
+
+* **Total to BH on a trip entry comes from the job's own Total to BH by default** (Grand total - Deposit on the job). A figure typed on the entry wins. Shown on Trip Details and in the trip CSV, only to people who may see job money. No migration.
+* **The Totals row now adds every money column:** Addio, Total to BH, BH (amounts only; a note such as "cash" is not added), Foreman, and each expense column. **"Total expenses" is unchanged** (the six expense columns).
+* **Upgrade:** `git pull origin main`.
+
 ## 1.6.1 - the client's money rules on a job
 
 * **Total to BH = Grand total - Deposit** and **Balance due = Total to BH - Paid**, always calculated (a blank amount counts as 0), live in the New Job / Edit Job form, on every save and on import. Both boxes are read-only; "BH total" is now labelled "Total to BH". A job paid more than it owes shows a negative balance (a credit). With no Grand total and no Deposit a typed Total to BH is kept. No migration. Existing jobs keep their stored figures until they are saved again.
