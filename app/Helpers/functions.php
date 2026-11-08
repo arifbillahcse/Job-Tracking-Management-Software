@@ -259,7 +259,8 @@ function fmt_money(mixed $amount): string
     if ($amount === null || $amount === '' || !is_numeric($amount)) {
         return '';
     }
-    return (setting('currency_symbol', '$') ?? '$') . number_format((float) $amount, 2);
+    $symbol = setting('currency_symbol', '$') ?? '$';
+    return ((float) $amount < 0 && round((float) $amount, 2) !== 0.0 ? '-' : '') . $symbol . number_format(abs((float) $amount), 2); // -$799.76, not $-799.76
 }
 
 /** Number with up to two decimals and no trailing zeros ("900", "12.5"). */

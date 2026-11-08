@@ -40,6 +40,15 @@ final class JobCriteria
         'foreman'    => [['af.name'], false],
         'trip'       => [['atr.trip_number'], false],
         'broker'     => [['j.broker'], false],
+        'lot'        => [['j.job_lot'], false],
+        'color'      => [['j.color'], false],
+        'location'   => [['j.job_location'], false],
+        'ecf'        => [['j.estimated_cf'], false],
+        'etotal'     => [['j.estimated_total'], true],
+        'deposit'    => [['j.deposit'], true],
+        'grand'      => [['j.grand_total'], true],
+        'tobh'       => [['j.bh_total'], true],
+        'paid'       => [['j.paid'], true],
         'assign'     => [['af.name', 'atr.trip_number'], false],
     ];
 

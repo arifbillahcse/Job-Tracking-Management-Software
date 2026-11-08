@@ -16,12 +16,21 @@ $all = [
     'job' => ['Job #', 'job', ''],
     'customer' => ['Customer', 'customer', ''],
     'broker' => ['Broker', 'broker', ''],
+    'lot' => ['Job lot', 'lot', ''],
+    'color' => ['Color', 'color', ''],
+    'location' => ['Job location', 'location', ''],
+    'ecf' => ['E-CF', 'ecf', 'text-md-end'],
+    'etotal' => ['E-Total', 'etotal', 'text-md-end'],
+    'deposit' => ['Deposit', 'deposit', 'text-md-end'],
+    'grand' => ['Grand total', 'grand', 'text-md-end'],
+    'tobh' => ['Total to BH', 'tobh', 'text-md-end'],
+    'paid' => ['Paid', 'paid', 'text-md-end'],
     'pickup' => ['Pickup', 'pickup', ''],
     'available' => ['1st available', 'available', ''],
     'route' => ['Route', 'from', ''],
     'assign' => ['Foreman / trip', 'assign', ''],
     'cf' => ['A-CF', 'cf', 'text-md-end'],
-    'balance' => ['Balance', 'balance', 'text-md-end'],
+    'balance' => ['Balance due', 'balance', 'text-md-end'],
     'storage' => ['Storage fee', 'storage', 'text-md-end'],
     'status' => ['Status', 'status', ''],
     'carrier' => ['Carrier', 'carrier', ''],
@@ -31,16 +40,18 @@ $all = [
     'dispatched' => ['Loaded', 'dispatched', ''],
     'delivered' => ['Delivered on', 'delivered', ''],
 ];
+$core = ['job', 'customer', 'broker', 'lot', 'color'];
+$money = ['ecf', 'cf', 'etotal', 'deposit', 'grand', 'tobh', 'paid', 'balance', 'storage'];
 $layouts = [
-    JobBucket::ALL => ['job', 'customer', 'broker', 'pickup', 'available', 'route', 'assign', 'cf', 'balance', 'storage', 'status'],
-    JobBucket::READY => ['job', 'customer', 'broker', 'pickup', 'available', 'route', 'assign', 'cf', 'balance', 'storage'],
-    JobBucket::LATER => ['job', 'customer', 'broker', 'pickup', 'available', 'route', 'assign', 'cf', 'balance', 'storage'],
-    JobBucket::TRANSIT => ['job', 'customer', 'broker', 'route', 'assign', 'cf', 'balance', 'storage', 'dispatched', 'carrierblock'],
-    JobBucket::DELIVERED => ['job', 'customer', 'broker', 'pickup', 'available', 'route', 'assign', 'cf', 'balance', 'storage', 'delivered'],
+    JobBucket::ALL => [...$core, 'pickup', 'available', 'route', 'location', 'assign', ...$money, 'status'],
+    JobBucket::READY => [...$core, 'pickup', 'available', 'route', 'location', 'assign', ...$money],
+    JobBucket::LATER => [...$core, 'pickup', 'available', 'route', 'location', 'assign', ...$money],
+    JobBucket::TRANSIT => [...$core, 'route', 'location', 'assign', ...$money, 'dispatched', 'carrierblock'],
+    JobBucket::DELIVERED => [...$core, 'pickup', 'available', 'route', 'location', 'assign', ...$money, 'delivered'],
 ];
 $columns = array_values(array_filter(
     $layouts[$bucket],
-    static fn (string $key): bool => $showFinancials || !in_array($key, ['balance', 'storage'], true)
+    static fn (string $key): bool => $showFinancials || !in_array($key, ['etotal', 'deposit', 'grand', 'tobh', 'paid', 'balance', 'storage'], true)
 ));
 
 $descriptions = [
@@ -187,6 +198,33 @@ $sortHeader = static function (string $label, ?string $sortKey) use ($criteria, 
                                         <?php break;
                                     case 'broker': ?>
                                         <?= e($job['broker'] ?? '') ?: '<span class="text-body-secondary">—</span>' ?>
+                                        <?php break;
+                                    case 'lot': ?>
+                                        <?= e($job['job_lot'] ?? '') ?: '<span class="text-body-secondary">—</span>' ?>
+                                        <?php break;
+                                    case 'color': ?>
+                                        <?= e($job['color'] ?? '') ?: '<span class="text-body-secondary">—</span>' ?>
+                                        <?php break;
+                                    case 'location': ?>
+                                        <?= e($job['job_location'] ?? '') ?: '<span class="text-body-secondary">—</span>' ?>
+                                        <?php break;
+                                    case 'ecf': ?>
+                                        <?= e(fmt_number($job['estimated_cf'] ?? null) ?: '—') ?>
+                                        <?php break;
+                                    case 'etotal': ?>
+                                        <?= e(fmt_money($job['estimated_total'] ?? null) ?: '—') ?>
+                                        <?php break;
+                                    case 'deposit': ?>
+                                        <?= e(fmt_money($job['deposit'] ?? null) ?: '—') ?>
+                                        <?php break;
+                                    case 'grand': ?>
+                                        <?= e(fmt_money($job['grand_total'] ?? null) ?: '—') ?>
+                                        <?php break;
+                                    case 'tobh': ?>
+                                        <?= e(fmt_money($job['bh_total'] ?? null) ?: '—') ?>
+                                        <?php break;
+                                    case 'paid': ?>
+                                        <?= e(fmt_money($job['paid'] ?? null) ?: '—') ?>
                                         <?php break;
                                     case 'cf': ?>
                                         <?= e(fmt_number($job['cf']) ?: '—') ?>

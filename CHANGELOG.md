@@ -2,6 +2,13 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.6.4 - every job field is a column in the Jobs lists
+
+* **All Jobs, Ready, More Than 30 Days, In Transit and Delivered now show every field of the job form as a column**, with a dash when nothing is entered: Broker, Job lot, Color, Job location, E-CF, A-CF, and (for people who may see money) E-Total, Deposit, Grand total, Total to BH, Paid, Balance due, Storage fee. Each new column is sortable. The table is wider than a screen now, so it scrolls sideways.
+* Negative amounts read **-$799.76** (they were shown as $-799.76).
+* The "Balance" heading is now "Balance due". No migration.
+* **Upgrade:** `git pull origin main`.
+
 ## 1.6.3 - fix: a job with a negative Total to BH or Balance due could not be saved
 
 * The job form calculates Total to BH (Grand total - Deposit) and Balance due (Total to BH - Paid), and either can be negative (a deposit larger than the grand total, a customer who paid more than they owe). The amount check refused the minus sign, so saving failed with "must be an amount such as 1200". The two calculated boxes are now never validated or trusted from the form: the server calculates them from Grand total, Deposit and Paid. A negative balance typed by hand with nothing to calculate from is still refused. No migration.
