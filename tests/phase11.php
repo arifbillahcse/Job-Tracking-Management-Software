@@ -70,9 +70,9 @@ $id = (int) Database::fetchValue("SELECT id FROM jobs WHERE job_number = 'S-11'"
 $row = (new JobRepository())->find($id);
 check($r->status() === 302 && n($row['estimated_cf']) === 1000.0 && n($row['estimated_total']) === 3000.0 && n($row['deposit']) === 1000.0 && n($row['grand_total']) === 3500.0 && n($row['bh_total']) === 2500.0 && n($row['paid']) === 1250.0 && n($row['balance']) === 1250.0 && n($row['cf']) === 1200.0, 'the sheet\'s sample row is saved exactly as typed');
 check($row['foreman'] === 'Joe' && $row['job_lot'] === 'L-7' && $row['color'] === 'Blue', 'foreman, job lot and color are saved');
-check(n($row['grand_total']) === 3500.0 && n($row['bh_total']) === 2500.0, 'no formula is applied: Grand total and BH total are stored as typed, not derived');
+check(n($row['grand_total']) === 3500.0 && n($row['bh_total']) === 2500.0, 'Total to BH = Grand total - Deposit (3500 - 1000)');
 $page = plain(call('GET', "/jobs/{$id}")->body());
-check(str_contains($page, 'E-CF 1,000') && str_contains($page, 'A-CF 1,200') && str_contains($page, 'Deposit $1,000.00') && str_contains($page, 'Grand total $3,500.00') && str_contains($page, 'BH total $2,500.00') && str_contains($page, 'Paid $1,250.00') && str_contains($page, 'Foreman Joe') && str_contains($page, 'Job lot L-7') && str_contains($page, 'Color Blue'), 'Job Details shows every new field');
+check(str_contains($page, 'E-CF 1,000') && str_contains($page, 'A-CF 1,200') && str_contains($page, 'Deposit $1,000.00') && str_contains($page, 'Grand total $3,500.00') && str_contains($page, 'Total to BH $2,500.00') && str_contains($page, 'Paid $1,250.00') && str_contains($page, 'Foreman Joe') && str_contains($page, 'Job lot L-7') && str_contains($page, 'Color Blue'), 'Job Details shows every new field');
 $edit = call('GET', "/jobs/{$id}/edit")->content();
 check(preg_match('/name="paid"[^>]*value="1250(\.00)?"/', $edit) === 1, 'Edit Job shows the saved money');
 call('POST', "/jobs/{$id}", array_merge(job_input($sample), ['paid' => '2000', 'foreman_id' => (string) $samId, 'loaded_at' => (string) $row['updated_at']]));

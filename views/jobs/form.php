@@ -7,7 +7,7 @@ $val = static fn (string $key): string => old_or($key, $job[$key] ?? '');
 $input = static function (string $name, string $label, array $opts = []) use ($val): string {
     $type = $opts['type'] ?? 'text';
     $attrs = '';
-    foreach (['maxlength', 'min', 'max', 'step', 'inputmode', 'placeholder', 'list', 'autocomplete'] as $attr) {
+    foreach (['maxlength', 'min', 'max', 'step', 'inputmode', 'placeholder', 'list', 'autocomplete', 'readonly', 'title', 'data-money'] as $attr) {
         if (isset($opts[$attr])) {
             $attrs .= ' ' . $attr . '="' . e($opts[$attr]) . '"';
         }
@@ -106,10 +106,11 @@ $input = static function (string $name, string $label, array $opts = []) use ($v
                         <div class="col-12"><?= $input('estimated_cf', 'E-CF (estimated cubic feet)', ['type' => 'number', 'step' => '0.01', 'min' => '0', 'inputmode' => 'decimal']) ?></div>
                         <div class="col-12"><?= $input('cf', 'A-CF (actual cubic feet)', ['type' => 'number', 'step' => '0.01', 'min' => '0', 'inputmode' => 'decimal', 'help' => 'The storage fee is calculated from this.']) ?></div>
                         <?php if ($editFinancials): ?>
-                            <?php foreach (['estimated_total' => 'E-Total', 'deposit' => 'Deposit', 'grand_total' => 'Grand total', 'bh_total' => 'BH total', 'paid' => 'Paid'] as $name => $label): ?>
-                                <div class="col-12 col-sm-6 col-xl-12"><?= $input($name, $label, ['type' => 'number', 'step' => '0.01', 'min' => '0', 'inputmode' => 'decimal']) ?></div>
+                            <?php foreach (['estimated_total' => 'E-Total', 'deposit' => 'Deposit', 'grand_total' => 'Grand total', 'bh_total' => 'Total to BH', 'paid' => 'Paid'] as $name => $label): ?>
+                                <?php $calc = $name === 'bh_total'; ?>
+                                <div class="col-12 col-sm-6 col-xl-12"><?= $input($name, $label, ['type' => 'number', 'step' => '0.01', 'min' => $calc ? '-9999999999' : '0', 'inputmode' => 'decimal', 'data-money' => $name] + ($calc ? ['readonly' => 'readonly', 'help' => 'Calculated: Grand total - Deposit.'] : [])) ?></div>
                             <?php endforeach; ?>
-                            <div class="col-12 col-sm-6 col-xl-12"><?= $input('balance', 'Balance', ['type' => 'number', 'step' => '0.01', 'min' => '0', 'inputmode' => 'decimal', 'help' => 'Amount the customer still owes.']) ?></div>
+                            <div class="col-12 col-sm-6 col-xl-12"><?= $input('balance', 'Balance due', ['type' => 'number', 'step' => '0.01', 'min' => '-9999999999', 'inputmode' => 'decimal', 'data-money' => 'balance', 'readonly' => 'readonly', 'help' => 'Calculated: Total to BH - Paid. What the customer still owes.']) ?></div>
                             <div class="col-12 col-sm-6 col-xl-12">
                                 <?= $input('storage_fee_override', 'Storage fee override', ['type' => 'number', 'step' => '0.01', 'min' => '0', 'inputmode' => 'decimal', 'help' => 'Leave empty for the automatic fee (CF × rate after ' . \App\Services\StorageFeeService::days() . ' days). A number here replaces it.']) ?>
                                 <?php if ($job !== null): ?>

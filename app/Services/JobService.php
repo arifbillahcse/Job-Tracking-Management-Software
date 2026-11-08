@@ -245,7 +245,33 @@ final class JobService
         foreach (self::FINANCIAL as $column) {
             $row[$column] = $this->decimal($input[$column] ?? null);
         }
+        $row = self::deriveMoney($row);
         $row['balance'] ??= '0.00';
+        return $row;
+    }
+
+    /**
+     * The client's money rules, always applied (a blank amount counts as 0):
+     *   Total to BH (bh_total) = Grand total - Deposit;   Balance due = Total to BH - Paid.
+     * Nothing is calculated when there is nothing to calculate from: with no Grand total and no Deposit a typed Total to BH is kept,
+     * and with no Total to BH a typed Balance is kept. A job paid more than it owes gets a negative balance (a credit).
+     *
+     * @param array<string,mixed> $row
+     * @return array<string,mixed>
+     */
+    public static function deriveMoney(array $row): array
+    {
+        $cents = static fn (mixed $v): ?int => ($v === null || $v === '' || !is_numeric($v)) ? null : (int) round((float) $v * 100);
+        $fmt = static fn (int $c): string => number_format($c / 100, 2, '.', '');
+        $grand = $cents($row['grand_total'] ?? null);
+        $deposit = $cents($row['deposit'] ?? null);
+        if ($grand !== null || $deposit !== null) {
+            $row['bh_total'] = $fmt(($grand ?? 0) - ($deposit ?? 0));
+        }
+        $bh = $cents($row['bh_total'] ?? null);
+        if ($bh !== null) {
+            $row['balance'] = $fmt($bh - ($cents($row['paid'] ?? null) ?? 0));
+        }
         return $row;
     }
 

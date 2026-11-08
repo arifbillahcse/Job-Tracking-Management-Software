@@ -2,6 +2,11 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.6.1 - the client's money rules on a job
+
+* **Total to BH = Grand total - Deposit** and **Balance due = Total to BH - Paid**, always calculated (a blank amount counts as 0), live in the New Job / Edit Job form, on every save and on import. Both boxes are read-only; "BH total" is now labelled "Total to BH". A job paid more than it owes shows a negative balance (a credit). With no Grand total and no Deposit a typed Total to BH is kept. No migration. Existing jobs keep their stored figures until they are saved again.
+* **Upgrade:** `git pull origin main`.
+
 ## 1.6.0 - Broker on every job; sheet formulas; Foreman as an amount
 
 * **Broker** on the New Job / Edit Job form (free text with suggestions from the brokers already used), on Job details, as a **sortable column in every Jobs list**, a **Broker filter**, in search, in the CSV export and as an optional Import column. The same broker can be on any number of jobs. Migration **016** adds an empty `jobs.broker` column and an index; existing jobs are untouched.

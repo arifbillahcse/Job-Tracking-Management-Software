@@ -38,7 +38,7 @@ async function createJob(page, number, availableOffset, extra = {}) {
     await page.fill('#to_location', 'Denver, CO');
     await page.fill('#first_available_date', day(availableOffset));
     if (extra.pickup !== undefined) await page.fill('#pickup_date', day(extra.pickup));
-    if (extra.balance) await page.fill('#balance', extra.balance);
+    if (extra.balance) await page.fill('#grand_total', extra.balance); // Total to BH = Grand total - Deposit, Balance due = Total to BH - Paid: with no deposit and nothing paid the balance equals the grand total
     if (extra.cf) await page.fill('#cf', extra.cf);
     if (extra.phone) await page.fill('#customer_phone', extra.phone);
     if (extra.broker) await page.fill('#broker', extra.broker);
@@ -102,11 +102,19 @@ async function createJob(page, number, availableOffset, extra = {}) {
         must(/already exists/.test(await page.textContent('main')), 'no duplicate message');
         must((await page.inputValue('#customer_first_name')) === 'Ada', 'typed values were lost');
     });
+    await step('money rules: Total to BH = Grand total - Deposit, Balance due = Total to BH - Paid, live in the form', async () => {
+        await page.goto(BASE + '/jobs/create');
+        await page.fill('#grand_total', '1000');
+        await page.fill('#deposit', '300');
+        await page.fill('#paid', '200');
+        must((await page.inputValue('#bh_total')) === '700.00' && (await page.inputValue('#balance')) === '500.00', 'the form did not calculate Total to BH / Balance due: ' + (await page.inputValue('#bh_total')) + ' / ' + (await page.inputValue('#balance')));
+        must(await page.locator('#balance').getAttribute('readonly') !== null, 'Balance due is not read-only');
+    });
     await step('money must be a plain amount', async () => {
         await page.goto(BASE + '/jobs/create');
         await page.fill('#job_number', RUN + '-M'); await page.fill('#customer_first_name', 'A'); await page.fill('#customer_last_name', 'B');
         await page.fill('#from_location', 'X'); await page.fill('#to_location', 'Y'); await page.fill('#first_available_date', day(5));
-        await page.fill('#balance', '12.345');
+        await page.fill('#paid', '12.345');
         await Promise.all([page.waitForNavigation(), page.click('main form button[type=submit]')]);
         must(/at most two decimals/.test(await page.textContent('main')), 'three decimals were accepted');
         await snap('02-validation');

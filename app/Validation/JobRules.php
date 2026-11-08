@@ -127,7 +127,7 @@ final class JobRules
             'estimated_total' => 'E-Total',
             'deposit' => 'Deposit',
             'grand_total' => 'Grand total',
-            'bh_total' => 'BH total',
+            'bh_total' => 'Total to BH',
             'paid' => 'Paid',
             'foreman_id' => 'Foreman',
             'trip_id' => 'Trip',

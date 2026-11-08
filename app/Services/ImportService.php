@@ -473,6 +473,8 @@ final class ImportService
             'delivery_date' => $status === 'delivered' && !empty($clean['delivered_on']) ? $clean['delivered_on'] : null,
             'delivered_at' => $status === 'delivered' && !empty($clean['delivered_on']) ? $clean['delivered_on'] . ' 00:00:00' : null,
         ];
+        $job = JobService::deriveMoney($job); // Total to BH = Grand total - Deposit; Balance = Total to BH - Paid
+
 
         // Storage fee is calculated, never typed (a number in the file is an override).
         $assessed = StorageFeeService::assess($job);

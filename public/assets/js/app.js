@@ -66,6 +66,29 @@
         set('total_to_bh', cents('job_beg') - cents('depo') + addio);
     });
 
+    // Job form: Total to BH = Grand total - Deposit; Balance due = Total to BH - Paid (the client's rules), live while typing.
+    document.addEventListener('input', function (event) {
+        var input = event.target;
+        var kind = input && input.getAttribute ? input.getAttribute('data-money') : null;
+        if (kind !== 'grand_total' && kind !== 'deposit' && kind !== 'paid') {
+            return;
+        }
+        var form = input.closest('form');
+        var cents = function (name) {
+            var el = form.querySelector('[data-money="' + name + '"]');
+            return el && el.value !== '' ? Math.round(parseFloat(el.value) * 100) || 0 : 0;
+        };
+        var set = function (name, value) {
+            var el = form.querySelector('[data-money="' + name + '"]');
+            if (el) {
+                el.value = (value / 100).toFixed(2);
+            }
+        };
+        var bh = cents('grand_total') - cents('deposit');
+        set('bh_total', bh);
+        set('balance', bh - cents('paid'));
+    });
+
     // <a data-open-details="#id"> opens a <details> block and moves to it.
     document.addEventListener('click', function (event) {
         var trigger = event.target.closest('[data-open-details]');
