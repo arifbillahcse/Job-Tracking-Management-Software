@@ -863,11 +863,24 @@ summary:focus-visible {
 /* The Jobs lists carry every field of a job, so they are set smaller and tighter than other tables: all columns on one screen. */
 @media (min-width: 768px) {
     .jt-table.jt-compact { font-size: 0.8125rem; }
-    .jt-table.jt-compact thead th { padding: 0.55rem 0.5rem; font-size: 0.66rem; letter-spacing: 0.02em; white-space: normal; vertical-align: bottom; }
+    .jt-table.jt-compact thead th { padding: 0.55rem 0.4rem; font-size: 0.66rem; letter-spacing: 0.02em; white-space: normal; vertical-align: bottom; }
     .jt-table.jt-compact thead th .jt-sort { display: inline; }
-    .jt-table.jt-compact tbody td { padding: 0.5rem 0.5rem; }
+    .jt-table.jt-compact tbody td { padding: 0.5rem 0.4rem; }
     .jt-table.jt-compact .jt-subtle { font-size: 0.72rem; }
     .jt-table.jt-compact .badge, .jt-table.jt-compact .jt-chip { font-size: 0.68rem; }
     .jt-table.jt-compact td.jt-actions .btn { padding: 0.2rem 0.45rem; font-size: 0.75rem; }
     .jt-table.jt-compact .jt-sort-sep { opacity: 0.5; }
+}
+
+/* Labels inside the stacked cells of the Jobs lists (Pick, Est, Dep, Grand, BH, Paid ...). */
+.jt-k { color: var(--jt-muted); font-size: 0.7rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.03em; margin-right: 0.15rem; }
+
+/* Desktop menu toggle: hiding the left menu gives a wide table about 250 px more room. */
+@media (min-width: 992px) {
+    html.jt-menu-hidden .jt-sidebar { display: none; }
+}
+
+/* A label and its figure stay on one line in the money / cubic-feet cells of the Jobs lists. */
+@media (min-width: 768px) {
+    .jt-table.jt-compact td.text-md-end .jt-stack > div { white-space: nowrap; }
 }

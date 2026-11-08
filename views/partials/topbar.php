@@ -3,6 +3,9 @@
     <button class="btn btn-icon d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebar" aria-controls="sidebar" aria-label="Open menu">
         <?= icon('menu') ?>
     </button>
+    <button class="btn btn-icon d-none d-lg-inline-flex" type="button" id="menu-toggle" aria-controls="sidebar" aria-pressed="false" aria-label="Hide the menu" title="Hide or show the menu">
+        <?= icon('menu') ?>
+    </button>
     <h1 class="jt-page-title"><?= e($title ?? '') ?></h1>
     <div class="ms-auto dropdown">
         <button class="btn jt-user-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">

@@ -453,6 +453,20 @@ async function createJob(page, number, availableOffset, extra = {}) {
         await page.goto(BASE + '/jobs?q=' + RUN + '-BRK&broker=' + encodeURIComponent(RUN + ' Top Nation'));
         must((await page.locator('a.jt-jobno').count()) === 2, 'the Broker filter did not show exactly the two Top Nation jobs');
     });
+    await step('the left menu can be hidden for a wider Jobs table, and stays hidden after a reload', async () => {
+        await page.setViewportSize({ width: 1366, height: 800 });
+        await page.goto(BASE + '/jobs');
+        const widthBefore = await page.locator('.table-responsive').first().evaluate((el) => el.clientWidth);
+        await page.click('#menu-toggle');
+        must(!(await page.locator('.jt-sidebar').isVisible()), 'the menu is still visible after the toggle');
+        const widthAfter = await page.locator('.table-responsive').first().evaluate((el) => el.clientWidth);
+        must(widthAfter > widthBefore + 200, 'the table did not get wider: ' + widthBefore + ' -> ' + widthAfter);
+        await page.reload();
+        must(!(await page.locator('.jt-sidebar').isVisible()), 'the menu came back after a reload');
+        await page.click('#menu-toggle');
+        must(await page.locator('.jt-sidebar').isVisible(), 'the menu did not come back');
+        await page.setViewportSize({ width: 1280, height: 800 });
+    });
     await step('a trip can be deleted', async () => {
         await page.goto(BASE + '/trips?q=' + RUN + '-TR');
         await page.click('a.jt-jobno[href^="/trips/"]');

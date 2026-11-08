@@ -15,29 +15,26 @@ $threshold = JobBucket::threshold();
 $all = [
     'job' => ['Job #', 'job', ''],
     'customer' => ['Customer', 'customer', ''],
-    'broker' => ['Broker', 'broker', ''],
-    'lotcolor' => ['Job lot / Color', [['Job lot', 'lot'], ['Color', 'color']], ''],
+    'brokerlot' => ['Broker / lot / color', [['Broker', 'broker'], ['Lot', 'lot'], ['Color', 'color']], ''],
     'dates' => ['Pickup / 1st available', [['Pickup', 'pickup'], ['1st available', 'available']], ''],
-    'routeloc' => ['Route / Job location', [['Route', 'from'], ['Job location', 'location']], ''],
+    'routeloc' => ['Route / job location', [['Route', 'from'], ['Job location', 'location']], ''],
     'assign' => ['Foreman / trip', 'assign', ''],
-    'cfs' => ['E-CF / A-CF', [['E-CF', 'ecf'], ['A-CF', 'cf']], 'text-md-end'],
-    'etotal' => ['E-Total', 'etotal', 'text-md-end'],
-    'depgrand' => ['Deposit / Grand total', [['Deposit', 'deposit'], ['Grand total', 'grand']], 'text-md-end'],
-    'bhpaid' => ['Total to BH / Paid', [['Total to BH', 'tobh'], ['Paid', 'paid']], 'text-md-end'],
-    'balance' => ['Balance due', 'balance', 'text-md-end'],
-    'storage' => ['Storage fee', 'storage', 'text-md-end'],
+    'cfs' => ['Cubic feet', [['E-CF', 'ecf'], ['A-CF', 'cf']], 'text-md-end'],
+    'money1' => ['Estimate / deposit / grand', [['E-Total', 'etotal'], ['Deposit', 'deposit'], ['Grand total', 'grand']], 'text-md-end'],
+    'money2' => ['Total to BH / paid', [['Total to BH', 'tobh'], ['Paid', 'paid']], 'text-md-end'],
+    'balfee' => ['Balance due / fee', [['Balance due', 'balance'], ['Storage fee', 'storage']], 'text-md-end'],
     'status' => ['Status', 'status', ''],
     'carrierblock' => ['Carrier / driver', 'carrier', ''],
     'dispatched' => ['Loaded', 'dispatched', ''],
     'delivered' => ['Delivered on', 'delivered', ''],
     // building blocks of the stacked columns above (never a column on their own)
-    'pickup' => ['Pickup', 'pickup', ''], 'available' => ['1st available', 'available', ''], 'route' => ['Route', 'from', ''],
+    'broker' => ['Broker', 'broker', ''], 'pickup' => ['Pickup', 'pickup', ''], 'available' => ['1st available', 'available', ''], 'route' => ['Route', 'from', ''],
     'lot' => ['Job lot', 'lot', ''], 'color' => ['Color', 'color', ''], 'location' => ['Job location', 'location', ''],
-    'ecf' => ['E-CF', 'ecf', ''], 'cf' => ['A-CF', 'cf', ''], 'deposit' => ['Deposit', 'deposit', ''], 'grand' => ['Grand total', 'grand', ''],
-    'tobh' => ['Total to BH', 'tobh', ''], 'paid' => ['Paid', 'paid', ''],
+    'ecf' => ['E-CF', 'ecf', ''], 'cf' => ['A-CF', 'cf', ''], 'etotal' => ['E-Total', 'etotal', ''], 'deposit' => ['Deposit', 'deposit', ''], 'grand' => ['Grand total', 'grand', ''],
+    'tobh' => ['Total to BH', 'tobh', ''], 'paid' => ['Paid', 'paid', ''], 'balance' => ['Balance due', 'balance', ''], 'storage' => ['Storage fee', 'storage', ''],
 ];
-$core = ['job', 'customer', 'broker', 'lotcolor'];
-$money = ['cfs', 'etotal', 'depgrand', 'bhpaid', 'balance', 'storage'];
+$core = ['job', 'customer', 'brokerlot'];
+$money = ['cfs', 'money1', 'money2', 'balfee'];
 $layouts = [
     JobBucket::ALL => [...$core, 'dates', 'routeloc', 'assign', ...$money, 'status'],
     JobBucket::READY => [...$core, 'dates', 'routeloc', 'assign', ...$money],
@@ -47,7 +44,7 @@ $layouts = [
 ];
 $columns = array_values(array_filter(
     $layouts[$bucket],
-    static fn (string $key): bool => $showFinancials || !in_array($key, ['etotal', 'depgrand', 'bhpaid', 'balance', 'storage'], true)
+    static fn (string $key): bool => $showFinancials || !in_array($key, ['money1', 'money2', 'balfee'], true)
 ));
 
 $descriptions = [
@@ -70,7 +67,13 @@ $emptyBucket = [
     JobBucket::DELIVERED => ['check-circle', 'No deliveries yet', 'Completed deliveries will appear here.'],
 ];
 
-$stack = static fn (string $a, string $b): string => '<div class="jt-stack"><div>' . trim($a) . '</div><div class="jt-subtle">' . trim($b) . '</div></div>';
+$stack = static function (array $lines): string {
+    $html = '';
+    foreach ($lines as [$label, $value, $muted]) {
+        $html .= '<div' . ($muted ? ' class="jt-subtle"' : '') . '>' . ($label !== '' ? '<span class="jt-k">' . $label . '</span> ' : '') . trim($value) . '</div>';
+    }
+    return '<div class="jt-stack">' . $html . '</div>';
+};
 $render = function (string $key, array $job) use ($bucket, $threshold, $stack, &$render): string {
     ob_start(); ?>
                                 <?php switch ($key):
@@ -109,23 +112,26 @@ $render = function (string $key, array $job) use ($bucket, $threshold, $stack, &
                                             <?php endif; ?>
                                         </div>
                                         <?php break;
-                                    case 'lotcolor': ?>
-                                        <?= $stack($render('lot', $job), $render('color', $job)) ?>
+                                    case 'brokerlot': ?>
+                                        <?= $stack([['', $render('broker', $job), false], ['Lot', $render('lot', $job), true], ['Color', $render('color', $job), true]]) ?>
                                         <?php break;
                                     case 'dates': ?>
-                                        <?= $stack($render('pickup', $job), $render('available', $job)) ?>
+                                        <?= $stack([['Pick', $render('pickup', $job), true], ['', $render('available', $job), false]]) ?>
                                         <?php break;
                                     case 'routeloc': ?>
-                                        <?= $stack($render('route', $job), $render('location', $job)) ?>
+                                        <?= $stack([['', $render('route', $job), false], ['', $render('location', $job), true]]) ?>
                                         <?php break;
                                     case 'cfs': ?>
-                                        <?= $stack($render('ecf', $job), $render('cf', $job)) ?>
+                                        <?= $stack([['E', $render('ecf', $job), true], ['A', $render('cf', $job), false]]) ?>
                                         <?php break;
-                                    case 'depgrand': ?>
-                                        <?= $stack($render('deposit', $job), $render('grand', $job)) ?>
+                                    case 'money1': ?>
+                                        <?= $stack([['Est', $render('etotal', $job), true], ['Dep', $render('deposit', $job), true], ['Grand', $render('grand', $job), false]]) ?>
                                         <?php break;
-                                    case 'bhpaid': ?>
-                                        <?= $stack($render('tobh', $job), $render('paid', $job)) ?>
+                                    case 'money2': ?>
+                                        <?= $stack([['BH', $render('tobh', $job), false], ['Paid', $render('paid', $job), true]]) ?>
+                                        <?php break;
+                                    case 'balfee': ?>
+                                        <?= $stack([['', '<strong>' . $render('balance', $job) . '</strong>', false], ['fee', $render('storage', $job), true]]) ?>
                                         <?php break;
                                     case 'broker': ?>
                                         <?= e($job['broker'] ?? '') ?: '<span class="text-body-secondary">—</span>' ?>

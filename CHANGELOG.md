@@ -2,6 +2,13 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.6.6 - Jobs lists: labelled two-line rows, and a button to hide the menu
+
+* **The Jobs lists have 11 columns plus the buttons, and every field of the job is on screen.** Related fields share a column and every line carries its own small label: Broker / Lot / Color, Pick / 1st available, Route / location, E and A cubic feet, Est / Dep / Grand, BH / Paid, Balance due / fee. Each field keeps its own sort link and shows a dash when empty.
+* **A button in the top bar hides or shows the left menu** on a desktop screen (remembered in the browser). With the menu hidden the whole table fits on a 1366 px laptop; on a 1920 px screen it fits with the menu shown.
+* A label and its figure no longer split across two lines in the money cells. No migration.
+* **Upgrade:** `git pull origin main`, then hard-refresh the browser (Ctrl+F5) so the new stylesheet loads.
+
 ## 1.6.5 - the Jobs lists fit on one screen
 
 * **Related fields are stacked in one column** (21 columns became 14): Job lot / Color, Pickup / 1st available, Route / Job location, E-CF / A-CF, Deposit / Grand total, Total to BH / Paid. Each field in a stacked heading keeps its own sort link, and an empty field still shows a dash.

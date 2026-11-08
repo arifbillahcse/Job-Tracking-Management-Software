@@ -89,6 +89,28 @@
         set('balance', bh - cents('paid'));
     });
 
+    // Desktop: hide / show the left menu (remembered in this browser). A wide Jobs table then gets about 250 px more room.
+    (function () {
+        var root = document.documentElement;
+        var button = document.getElementById('menu-toggle');
+        if (!button) {
+            return;
+        }
+        var paint = function (hidden) {
+            root.classList.toggle('jt-menu-hidden', hidden);
+            button.setAttribute('aria-pressed', hidden ? 'true' : 'false');
+            button.setAttribute('aria-label', hidden ? 'Show the menu' : 'Hide the menu');
+        };
+        var saved = false;
+        try { saved = window.localStorage.getItem('jt-menu-hidden') === '1'; } catch (e) { saved = false; }
+        paint(saved);
+        button.addEventListener('click', function () {
+            var hidden = !root.classList.contains('jt-menu-hidden');
+            paint(hidden);
+            try { window.localStorage.setItem('jt-menu-hidden', hidden ? '1' : '0'); } catch (e) { /* not remembered */ }
+        });
+    })();
+
     // <a data-open-details="#id"> opens a <details> block and moves to it.
     document.addEventListener('click', function (event) {
         var trigger = event.target.closest('[data-open-details]');
