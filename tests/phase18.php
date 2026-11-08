@@ -42,3 +42,7 @@ check(!str_contains($sp, '1,500.00') && !str_contains($sp, 'Totals $') && !str_c
 sign_in($mgr);
 $csv = call('GET', '/trips/export')->content();
 check(str_contains($csv, '1500.00') && str_contains($csv, '777.00'), 'the trip CSV has the same Total to BH: the job\'s default (1500.00) and the typed one (777.00)');
+sign_in($mgr);
+$ef = call('GET', "/trips/{$tid}/edit")->body();
+check(preg_match('~name="rows\[0\]\[total_to_bh\]" value="1500"~', $ef) === 1 && preg_match('~name="rows\[1\]\[total_to_bh\]" value="777"~', $ef) === 1, 'the Edit Trip form is prefilled with the job\'s Total to BH (1500), and keeps a figure typed on the entry (777)');
+check(str_contains(call('GET', "/trips/{$tid}")->body(), 'id="add-total_to_bh"') && str_contains(call('GET', "/trips/{$tid}")->body(), 'placeholder="from the job"'), 'the Add daily entry box says Total to BH comes from the job when left empty');

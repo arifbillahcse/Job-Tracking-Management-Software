@@ -52,7 +52,7 @@ $dl = static fn (string $label, string $html): string => '<dt class="col-sm-4 te
                     <?php foreach (['addio' => 'Addio', 'total_to_bh' => 'Total to BH', 'diesel' => 'Diesel', 'hotels' => 'Hotels', 'helper' => 'Helpers', 'misc' => 'MISC', 'commission' => 'Commission', 'extra' => 'Extra'] as $name => $label): ?>
                         <div class="col-6 col-md-3">
                             <label class="form-label small" for="add-<?= e($name) ?>"><?= e($label) ?></label>
-                            <input type="number" class="form-control form-control-sm" id="add-<?= e($name) ?>" name="<?= e($name) ?>" step="0.01" min="0" inputmode="decimal">
+                            <input type="number" class="form-control form-control-sm" id="add-<?= e($name) ?>" name="<?= e($name) ?>" step="0.01" min="0" inputmode="decimal"<?= $name === 'total_to_bh' ? ' placeholder="from the job"' : '' ?>>
                         </div>
                     <?php endforeach; ?>
                 <?php endif; ?>
