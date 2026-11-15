@@ -77,6 +77,8 @@ $dl = static function (string $label, string $valueHtml): string {
                     <?= $dl('Trip', empty($job['trip_id']) || empty($job['trip_number']) ? '—' : (can('trips.view') ? '<a class="jt-jobno" href="' . e(url('/trips/' . $job['trip_id'])) . '">' . e($job['trip_number']) . '</a>' : e($job['trip_number']))) ?>
                     <?= $dl('Job lot', e($job['job_lot'] ?? '') ?: '—') ?>
                     <?= $dl('Color', e($job['color'] ?? '') ?: '—') ?>
+                    <?= $dl('Range', e($job['job_range'] ?? '') ?: '—') ?>
+                    <?= $dl('Pads', e($job['pads'] ?? '') ?: '—') ?>
                     <?= $dl('Broker', e($job['broker'] ?? '') ?: '—') ?>
                     <?php if ($showFinancials): ?>
                         <?php foreach (['estimated_total' => 'E-Total', 'deposit' => 'Deposit', 'grand_total' => 'Grand total', 'bh_total' => 'Total to BH', 'paid' => 'Paid'] as $field => $label): ?>
@@ -84,6 +86,8 @@ $dl = static function (string $label, string $valueHtml): string {
                         <?php endforeach; ?>
                         <?= $dl('Balance', e(fmt_money($job['balance']))) ?>
                         <?= $dl('Storage fee', e(fmt_money($job['storage_fee'])) . '<div class="jt-subtle">' . e(storage_fee_note($job)) . '</div>') ?>
+                        <?= $dl('Storage paid', e(fmt_money($job['storage_paid'] ?? 0))) ?>
+                        <?= $dl('Storage due', '<strong>' . e(fmt_money(\App\Services\StoragePaymentService::due($job))) . '</strong>') ?>
                     <?php endif; ?>
                 </dl>
             </div>
@@ -121,6 +125,68 @@ $dl = static function (string $label, string $valueHtml): string {
             </div>
         </div>
     </div>
+
+    <?php if ($showFinancials): $storageDue = \App\Services\StoragePaymentService::due($job); ?>
+        <div class="col-12" id="storage">
+            <div class="card jt-card">
+                <div class="card-header bg-transparent fw-semibold d-flex flex-wrap align-items-center gap-2">
+                    Storage fee payments
+                    <span class="jt-subtle fw-normal ms-auto">Fee <?= e(fmt_money($job['storage_fee'])) ?> &minus; paid <?= e(fmt_money($job['storage_paid'] ?? 0)) ?> = <strong>due <?= e(fmt_money($storageDue)) ?></strong></span>
+                </div>
+                <div class="card-body">
+                    <?php if (!empty($canRecordStorage)): ?>
+                        <?php if ((float) $storageDue > 0): ?>
+                            <form method="post" action="<?= e(url('/jobs/' . $job['id'] . '/storage-payments')) ?>" class="row g-2 align-items-end mb-3">
+                                <?= csrf_field() ?>
+                                <div class="col-6 col-md-3">
+                                    <label class="form-label small" for="sp-amount">Amount paid</label>
+                                    <input type="number" class="form-control" id="sp-amount" name="amount" step="0.01" min="0.01" max="<?= e($storageDue) ?>" inputmode="decimal" required>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <label class="form-label small" for="sp-date">Paid on</label>
+                                    <input type="date" class="form-control" id="sp-date" name="paid_on" value="<?= e(\App\Core\Clock::today()) ?>" max="<?= e(\App\Core\Clock::today()) ?>" required>
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <label class="form-label small" for="sp-note">Note (optional)</label>
+                                    <input type="text" class="form-control" id="sp-note" name="note" maxlength="255" placeholder="e.g. November storage, Zelle">
+                                </div>
+                                <div class="col-12 col-md-2"><button type="submit" class="btn btn-primary w-100">Record payment</button></div>
+                            </form>
+                        <?php else: ?>
+                            <p class="text-body-secondary">No storage fee is due on this job right now. A payment can be recorded once the fee is due.</p>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                    <?php if ($storagePayments === []): ?>
+                        <p class="text-body-secondary mb-0">No storage payments recorded yet.</p>
+                    <?php else: ?>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead><tr><th scope="col">Paid on</th><th scope="col" class="text-end">Amount</th><th scope="col">Note</th><th scope="col">Recorded by</th><th></th></tr></thead>
+                                <tbody>
+                                <?php foreach ($storagePayments as $p): ?>
+                                    <tr>
+                                        <td><?= e(fmt_date((string) $p['paid_on'])) ?></td>
+                                        <td class="text-end"><?= e(fmt_money($p['amount'])) ?></td>
+                                        <td><?= e($p['note'] ?? '') ?: '<span class="text-body-secondary">&mdash;</span>' ?></td>
+                                        <td><?= e($p['recorded_by'] ?? '') ?: '<span class="text-body-secondary">&mdash;</span>' ?></td>
+                                        <td class="text-end">
+                                            <?php if (!empty($canRecordStorage)): ?>
+                                                <form method="post" action="<?= e(url('/jobs/' . $job['id'] . '/storage-payments/' . $p['id'] . '/delete')) ?>" class="d-inline">
+                                                    <?= csrf_field() ?>
+                                                    <button type="submit" class="btn btn-sm btn-outline-secondary" data-confirm="<?= e('Remove this storage payment of ' . fmt_money($p['amount']) . '? The amount becomes due again.') ?>">Remove</button>
+                                                </form>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
 
     <?php if (can('trips.view')): ?>
         <div class="col-12 col-lg-6">

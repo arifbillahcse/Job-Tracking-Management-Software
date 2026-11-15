@@ -68,6 +68,8 @@ $input = static function (string $name, string $label, array $opts = []) use ($v
                         <?php endif; ?>
                         <div class="col-12 col-md-4"><?= $input('job_lot', 'Job lot', ['maxlength' => 60]) ?></div>
                         <div class="col-12 col-md-4"><?= $input('color', 'Color', ['maxlength' => 60]) ?></div>
+                        <div class="col-12 col-md-4"><?= $input('job_range', 'Range', ['maxlength' => 60]) ?></div>
+                        <div class="col-12 col-md-4"><?= $input('pads', 'Pads', ['maxlength' => 60]) ?></div>
                         <div class="col-12 col-md-4"><?= $input('broker', 'Broker', ['maxlength' => 100, 'list' => 'broker-list', 'autocomplete' => 'off', 'help' => 'Pick one already used or type a new one. The same broker can be on many jobs.']) ?>
                             <datalist id="broker-list"><?php foreach (($brokers ?? []) as $b): ?><option value="<?= e($b) ?>"></option><?php endforeach; ?></datalist></div>
                         <div class="col-12 col-md-4"><?= $input('customer_phone', 'Customer phone number', ['type' => 'tel', 'maxlength' => 30, 'inputmode' => 'tel', 'placeholder' => '(555) 010-2231', 'help' => 'Shown as a tap-to-call link on phones.']) ?></div>

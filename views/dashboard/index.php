@@ -35,13 +35,15 @@ $threshold = JobBucket::threshold();
     $statuses = $data['statuses'];
     $cards = [
         [JobBucket::ALL, 'all', 'briefcase', 'Total jobs', ($statuses['on_hold'] ?? 0) . ' on hold · ' . ($statuses['cancelled'] ?? 0) . ' cancelled'],
-        [JobBucket::READY, 'ready', 'clock', 'Ready for delivery', JobBucket::basis() === 'pickup' ? 'picked up within ' . $threshold . ' days' : 'within ' . $threshold . ' days of today'],
+        [JobBucket::BOOKED, 'booked', 'inbox', 'Booked jobs', 'not delivered yet'],
+        [JobBucket::FUTURE, 'future', 'calendar', 'Future jobs', 'pickup date after today'],
+        [JobBucket::READY, 'ready', 'clock', 'Ready for delivery', JobBucket::basis() === 'pickup' ? 'picked up in the last ' . $threshold . ' days' : 'within ' . $threshold . ' days of today'],
         [JobBucket::LATER, 'later', 'calendar', 'More than ' . $threshold . ' days', JobBucket::basis() === 'pickup' ? 'picked up over ' . $threshold . ' days ago' : 'ahead, or already waiting longer'],
         [JobBucket::TRANSIT, 'transit', 'truck', 'In transit', 'on the road now'],
         [JobBucket::DELIVERED, 'delivered', 'check-circle', 'Delivered', 'completed deliveries'],
     ];
     ?>
-    <div class="row g-3 row-cols-2 row-cols-md-3 row-cols-xl-5 mb-4">
+    <div class="row g-3 row-cols-2 row-cols-md-4 mb-4">
         <?php foreach ($cards as [$bucket, $tone, $icon, $label, $hint]): ?>
             <div class="col">
                 <a class="jt-stat jt-stat-<?= e($tone) ?>" href="<?= e(url(JobBucket::definitions()[$bucket]['path'])) ?>">

@@ -51,7 +51,8 @@ final class DeployCheck
 
         // Columns and tables the newer features need.
         $schema = [
-            'jobs' => ['broker', 'customer_phone', 'loaded_date', 'delivery_date', 'storage_fee_override', 'storage_rate', 'estimated_cf', 'estimated_total', 'deposit', 'grand_total', 'bh_total', 'paid', 'job_lot', 'color', 'foreman_id', 'trip_id'],
+            'jobs' => ['storage_paid', 'job_range', 'pads', 'broker', 'customer_phone', 'loaded_date', 'delivery_date', 'storage_fee_override', 'storage_rate', 'estimated_cf', 'estimated_total', 'deposit', 'grand_total', 'bh_total', 'paid', 'job_lot', 'color', 'foreman_id', 'trip_id'],
+            'storage_payments' => ['id', 'job_id', 'amount', 'paid_on', 'note', 'created_by'],
             'foremen' => ['id', 'name', 'phone', 'active'],
             'trips' => ['id', 'trip_number', 'foreman_id', 'begins_on', 'ends_on', 'deleted_at'],
             'remember_tokens' => ['user_id', 'selector', 'token_hash', 'pw_marker', 'expires_at'],

@@ -232,7 +232,7 @@ final class JobRepository
             // Balance still owed on every job that is not cancelled (delivered jobs can still owe money).
             'balance' => (string) Database::fetchValue("SELECT COALESCE(SUM(balance), 0) FROM jobs WHERE deleted_at IS NULL AND status <> 'cancelled'"),
             // Storage fees on jobs that have not been delivered or cancelled.
-            'storage_fee' => (string) Database::fetchValue("SELECT COALESCE(SUM(storage_fee), 0) FROM jobs WHERE deleted_at IS NULL AND status IN ('booked', 'in_transit', 'on_hold')"),
+            'storage_fee' => (string) Database::fetchValue("SELECT COALESCE(SUM(CASE WHEN storage_fee > storage_paid THEN storage_fee - storage_paid ELSE 0 END), 0) FROM jobs WHERE deleted_at IS NULL AND status IN ('booked', 'in_transit', 'on_hold')"),
         ];
     }
 

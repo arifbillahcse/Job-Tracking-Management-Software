@@ -50,6 +50,8 @@ final class JobController extends Controller
         return $this->view('jobs/show', [
             'title' => 'Job ' . $job['job_number'],
             'jobTrips' => $showTrips ? $trips->forJob($id) : [],
+            'storagePayments' => $this->jobs->canSeeFinancials() ? \App\Services\StoragePaymentService::forJob($id) : [],
+            'canRecordStorage' => $this->jobs->canEditFinancials(),
             'tripChoices' => $showTrips && can('trips.manage') ? $trips->choicesForJob($id) : [],
             'job' => $job,
             'showFinancials' => $this->jobs->canSeeFinancials(),
@@ -218,6 +220,32 @@ final class JobController extends Controller
                 $this->flash('danger', 'That status change is not allowed for this job.');
                 return $this->redirect($back);
         }
+    }
+
+    /** Record a storage fee payment: the customer paid part of (or all of) the fee that is due. */
+    public function addStoragePayment(Request $request, int $id): Response
+    {
+        $result = \App\Services\StoragePaymentService::record($id, $request->str('amount'), $request->str('paid_on'), $request->str('note'));
+        if (($result['error'] ?? '') === 'not_found') {
+            return ErrorPages::response(404);
+        }
+        if ($result['ok']) {
+            $this->flash('success', 'Storage payment of ' . fmt_money($result['amount']) . ' recorded for job ' . $result['job_number'] . '. Still due: ' . fmt_money($result['due']) . '.');
+        } else {
+            $this->flash('danger', (string) $result['error']);
+        }
+        return $this->redirect('/jobs/' . $id . '#storage');
+    }
+
+    /** Take back a storage payment that was recorded by mistake. */
+    public function removeStoragePayment(Request $request, int $id, int $payment): Response
+    {
+        $result = \App\Services\StoragePaymentService::remove($id, $payment);
+        if (!$result['ok']) {
+            return ErrorPages::response(404);
+        }
+        $this->flash('success', 'Storage payment of ' . fmt_money($result['amount']) . ' was removed from job ' . $result['job_number'] . '.');
+        return $this->redirect('/jobs/' . $id . '#storage');
     }
 
     public function destroy(Request $request, int $id): Response

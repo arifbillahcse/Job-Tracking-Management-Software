@@ -25,6 +25,16 @@ final class JobListController extends Controller
         return $this->list($request, JobBucket::ALL);
     }
 
+    public function booked(Request $request): Response
+    {
+        return $this->list($request, JobBucket::BOOKED);
+    }
+
+    public function future(Request $request): Response
+    {
+        return $this->list($request, JobBucket::FUTURE);
+    }
+
     public function ready(Request $request): Response
     {
         return $this->list($request, JobBucket::READY);

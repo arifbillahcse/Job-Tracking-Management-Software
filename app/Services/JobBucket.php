@@ -27,6 +27,8 @@ use App\Core\Clock;
 final class JobBucket
 {
     public const ALL = 'all';
+    public const BOOKED = 'booked';
+    public const FUTURE = 'future';
     public const READY = 'ready';
     public const LATER = 'later';
     public const TRANSIT = 'transit';
@@ -39,6 +41,8 @@ final class JobBucket
     {
         return [
             self::ALL       => ['label' => 'All Jobs',            'path' => '/jobs',             'icon' => 'briefcase',    'tone' => 'all'],
+            self::BOOKED    => ['label' => 'Booked Jobs',         'path' => '/jobs/booked',      'icon' => 'inbox',        'tone' => 'booked'],
+            self::FUTURE    => ['label' => 'Future Jobs',         'path' => '/jobs/future',      'icon' => 'calendar',     'tone' => 'future'],
             self::READY     => ['label' => 'Ready for Delivery',  'path' => '/jobs/ready',       'icon' => 'clock',        'tone' => 'ready'],
             self::LATER     => ['label' => 'More Than 30 Days',   'path' => '/jobs/more-than-30', 'icon' => 'calendar',     'tone' => 'later'],
             self::TRANSIT   => ['label' => 'In Transit',          'path' => '/jobs/in-transit',  'icon' => 'truck',        'tone' => 'transit'],
@@ -123,10 +127,19 @@ final class JobBucket
         $base = "{$alias}.deleted_at IS NULL";
         $d = self::dateSql($alias);
 
+        if ($bucket === self::BOOKED) {
+            // Every job that has not been delivered yet (booked, on the road, on hold); delivered and cancelled jobs are not booked.
+            return ["{$base} AND {$alias}.status IN (?, ?, ?)", ['booked', 'in_transit', 'on_hold']];
+        }
+        if ($bucket === self::FUTURE) {
+            // Booked jobs with a pickup date after today: not picked up yet. A job with no pickup date is not a future job (it is counted from its 1st available date, as before).
+            return ["{$base} AND {$alias}.status = ? AND {$alias}.pickup_date IS NOT NULL AND {$alias}.pickup_date > ?", ['booked', Clock::today()]];
+        }
+
         if (self::basis() === 'pickup' && in_array($bucket, [self::READY, self::LATER], true)) {
-            // Age rule: picked up within the last N days (or not yet picked up) is Ready; older than N days is More Than N Days.
+            // Age rule: picked up from N days ago up to today is Ready; older than N days is More Than N Days; after today is Future Jobs.
             return $bucket === self::READY
-                ? ["{$base} AND {$alias}.status = ? AND {$d} >= ?", ['booked', self::pastCutoff()]]
+                ? ["{$base} AND {$alias}.status = ? AND {$d} >= ? AND ({$alias}.pickup_date IS NULL OR {$alias}.pickup_date <= ?)", ['booked', self::pastCutoff(), Clock::today()]]
                 : ["{$base} AND {$alias}.status = ? AND {$d} < ?", ['booked', self::pastCutoff()]];
         }
 
@@ -149,7 +162,7 @@ final class JobBucket
     {
         return match ((string) $job['status']) {
             'booked' => self::basis() === 'pickup'
-                ? (self::dateOf($job) >= self::pastCutoff() ? self::READY : self::LATER)
+                ? ((string) ($job['pickup_date'] ?? '') !== '' && substr((string) $job['pickup_date'], 0, 10) > Clock::today() ? self::FUTURE : (self::dateOf($job) >= self::pastCutoff() ? self::READY : self::LATER))
                 : ((string) $job['first_available_date'] <= self::cutoff() && (string) $job['first_available_date'] >= self::pastCutoff() ? self::READY : self::LATER),
             'in_transit' => self::TRANSIT,
             'delivered' => self::DELIVERED,

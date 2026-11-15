@@ -16,27 +16,31 @@ $all = [
     'job' => ['Job #', 'job', ''],
     'customer' => ['Customer', 'customer', ''],
     'brokerlot' => ['Broker / lot / color', [['Broker', 'broker'], ['Lot', 'lot'], ['Color', 'color']], ''],
+    'rangepads' => ['Range / pads', [['Range', 'range'], ['Pads', 'pads']], ''],
     'dates' => ['Pickup / 1st available', [['Pickup', 'pickup'], ['1st available', 'available']], ''],
     'routeloc' => ['Route / job location', [['Route', 'from'], ['Job location', 'location']], ''],
     'assign' => ['Foreman / trip', 'assign', ''],
     'cfs' => ['Cubic feet', [['E-CF', 'ecf'], ['A-CF', 'cf']], 'text-md-end'],
     'money1' => ['Estimate / deposit / grand', [['E-Total', 'etotal'], ['Deposit', 'deposit'], ['Grand total', 'grand']], 'text-md-end'],
     'money2' => ['Total to BH / paid', [['Total to BH', 'tobh'], ['Paid', 'paid']], 'text-md-end'],
-    'balfee' => ['Balance due / fee', [['Balance due', 'balance'], ['Storage fee', 'storage']], 'text-md-end'],
+    'balfee' => ['Balance due / fee', [['Balance due', 'balance'], ['Storage fee due', 'storage']], 'text-md-end'],
     'status' => ['Status', 'status', ''],
     'carrierblock' => ['Carrier / driver', 'carrier', ''],
     'dispatched' => ['Loaded', 'dispatched', ''],
     'delivered' => ['Delivered on', 'delivered', ''],
     // building blocks of the stacked columns above (never a column on their own)
     'broker' => ['Broker', 'broker', ''], 'pickup' => ['Pickup', 'pickup', ''], 'available' => ['1st available', 'available', ''], 'route' => ['Route', 'from', ''],
+    'range' => ['Range', 'range', ''], 'pads' => ['Pads', 'pads', ''],
     'lot' => ['Job lot', 'lot', ''], 'color' => ['Color', 'color', ''], 'location' => ['Job location', 'location', ''],
     'ecf' => ['E-CF', 'ecf', ''], 'cf' => ['A-CF', 'cf', ''], 'etotal' => ['E-Total', 'etotal', ''], 'deposit' => ['Deposit', 'deposit', ''], 'grand' => ['Grand total', 'grand', ''],
     'tobh' => ['Total to BH', 'tobh', ''], 'paid' => ['Paid', 'paid', ''], 'balance' => ['Balance due', 'balance', ''], 'storage' => ['Storage fee', 'storage', ''],
 ];
-$core = ['job', 'customer', 'brokerlot'];
+$core = ['job', 'customer', 'brokerlot', 'rangepads'];
 $money = ['cfs', 'money1', 'money2', 'balfee'];
 $layouts = [
     JobBucket::ALL => [...$core, 'dates', 'routeloc', 'assign', ...$money, 'status'],
+    JobBucket::BOOKED => [...$core, 'dates', 'routeloc', 'assign', ...$money, 'status'],
+    JobBucket::FUTURE => [...$core, 'dates', 'routeloc', 'assign', ...$money],
     JobBucket::READY => [...$core, 'dates', 'routeloc', 'assign', ...$money],
     JobBucket::LATER => [...$core, 'dates', 'routeloc', 'assign', ...$money],
     JobBucket::TRANSIT => [...$core, 'routeloc', 'assign', ...$money, 'dispatched', 'carrierblock'],
@@ -49,8 +53,10 @@ $columns = array_values(array_filter(
 
 $descriptions = [
     JobBucket::ALL => 'Every job, including those on hold or cancelled.',
+    JobBucket::BOOKED => 'Every job that is not delivered yet: booked, on the road or on hold. Delivered and cancelled jobs are not listed here.',
+    JobBucket::FUTURE => 'Booked jobs with a pickup date after today: they are not picked up yet. A job with no pickup date is never listed here.',
     JobBucket::READY => JobBucket::basis() === 'pickup'
-        ? "Booked jobs picked up within the last {$threshold} days, or not picked up yet. Jobs with no pickup date are counted from their 1st available date."
+        ? "Booked jobs picked up within the last {$threshold} days (up to today). Jobs with no pickup date are counted from their 1st available date."
         : "Booked jobs whose 1st available date is within {$threshold} days of today (including up to {$threshold} days overdue).",
     JobBucket::LATER => JobBucket::basis() === 'pickup'
         ? "Booked jobs picked up more than {$threshold} days ago (the storage fee applies to those). Jobs with no pickup date are counted from their 1st available date."
@@ -61,6 +67,8 @@ $descriptions = [
 
 $emptyBucket = [
     JobBucket::ALL => ['briefcase', 'No jobs yet', 'Jobs you create will be listed here.'],
+    JobBucket::BOOKED => ['inbox', 'No booked jobs', 'Jobs that are not delivered yet will appear here.'],
+    JobBucket::FUTURE => ['calendar', 'No future jobs', 'Booked jobs with a pickup date after today will appear here.'],
     JobBucket::READY => ['clock', 'Nothing is ready for delivery', "Booked jobs with a 1st available date in the next {$threshold} days will appear here."],
     JobBucket::LATER => ['calendar', 'Nothing more than ' . $threshold . ' days away', 'Booked jobs with a later available date will appear here.'],
     JobBucket::TRANSIT => ['truck', 'No jobs in transit', 'Jobs appear here when you press Move to In Transit.'],
@@ -115,6 +123,15 @@ $render = function (string $key, array $job) use ($bucket, $threshold, $stack, &
                                     case 'brokerlot': ?>
                                         <?= $stack([['', $render('broker', $job), false], ['Lot', $render('lot', $job), true], ['Color', $render('color', $job), true]]) ?>
                                         <?php break;
+                                    case 'rangepads': ?>
+                                        <?= $stack([['Range', $render('range', $job), false], ['Pads', $render('pads', $job), false]]) ?>
+                                        <?php break;
+                                    case 'range': ?>
+                                        <?= e($job['job_range'] ?? '') ?: '<span class="text-body-secondary">—</span>' ?>
+                                        <?php break;
+                                    case 'pads': ?>
+                                        <?= e($job['pads'] ?? '') ?: '<span class="text-body-secondary">—</span>' ?>
+                                        <?php break;
                                     case 'dates': ?>
                                         <?= $stack([['Pick', $render('pickup', $job), true], ['', $render('available', $job), false]]) ?>
                                         <?php break;
@@ -131,7 +148,7 @@ $render = function (string $key, array $job) use ($bucket, $threshold, $stack, &
                                         <?= $stack([['BH', $render('tobh', $job), false], ['Paid', $render('paid', $job), true]]) ?>
                                         <?php break;
                                     case 'balfee': ?>
-                                        <?= $stack([['', '<strong>' . $render('balance', $job) . '</strong>', false], ['fee', $render('storage', $job), true]]) ?>
+                                        <?= $stack([['', '<strong>' . $render('balance', $job) . '</strong>', false], ['due', $render('storage', $job), true]]) ?>
                                         <?php break;
                                     case 'broker': ?>
                                         <?= e($job['broker'] ?? '') ?: '<span class="text-body-secondary">—</span>' ?>
@@ -170,7 +187,7 @@ $render = function (string $key, array $job) use ($bucket, $threshold, $stack, &
                                         <?= e(fmt_money($job['balance'])) ?>
                                         <?php break;
                                     case 'storage': ?>
-                                        <?= e(fmt_money($job['storage_fee'])) ?>
+                                        <?= e(fmt_money(\App\Services\StoragePaymentService::due($job))) ?><?= (float) ($job['storage_paid'] ?? 0) > 0 ? ' <span class="jt-subtle">(paid ' . e(fmt_money($job['storage_paid'])) . ')</span>' : '' ?>
                                         <?php break;
                                     case 'status': ?>
                                         <?= status_badge((string) $job['status']) ?>

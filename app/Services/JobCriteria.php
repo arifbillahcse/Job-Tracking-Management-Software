@@ -36,10 +36,12 @@ final class JobCriteria
         'delivered'  => [['j.delivery_date', 'j.delivered_at'], false],
         'created'    => [['j.id'], false],
         'balance'    => [['j.balance'], true],
-        'storage'    => [['j.storage_fee'], true],
+        'storage'    => [['(CASE WHEN j.storage_fee > j.storage_paid THEN j.storage_fee - j.storage_paid ELSE 0 END)'], true],
         'foreman'    => [['af.name'], false],
         'trip'       => [['atr.trip_number'], false],
         'broker'     => [['j.broker'], false],
+        'range'      => [['j.job_range'], false],
+        'pads'       => [['j.pads'], false],
         'lot'        => [['j.job_lot'], false],
         'color'      => [['j.color'], false],
         'location'   => [['j.job_location'], false],
@@ -55,6 +57,8 @@ final class JobCriteria
     /** Default ordering per section. */
     private const DEFAULT_SORT = [
         JobBucket::ALL => ['created', 'desc'],
+        JobBucket::BOOKED => ['created', 'desc'],
+        JobBucket::FUTURE => ['pickup', 'asc'],
         JobBucket::READY => ['available', 'asc'],
         JobBucket::LATER => ['available', 'asc'],
         JobBucket::TRANSIT => ['dispatched', 'desc'],

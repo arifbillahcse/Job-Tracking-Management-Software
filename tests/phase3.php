@@ -714,7 +714,7 @@ fresh_session();
 Clock::fake('2026-10-23');
 sign_in(make_user('Manager', 'empty@example.com'));
 $body = call('GET', '/dashboard')->body();
-check(preg_match_all('#jt-stat-value">0<#', $body) === 5, 'dashboard on an empty database shows five zeros');
+check(preg_match_all('#jt-stat-value">0<#', $body) === 7, 'dashboard on an empty database shows seven zeros (all, booked, future, ready, later, in transit, delivered)');
 check(str_contains(plain($body), 'Nothing is overdue') && str_contains(plain($body), 'No booked jobs are due') && str_contains(plain($body), 'Activity appears here'), '...with friendly empty panels');
 foreach (['/jobs', '/jobs/ready', '/jobs/more-than-30', '/jobs/in-transit', '/jobs/delivered'] as $path) {
     check(call('GET', $path)->status() === 200 && str_contains(call('GET', $path)->body(), 'jt-empty'), "{$path} on an empty database shows an empty state");
@@ -746,14 +746,16 @@ foreach ([
     mk_job(['job_number' => $number, 'pickup_date' => $pickup, 'first_available_date' => $available]);
 }
 mk_job(['job_number' => 'P-transit', 'status' => 'in_transit', 'pickup_date' => '2026-01-01', 'first_available_date' => '2026-01-01']);
-check(numbers('ready') === ['P-30', 'P-future', 'P-none-new', 'P-today'], 'Ready = picked up within the last 30 days or not picked up yet (no pickup date: the 1st available date is used)');
+check(numbers('ready') === ['P-30', 'P-none-new', 'P-today'], 'Ready = picked up from 30 days ago up to today, or not picked up and with no pickup date (the 1st available date is used)');
+check(numbers('future') === ['P-future'], 'Future Jobs = booked with a pickup date after today (a job with no pickup date is never a future job)');
+check(numbers('booked') === ['P-30', 'P-31', 'P-future', 'P-none-new', 'P-none-old', 'P-today', 'P-transit'], 'Booked Jobs = every job that is not delivered (the in-transit job is included)');
 check(numbers('later') === ['P-31', 'P-none-old'], 'More Than 30 Days = picked up more than 30 days ago');
 check(numbers('transit') === ['P-transit'], 'In Transit still depends on status only');
 
 $disagree = [];
 foreach ((new JobRepository())->fetch(JobCriteria::forBucket('all'), 100, 0) as $row) {
     $mine = JobBucket::of($row);
-    foreach (['ready', 'later', 'transit'] as $b) {
+    foreach (['ready', 'later', 'future', 'transit'] as $b) {
         if (in_array($row['job_number'], numbers($b), true) !== ($mine === $b)) {
             $disagree[] = $row['job_number'] . '/' . $b;
         }
@@ -779,7 +781,7 @@ $id = (int) Database::fetchValue("SELECT id FROM jobs WHERE job_number = 'P-toda
 Database::execute("UPDATE jobs SET pickup_date = '2026-06-01' WHERE id = ?", [$id]);
 check(in_array('P-today', numbers('later'), true), 'editing the pickup date to an old date moves the job to More Than 30 Days at once');
 Database::execute("UPDATE jobs SET pickup_date = NULL WHERE id = ?", [$id]);
-check(in_array('P-today', numbers('ready'), true), 'clearing it falls back to the 1st available date (far ahead = Ready)');
+check(in_array('P-today', numbers('ready'), true) && !in_array('P-today', numbers('future'), true), 'clearing it falls back to the 1st available date (far ahead = Ready)');
 
 $page = call('GET', '/jobs/more-than-30');
 check(str_contains(plain(call('GET', '/jobs/ready')->body()), 'picked up within the last 30 days') && str_contains(plain($page->body()), 'picked up more than 30 days ago'), 'the list descriptions explain the pickup rule');

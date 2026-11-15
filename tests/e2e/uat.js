@@ -467,6 +467,41 @@ async function createJob(page, number, availableOffset, extra = {}) {
         must(await page.locator('.jt-sidebar').isVisible(), 'the menu did not come back');
         await page.setViewportSize({ width: 1280, height: 800 });
     });
+    await step('Future Jobs and Booked Jobs tabs, Range and Pads, and a storage payment taken off the fee due', async () => {
+        await page.goto(BASE + '/jobs');
+        const tabs = await page.locator('nav.jt-tabs').textContent();
+        must(/Booked Jobs/.test(tabs) && /Future Jobs/.test(tabs), 'the Booked Jobs / Future Jobs tabs are missing: ' + tabs.replace(/\s+/g, ' '));
+        await createJob(page, RUN + '-FUT', 10, { pickup: 20 });
+        await page.goto(BASE + '/jobs/future?q=' + RUN + '-FUT');
+        must((await page.locator('a.jt-jobno', { hasText: RUN + '-FUT' }).count()) === 1, 'a job picked up in 20 days is not in Future Jobs');
+        await page.goto(BASE + '/jobs/ready?q=' + RUN + '-FUT');
+        must((await page.locator('a.jt-jobno', { hasText: RUN + '-FUT' }).count()) === 0, 'a future job is also in Ready for Delivery');
+        await page.goto(BASE + '/jobs/booked?q=' + RUN + '-FUT');
+        must((await page.locator('a.jt-jobno', { hasText: RUN + '-FUT' }).count()) === 1, 'the job is not in Booked Jobs');
+        // Range and Pads: typed after Color, shown in the list and on the details page
+        await page.goto(BASE + '/jobs/create');
+        await page.fill('#job_number', RUN + '-RP'); await page.fill('#customer_first_name', 'Rae'); await page.fill('#customer_last_name', 'Pads');
+        await page.fill('#from_location', 'X'); await page.fill('#to_location', 'Y'); await page.fill('#first_available_date', day(10));
+        await page.fill('#job_range', 'R-2'); await page.fill('#pads', '14');
+        await Promise.all([page.waitForNavigation(), page.click('main form button[type=submit]')]);
+        const detail = (await page.textContent('main')).replace(/\s+/g, ' ');
+        must(/Range\s*R-2/.test(detail) && /Pads\s*14/.test(detail), 'Range and Pads are not on the job page: ' + detail.slice(0, 200));
+        // storage payment: a job picked up 45 days ago owes one month of storage (A-CF 1000 x 0.60 = 600)
+        await createJob(page, RUN + '-STO', 10, { pickup: -45, cf: '1000' });
+        await page.goto(BASE + '/jobs?q=' + RUN + '-STO');
+        await Promise.all([page.waitForNavigation(), page.click('a.jt-jobno:has-text("' + RUN + '-STO")')]);
+        must(/Storage due\s*\$600\.00/.test((await page.textContent('main')).replace(/\s+/g, ' ')), 'the job does not owe $600.00 of storage fee');
+        await page.fill('#sp-amount', '250');
+        await Promise.all([page.waitForNavigation(), page.click('button:has-text("Record payment")')]);
+        const paid = (await page.textContent('main')).replace(/\s+/g, ' ');
+        must(/Storage paid\s*\$250\.00/.test(paid) && /Storage due\s*\$350\.00/.test(paid), 'the payment did not reduce the fee due: ' + paid.slice(0, 300));
+        await page.fill('#sp-amount', '999');
+        await page.evaluate(() => { document.querySelector('#sp-amount').removeAttribute('max'); });
+        await Promise.all([page.waitForNavigation(), page.click('button:has-text("Record payment")')]);
+        must(/cannot be more than that/.test(await page.textContent('main')), 'an over-payment was not refused');
+        await page.goto(BASE + '/jobs?q=' + RUN + '-STO');
+        must(/\$350\.00/.test(await page.textContent('main')) && /paid \$250\.00/.test(await page.textContent('main')), 'the list does not show $350.00 due and $250.00 paid');
+    });
     await step('a trip can be deleted', async () => {
         await page.goto(BASE + '/trips?q=' + RUN + '-TR');
         await page.click('a.jt-jobno[href^="/trips/"]');

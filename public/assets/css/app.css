@@ -19,6 +19,10 @@
     --jt-muted: #586174;
 
     /* Section colours from the client's sheet: amber / rose / green / grey-green */
+    --jt-booked: #4338ca;
+    --jt-booked-bg: #e0e7ff;
+    --jt-future: #0f766e;
+    --jt-future-bg: #ccfbf1;
     --jt-ready: #b45309;
     --jt-ready-bg: #fef3c7;
     --jt-later: #be123c;
@@ -544,6 +548,8 @@ body {
 
 .jt-tab.active { color: #fff; border-color: transparent; background: var(--jt-primary); }
 .jt-tab.active .jt-tab-count { background: rgba(0, 0, 0, 0.22); color: #fff; }
+.jt-tab-booked.active { background: var(--jt-booked); }
+.jt-tab-future.active { background: var(--jt-future); }
 .jt-tab-ready.active { background: var(--jt-ready); }
 .jt-tab-later.active { background: var(--jt-later); }
 .jt-tab-transit.active { background: var(--jt-transit); }
@@ -626,6 +632,8 @@ body {
     transform: translateY(-1px);
 }
 
+.jt-stat-booked { --tone: var(--jt-booked); --tone-bg: var(--jt-booked-bg); }
+.jt-stat-future { --tone: var(--jt-future); --tone-bg: var(--jt-future-bg); }
 .jt-stat-ready { --tone: var(--jt-ready); --tone-bg: var(--jt-ready-bg); }
 .jt-stat-later { --tone: var(--jt-later); --tone-bg: var(--jt-later-bg); }
 .jt-stat-transit { --tone: var(--jt-transit); --tone-bg: var(--jt-transit-bg); }

@@ -18,7 +18,7 @@ final class JobService
     private const EDITABLE = [
         'job_number', 'customer_first_name', 'customer_last_name', 'pickup_date', 'first_available_date',
         'from_location', 'to_location', 'job_location', 'cf', 'estimated_cf', 'notes', 'customer_phone',
-        'job_lot', 'color', 'broker',
+        'job_lot', 'color', 'job_range', 'pads', 'broker',
     ];
 
     /** Columns only users with jobs.edit_financials may write. */
@@ -102,7 +102,7 @@ final class JobService
     public function forViewer(array $job): array
     {
         if (!$this->canSeeFinancials()) {
-            unset($job['balance'], $job['storage_fee'], $job['storage_fee_override'], $job['storage_rate']);
+            unset($job['balance'], $job['storage_fee'], $job['storage_fee_override'], $job['storage_rate'], $job['storage_paid']);
             foreach (JobRules::MONEY_FIELDS as $field) {
                 unset($job[$field]);
             }

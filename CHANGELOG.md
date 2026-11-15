@@ -2,6 +2,13 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.7.0 - Future Jobs, Booked Jobs, Range and Pads, storage fee payments
+
+* **Two new sections on top and on the dashboard.** **Booked Jobs**: every job that is not delivered yet (booked, in transit, on hold). **Future Jobs**: booked jobs with a **pickup date after today** (a job with no pickup date is not a future job). A future job is no longer listed under Ready for Delivery (Ready is now picked up from 30 days ago up to today), so a job is in one date section only. Both have a tab with a count, a dashboard card, a CSV export and the same columns, sorting and filters as the other lists.
+* **Range and Pads** on every job, entered right after Color: New Job / Edit Job, Job details, a "Range / Pads" column in the Jobs lists (each sortable, dash when empty), CSV export and optional import columns. Free text, up to 60 characters. Migration **017**.
+* **Storage fee payments.** For customers who pay the storage fee every month: the Job page has a "Storage fee payments" box (needs permission to edit money) to record an amount, a date and a note. The fee **still due** is the fee minus what was paid, shown on the job, in the Jobs lists (with "paid $x"), in sorting and in the dashboard total. A payment can be at most what is due; a mistaken one can be removed (the amount becomes due again). Recording and removing are audited. Migration **018**. The CSV export still carries the assessed fee.
+* **Upgrade:** `git pull origin main`, `php cli/migrate.php` (017, 018), `php cli/doctor.php`, `php cli/verify.php`, then hard-refresh the browser (Ctrl+F5).
+
 ## 1.6.6 - Jobs lists: labelled two-line rows, and a button to hide the menu
 
 * **The Jobs lists have 11 columns plus the buttons, and every field of the job is on screen.** Related fields share a column and every line carries its own small label: Broker / Lot / Color, Pick / 1st available, Route / location, E and A cubic feet, Est / Dep / Grand, BH / Paid, Balance due / fee. Each field keeps its own sort link and shows a dash when empty.

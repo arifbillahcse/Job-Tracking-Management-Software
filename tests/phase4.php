@@ -377,6 +377,9 @@ $resolve = static function (string $pattern) use ($targets): ?string {
         }
         $path = str_replace('@@', (string) $targets[$kind], $path);
     }
+    if (preg_match('/\{[a-z]+(:int)?\}/', $path) === 1) {
+        return null; // a route with a second id (a payment of a job) is covered by its own tests
+    }
     return $path;
 };
 $routes = real_router()->routes();
