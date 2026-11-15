@@ -538,7 +538,7 @@ $tb = $tp->body();
 $pt = plain($tb);
 check(substr_count($pt, 'B6048649') >= 2 && str_contains($pt, 'Pickup') && str_contains($pt, 'Delivery') && str_contains($pt, 'Warehouse A') && str_contains($pt, 'Atlanta, GA') && str_contains($pt, 'Denver, CO') && str_contains($pt, 'Oct 30, 2026') && str_contains($pt, 'Oct 31, 2026'), 'Trip Details shows both entries with date, activity, From and To');
 check(preg_match('~Job # Customer Date Activity From To Addio Total to BH BH Foreman Diesel Hotels Helpers MISC Commission Extra Remarks~', $pt) === 1, 'the table columns are Job #, Customer, Date, Activity, From, To, Grand, Job Beg, Depo, Addio, Total to BH, BH, Foreman, then Diesel, Hotels, Helpers, MISC, Commission, Extra, Remarks');
-check(str_contains($pt, 'Joe') && str_contains($pt, 'Jobs on this trip (2)') && !str_contains($pt, 'Collected by'), 'the Foreman column shows each entry\'s foreman; the count is 2 entries; no "Collected by"');
+check(str_contains($pt, 'Joe') && str_contains($pt, 'Jobs on this trip (1, 2 entries)') && !str_contains($pt, 'Collected by'), 'the Foreman column shows each entry\'s foreman; the header says 1 job and 2 entries; no "Collected by"');
 check(str_contains($pt, '$125.50') && substr_count($tb, 'href="/jobs/' . $jobId . '"') >= 2, 'the totals add both entries ($50 + $75.50), and each entry links to the job');
 
 // one entry per job per day: the exact same job + date twice is refused; different dates are all fine
@@ -768,14 +768,14 @@ check((int) Database::fetchValue('SELECT COUNT(*) FROM jobs') === $jobsBefore &&
 check(n($rows[0]['diesel']) === 50.0 && n($rows[0]['hotels']) === 80.0 && n($rows[1]['diesel']) === 75.5 && n($rows[1]['commission']) === 100.0 && n($rows[2]['extra']) === 5.0 && n($rows[3]['diesel']) === 1.0 && $rows[0]['commission'] === null && $rows[2]['hotels'] === null, 'each entry keeps its own expenses (and nothing leaks between entries)');
 // 50+80+20 = 150 ; 75.50+10.25+100 = 185.75 ; 0.25+5 = 5.25 ; 1 = 1  => 342.00
 $tpl = plain(call('GET', "/trips/{$td}")->body());
-check(str_contains($tpl, '$342.00') && str_contains($tpl, 'Jobs on this trip (4)'), 'the Trip\'s total expenses include every daily entry: $342.00 (150.00 + 185.75 + 5.25 + 1.00)');
+check(str_contains($tpl, '$342.00') && str_contains($tpl, 'Jobs on this trip (1, 4 entries)'), 'the Trip\'s total expenses include every daily entry: $342.00 (150.00 + 185.75 + 5.25 + 1.00)');
 check(str_contains($tpl, '$126.75') && str_contains($tpl, '$80.00') && str_contains($tpl, '$20.00') && str_contains($tpl, '$10.25') && str_contains($tpl, '$100.00') && str_contains($tpl, '$5.00'), '...and each column total adds all the entries (diesel 50 + 75.50 + 0.25 + 1 = $126.75)');
 check(TripTotals::forRows($rows)['total'] === '342.00' && TripTotals::forRows($rows)['diesel'] === '126.75', 'the calculation itself (TripTotals) gives the same');
 $list = $repo->find($td);
-check(n($list['total_expenses']) === 342.0 && (int) $list['job_count'] === 4, 'the trip list figure counts all entries too (342.00, 4 entries)');
+check(n($list['total_expenses']) === 342.0 && (int) $list['job_count'] === 1 && (int) $list['entry_count'] === 4, 'the trip list figure counts all entries too (342.00) and shows 1 job on 4 entries');
 check(str_contains(plain(call('GET', '/trips', [], ['q' => 'DJ-DAYS'])->body()), '$342.00'), '...as shown on the trip list');
 $rep = (new TripService())->foremanReport(\App\Services\TripCriteria::fromRequest(\App\Core\Request::make('GET', '/trips/report', [], ['foreman' => (string) $joe])));
-check($rep['rows'][0]['total'] === '342.00' && $rep['rows'][0]['jobs'] === 4, 'the foreman report includes all entries (jobs counted as entries: 4)');
+check($rep['rows'][0]['total'] === '342.00' && $rep['rows'][0]['jobs'] === 1 && $rep['rows'][0]['entries'] === 4, 'the foreman report includes all entries (1 job, 4 entries)');
 check((new TripService())->dashboardFigures()['expenses'] === '342.00', 'and so does the dashboard');
 $csv = call('GET', '/trips/export', [], ['q' => 'DJ-DAYS'])->content();
 $lines = array_map('str_getcsv', array_filter(explode("\n", substr($csv, 3))));

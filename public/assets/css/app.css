@@ -877,6 +877,7 @@ summary:focus-visible {
     .jt-table.jt-compact .jt-subtle { font-size: 0.72rem; }
     .jt-table.jt-compact .badge, .jt-table.jt-compact .jt-chip { font-size: 0.68rem; }
     .jt-table.jt-compact td.jt-actions .btn { padding: 0.2rem 0.45rem; font-size: 0.75rem; }
+    .jt-table.jt-compact td.jt-actions { min-width: 0; }
     .jt-table.jt-compact .jt-sort-sep { opacity: 0.5; }
 }
 
@@ -892,3 +893,7 @@ summary:focus-visible {
 @media (min-width: 768px) {
     .jt-table.jt-compact td.text-md-end .jt-stack > div { white-space: nowrap; }
 }
+
+/* A very long Job # (or foreman / trip / broker name) wraps inside its column instead of pushing the list off the screen. */
+.jt-table.jt-compact .jt-jobno,
+.jt-table.jt-compact td { overflow-wrap: anywhere; }

@@ -292,10 +292,10 @@ $svc = new TripService();
 $rep = $svc->foremanReport(TripCriteria::fromRequest(\App\Core\Request::make('GET', '/trips/report', [], [])));
 $byName = array_column($rep['rows'], null, 'name');
 check(array_keys($byName) === ['Joe', 'Sam'], 'the report lists foremen who have trips (Idle has none, so is left out)');
-check($byName['Joe']['trips'] === 2 && $byName['Joe']['jobs'] === 3 && $byName['Sam']['trips'] === 2 && $byName['Sam']['jobs'] === 2, 'trip and job counts per foreman (the deleted trip is not counted)');
+check($byName['Joe']['trips'] === 2 && $byName['Joe']['jobs'] === 2 && $byName['Joe']['entries'] === 3 && $byName['Sam']['trips'] === 2 && $byName['Sam']['jobs'] === 2 && $byName['Sam']['entries'] === 2, 'trip, job and entry counts per foreman: Joe has 2 jobs on 3 entries (the deleted trip is not counted)');
 check($byName['Joe']['diesel'] === '5.86' && $byName['Joe']['hotels'] === '10.00' && $byName['Joe']['commission'] === '100.00' && $byName['Joe']['extra'] === '1.15' && $byName['Joe']['total'] === '117.01', 'each column is summed per foreman without losing a cent (0.29 + 0.57 + 5 = 5.86)');
 check($byName['Sam']['misc'] === '7.50' && $byName['Sam']['helper'] === '2.30' && $byName['Sam']['diesel'] === '1000.00', 'Sam\'s columns');
-check($rep['totals']['trips'] === 4 && $rep['totals']['jobs'] === 5 && $rep['totals']['diesel'] === '1005.86' && $rep['totals']['total'] === '1126.81', 'grand totals add the foremen up exactly (117.01 + 1009.80 = 1126.81)');
+check($rep['totals']['trips'] === 4 && $rep['totals']['jobs'] === 2 && $rep['totals']['entries'] === 5 && $rep['totals']['diesel'] === '1005.86' && $rep['totals']['total'] === '1126.81', 'grand totals add the foremen up exactly (117.01 + 1009.80 = 1126.81)');
 $q = static fn (array $query): array => $svc->foremanReport(TripCriteria::fromRequest(\App\Core\Request::make('GET', '/trips/report', [], $query)));
 check(array_column($q(['from' => '2026-10-01', 'to' => '2026-10-31'])['rows'], 'name') === ['Joe'] && $q(['from' => '2026-10-01'])['totals']['trips'] === 2, 'the period filters trips by the day they begin; a trip with no begin date is left out of a period');
 check(array_column($q(['foreman' => (string) $sam])['rows'], 'name') === ['Sam'] && $q(['foreman' => (string) $sam])['totals']['trips'] === 2, 'the foreman filter');
@@ -328,7 +328,7 @@ check(str_contains($aud, '"rows":3') && str_contains($aud, 'csv'), 'every export
 // CSV of the report
 $rc = call('GET', '/trips/report/export');
 $rl = array_map('str_getcsv', array_filter(explode("\n", substr($rc->content(), 3))));
-check($rc->status() === 200 && $rl[0] === ['Foreman', 'Trips', 'Jobs', 'Diesel', 'Hotels', 'Helpers', 'MISC', 'Commission', 'Extra', 'Total Expenses'] && $rl[1][0] === 'Joe' && $rl[1][9] === '117.01' && end($rl)[0] === 'Total' && end($rl)[9] === '1126.81', 'the report CSV has a line per foreman and a Total line');
+check($rc->status() === 200 && $rl[0] === ['Foreman', 'Trips', 'Jobs', 'Entries', 'Diesel', 'Hotels', 'Helpers', 'MISC', 'Commission', 'Extra', 'Total Expenses'] && $rl[1][0] === 'Joe' && $rl[1][10] === '117.01' && end($rl)[0] === 'Total' && end($rl)[10] === '1126.81', 'the report CSV has a line per foreman and a Total line');
 check(str_contains((string) $rc->getHeader('Content-Disposition'), 'trips-by-foreman-'), '...named for what it is');
 
 // people without the money or the export permission
@@ -338,7 +338,7 @@ sign_in(make_user('Clerk no money', 'rc@example.com'));
 $cc = call('GET', '/trips/export')->content();
 check(!str_contains($cc, 'Diesel') && !str_contains($cc, 'Commission') && !str_contains($cc, '100.00') && str_contains($cc, 'Remark'), 'the export has no expense columns for a user without trips.financials');
 $rcc = call('GET', '/trips/report/export')->content();
-check(str_starts_with(substr($rcc, 3), 'Foreman,Trips,Jobs') && !str_contains($rcc, 'Diesel') && !str_contains($rcc, 'Total Expenses') && str_contains($rcc, 'Joe,2,3'), 'the report CSV has only counts for that user');
+check(str_starts_with(substr($rcc, 3), 'Foreman,Trips,Jobs,Entries') && !str_contains($rcc, 'Diesel') && !str_contains($rcc, 'Total Expenses') && str_contains($rcc, 'Joe,2,2,3'), 'the report CSV has only counts for that user');
 $pp = plain(call('GET', '/trips/report')->body());
 check(str_contains($pp, 'Joe') && !str_contains($pp, 'Diesel') && !str_contains($pp, '$') , 'the report page has counts only');
 fresh_session();
@@ -424,7 +424,7 @@ check((int) Database::fetchValue('SELECT COUNT(*) FROM trip_jobs WHERE job_id = 
 $d = plain(call('GET', '/dashboard')->body());
 check(str_contains($d, 'Foreman trips') && str_contains($d, 'last 30 days'), 'the dashboard has a trips card');
 $fig = (new TripService())->dashboardFigures();
-check($fig['trips'] === 2 && $fig['jobs'] === 3 && $fig['expenses'] === '55.50', 'it counts trips that began in the last 30 days only (IT-OLD, 52 days ago, is out): 2 trips, 3 job lines, expenses 40 + 10.50 + 5');
+check($fig['trips'] === 2 && $fig['jobs'] === 2 && $fig['entries'] === 3 && $fig['expenses'] === '55.50', 'it counts trips that began in the last 30 days only (IT-OLD, 52 days ago, is out): 2 trips, 2 jobs on 3 entries, expenses 40 + 10.50 + 5');
 check(str_contains($d, '$55.50'), '...and shows the expenses to a Manager');
 fresh_session();
 make_role('Trip clerk 3', ['dashboard.view', 'jobs.view', 'trips.view']);

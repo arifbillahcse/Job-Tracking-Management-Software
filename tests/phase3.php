@@ -715,7 +715,7 @@ Clock::fake('2026-10-23');
 sign_in(make_user('Manager', 'empty@example.com'));
 $body = call('GET', '/dashboard')->body();
 check(preg_match_all('#jt-stat-value">0<#', $body) === 7, 'dashboard on an empty database shows seven zeros (all, booked, future, ready, later, in transit, delivered)');
-check(str_contains(plain($body), 'Nothing is overdue') && str_contains(plain($body), 'No booked jobs are due') && str_contains(plain($body), 'Activity appears here'), '...with friendly empty panels');
+check(str_contains(plain($body), 'Nothing is overdue') && str_contains(plain($body), 'No booked job has a 1st available date') && str_contains(plain($body), 'Activity appears here'), '...with friendly empty panels');
 foreach (['/jobs', '/jobs/ready', '/jobs/more-than-30', '/jobs/in-transit', '/jobs/delivered'] as $path) {
     check(call('GET', $path)->status() === 200 && str_contains(call('GET', $path)->body(), 'jt-empty'), "{$path} on an empty database shows an empty state");
 }

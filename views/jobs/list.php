@@ -38,8 +38,8 @@ $all = [
 $core = ['job', 'customer', 'brokerlot', 'rangepads'];
 $money = ['cfs', 'money1', 'money2', 'balfee'];
 $layouts = [
-    JobBucket::ALL => [...$core, 'dates', 'routeloc', 'assign', ...$money, 'status'],
-    JobBucket::BOOKED => [...$core, 'dates', 'routeloc', 'assign', ...$money, 'status'],
+    JobBucket::ALL => [...$core, 'dates', 'routeloc', 'assign', ...$money],
+    JobBucket::BOOKED => [...$core, 'dates', 'routeloc', 'assign', ...$money],
     JobBucket::FUTURE => [...$core, 'dates', 'routeloc', 'assign', ...$money],
     JobBucket::READY => [...$core, 'dates', 'routeloc', 'assign', ...$money],
     JobBucket::LATER => [...$core, 'dates', 'routeloc', 'assign', ...$money],
@@ -87,6 +87,7 @@ $render = function (string $key, array $job) use ($bucket, $threshold, $stack, &
                                 <?php switch ($key):
                                     case 'job': ?>
                                         <a class="jt-jobno" href="<?= e(url('/jobs/' . $job['id'])) ?>"><?= e($job['job_number']) ?></a>
+                                        <?php if (in_array($bucket, [JobBucket::ALL, JobBucket::BOOKED], true)): ?><div class="mt-1"><?= status_badge((string) $job['status']) ?></div><?php endif; ?>
                                         <?php break;
                                     case 'customer': ?>
                                         <div class="jt-stack">
@@ -314,7 +315,7 @@ $sortHeader = static function (string $label, ?string $sortKey) use ($criteria, 
                         <?php endforeach; ?>
                         <td data-label="" class="jt-actions text-md-end">
                             <?php if (isset($shortcuts[(int) $job['id']])): $shortcut = $shortcuts[(int) $job['id']]; ?>
-                                <?= \App\Core\View::partial('jobs/_quick_move', ['job' => $job, 't' => $shortcut, 'size' => 'btn-sm']) ?>
+                                <?= \App\Core\View::partial('jobs/_quick_move', ['job' => $job, 't' => $shortcut, 'size' => 'btn-sm', 'short' => true]) ?>
                             <?php endif; ?>
                             <a class="btn btn-sm btn-outline-secondary" href="<?= e(url('/jobs/' . $job['id'])) ?>" aria-label="View job <?= e($job['job_number']) ?>"><?= icon('eye') ?> <span class="d-md-none">View</span></a>
                             <?php if (can('jobs.edit')): ?>

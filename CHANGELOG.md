@@ -2,6 +2,13 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.7.1 - the Jobs list fits a 1650 px screen; a job is counted once; Overdue matches its list
+
+* **The Jobs lists fit on a Windows screen at 115 to 125% scaling (about 1650 px wide) with the menu shown.** The job's status badge now sits under the Job #, the quick button reads "In Transit" / "Delivered" (the full wording is in its tooltip and the confirmation), and the actions column is narrower. Before, Balance due and Status were pushed off the right edge.
+* **A job is counted once however many daily entries it has.** Trips list, Trip Details ("Jobs on this trip (1, 3 entries)"), the foreman report (new **Entries** column, also in its CSV) and the dashboard trip card show jobs and entries separately.
+* **The dashboard's Overdue card now matches the list it links to.** "View all overdue" opens Booked Jobs filtered to booked jobs whose 1st available date has passed (new "Overdue only" filter, same count as the card). "Coming up next" lists the booked jobs whose 1st available date is today or later and links to the booked list sorted by that date.
+* No migration. **Upgrade:** `git pull origin main`, then Ctrl+F5.
+
 ## 1.7.0 - Future Jobs, Booked Jobs, Range and Pads, storage fee payments
 
 * **Two new sections on top and on the dashboard.** **Booked Jobs**: every job that is not delivered yet (booked, in transit, on hold). **Future Jobs**: booked jobs with a **pickup date after today** (a job with no pickup date is not a future job). A future job is no longer listed under Ready for Delivery (Ready is now picked up from 30 days ago up to today), so a job is in one date section only. Both have a tab with a count, a dashboard card, a CSV export and the same columns, sorting and filters as the other lists.

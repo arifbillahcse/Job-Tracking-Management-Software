@@ -66,7 +66,7 @@ $dl = static fn (string $label, string $html): string => '<dt class="col-sm-4 te
 
 <div class="card jt-card">
     <div class="card-header bg-transparent fw-semibold d-flex flex-wrap align-items-center gap-2">
-        <span>Jobs on this trip (<?= e(count($trip['rows'])) ?>)</span>
+        <span>Jobs on this trip (<?= e(count(array_unique(array_column($trip['rows'], 'job_id')))) ?><?= count($trip['rows']) !== count(array_unique(array_column($trip['rows'], 'job_id'))) ? ', ' . e(count($trip['rows'])) . ' entries' : '' ?>)</span>
         <?php if (can('trips.manage')): ?>
             <a class="ms-auto btn btn-sm btn-primary fw-normal" href="#add-entry" data-open-details="#add-entry"><?= icon('plus') ?> Add daily entry</a>
         <?php endif; ?>

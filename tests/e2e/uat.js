@@ -137,7 +137,7 @@ async function createJob(page, number, availableOffset, extra = {}) {
     await step('the button next to a job in the Ready list does the same', async () => {
         await page.goto(BASE + '/jobs/ready?q=' + RUN + '-C30');
         accept();
-        await Promise.all([page.waitForNavigation(), page.click('tr:has-text("' + RUN + '-C30") button:has-text("Move to In Transit")')]);
+        await Promise.all([page.waitForNavigation(), page.click('tr:has-text("' + RUN + '-C30") button[title="Move to In Transit"]')]);
         await page.goto(BASE + '/jobs/in-transit?q=' + RUN + '-C30');
         must((await page.textContent('main')).includes(RUN + '-C30'), 'not in transit');
         await page.goto(BASE + '/jobs/ready?q=' + RUN + '-C30');
@@ -146,7 +146,7 @@ async function createJob(page, number, availableOffset, extra = {}) {
     await step('Mark as Delivered on the In Transit list saves today as the delivery date', async () => {
         await page.goto(BASE + '/jobs/in-transit?q=' + RUN + '-A');
         accept();
-        await Promise.all([page.waitForNavigation(), page.click('tr:has-text("' + RUN + '-A") button:has-text("Mark as Delivered")')]);
+        await Promise.all([page.waitForNavigation(), page.click('tr:has-text("' + RUN + '-A") button[title="Mark as Delivered"]')]);
         await page.goto(BASE + '/jobs/delivered?q=' + RUN + '-A');
         must((await page.textContent('main')).includes(RUN + '-A'), 'not under Delivered');
         await Promise.all([page.waitForNavigation(), page.click('a[href^="/jobs/"]:has-text("' + RUN + '-A")')]);
@@ -421,11 +421,11 @@ async function createJob(page, number, availableOffset, extra = {}) {
         let t = await addEntry('2026-10-28', 'pickup', { diesel: '100', hotels: '50' });
         must(t.includes('was added to the trip'), 'Oct 28 entry not added: ' + t.slice(0, 200));
         t = await addEntry('2026-10-29', 'other', { diesel: '70', helper: '30' });
-        must(t.includes('Oct 28, 2026') && t.includes('Oct 29, 2026') && t.includes('Jobs on this trip (2)') && t.includes('$250.00'), 'both days and the $250.00 total are not shown: ' + t.slice(0, 300));
+        must(t.includes('Oct 28, 2026') && t.includes('Oct 29, 2026') && t.includes('Jobs on this trip (1, 2 entries)') && t.includes('$250.00'), 'both days and the $250.00 total are not shown: ' + t.slice(0, 300));
         t = await addEntry('2026-10-29', 'other', { diesel: '1' });
-        must(t.includes('already has an entry on 2026-10-29') && t.includes('Jobs on this trip (2)'), 'a same-day repeat was not refused: ' + t.slice(0, 200));
+        must(t.includes('already has an entry on 2026-10-29') && t.includes('Jobs on this trip (1, 2 entries)'), 'a same-day repeat was not refused: ' + t.slice(0, 200));
         t = await addEntry('2026-10-30', 'delivery', { diesel: '5' });
-        must(t.includes('Jobs on this trip (3)') && t.includes('$255.00'), 'Oct 30 not added to the total: ' + t.slice(0, 300));
+        must(t.includes('Jobs on this trip (1, 3 entries)') && t.includes('$255.00'), 'Oct 30 not added to the total: ' + t.slice(0, 300));
         await page.goto(BASE + '/jobs/create');
         await page.fill('#job_number', JOB);
         await page.fill('#customer_first_name', 'Again');
@@ -452,6 +452,19 @@ async function createJob(page, number, availableOffset, extra = {}) {
         must(first.trim() === RUN + '-BRK3', 'sorted A-Z by broker, Prime should come first, got ' + first);
         await page.goto(BASE + '/jobs?q=' + RUN + '-BRK&broker=' + encodeURIComponent(RUN + ' Top Nation'));
         must((await page.locator('a.jt-jobno').count()) === 2, 'the Broker filter did not show exactly the two Top Nation jobs');
+    });
+    await step('on a 1650 px wide screen (a 1920 px screen at 115% scaling) every Jobs list column fits with the menu shown, no sideways scroll', async () => {
+        await page.setViewportSize({ width: 1650, height: 900 });
+        for (const path of ['/jobs', '/jobs/booked', '/jobs/future', '/jobs/ready', '/jobs/more-than-30', '/jobs/delivered']) {
+            await page.goto(BASE + path);
+            const over = await page.locator('.table-responsive').first().evaluate((el) => el.scrollWidth - el.clientWidth);
+            if (over > 0) {
+                const widths = await page.locator('thead th').evaluateAll((ths) => ths.map((t) => t.textContent.trim().replace(/\\s+/g, ' ').slice(0, 24) + ':' + Math.round(t.getBoundingClientRect().width)));
+                const widest = await page.locator('tbody tr').evaluateAll((rows) => rows.map((r) => [...r.children].map((c, i) => [i, Math.round(c.getBoundingClientRect().width), c.textContent.trim().replace(/\\s+/g, ' ').slice(0, 40)])).flat().sort((a, b) => b[1] - a[1]).slice(0, 4));
+                must(false, path + ' scrolls sideways by ' + over + 'px; columns ' + widths.join(' | ') + '; widest cells ' + JSON.stringify(widest));
+            }
+        }
+        await page.setViewportSize({ width: 1280, height: 800 });
     });
     await step('the left menu can be hidden for a wider Jobs table, and stays hidden after a reload', async () => {
         await page.setViewportSize({ width: 1366, height: 800 });

@@ -67,7 +67,7 @@
                         <td data-label="Foreman"><?= e($t['foreman_name']) ?></td>
                         <td data-label="Begins"><?= e(fmt_date($t['begins_on']) ?: '—') ?></td>
                         <td data-label="Ends"><?= e(fmt_date($t['ends_on']) ?: '—') ?></td>
-                        <td data-label="Jobs" class="text-md-end"><?= e($t['job_count']) ?></td>
+                        <td data-label="Jobs" class="text-md-end"><?= e($t['job_count']) ?><?php if ((int) $t['entry_count'] !== (int) $t['job_count']): ?><div class="jt-subtle"><?= e($t['entry_count']) ?> entries</div><?php endif; ?></td>
                         <?php if ($showMoney): ?><td data-label="Total expenses" class="text-md-end jt-money"><?= e(fmt_money($t['total_expenses'])) ?></td><?php endif; ?>
                     </tr>
                 <?php endforeach; ?>

@@ -26,7 +26,8 @@ final class TripRepository
     public const SHEET_TEXT = [];
 
     private const SELECT = 'SELECT t.*, f.name AS foreman_name,
-            (SELECT COUNT(*) FROM trip_jobs tj WHERE tj.trip_id = t.id) AS job_count,
+            (SELECT COUNT(DISTINCT tj.job_id) FROM trip_jobs tj WHERE tj.trip_id = t.id) AS job_count,
+            (SELECT COUNT(*) FROM trip_jobs tj WHERE tj.trip_id = t.id) AS entry_count,
             (SELECT COALESCE(SUM(' . self::EXPENSE_SUM . '), 0) FROM trip_jobs tj WHERE tj.trip_id = t.id) AS total_expenses
         FROM trips t JOIN foremen f ON f.id = t.foreman_id';
 
@@ -116,16 +117,16 @@ final class TripRepository
     /**
      * Trips that began in the last $days days: how many, job lines on them and the sum of the expense columns.
      *
-     * @return array{trips:int,jobs:int,expenses:string}
+     * @return array{trips:int,jobs:int,entries:int,expenses:string}
      */
     public function recentFigures(string $since): array
     {
         $row = Database::fetchOne(
-            'SELECT COUNT(DISTINCT t.id) AS trips, COUNT(tj.id) AS jobs, COALESCE(SUM(' . self::EXPENSE_SUM . '), 0) AS expenses
+            'SELECT COUNT(DISTINCT t.id) AS trips, COUNT(DISTINCT tj.job_id) AS jobs, COUNT(tj.id) AS entries, COALESCE(SUM(' . self::EXPENSE_SUM . '), 0) AS expenses
              FROM trips t LEFT JOIN trip_jobs tj ON tj.trip_id = t.id WHERE t.deleted_at IS NULL AND t.begins_on >= ?',
             [$since]
         ) ?? [];
-        return ['trips' => (int) ($row['trips'] ?? 0), 'jobs' => (int) ($row['jobs'] ?? 0), 'expenses' => number_format((float) ($row['expenses'] ?? 0), 2, '.', '')];
+        return ['trips' => (int) ($row['trips'] ?? 0), 'jobs' => (int) ($row['jobs'] ?? 0), 'entries' => (int) ($row['entries'] ?? 0), 'expenses' => number_format((float) ($row['expenses'] ?? 0), 2, '.', '')];
     }
 
     public function count(TripCriteria $c): int
@@ -177,6 +178,26 @@ final class TripRepository
      *
      * @return array<int,array<string,mixed>>
      */
+    /** Distinct jobs over the same trips as foremanReport() (a job on trips of two foremen counts once in the total). */
+    public function reportJobTotal(TripCriteria $c): int
+    {
+        $where = 't.deleted_at IS NULL';
+        $params = [];
+        if ($c->foremanId > 0) {
+            $where .= ' AND t.foreman_id = ?';
+            $params[] = $c->foremanId;
+        }
+        if ($c->from !== '') {
+            $where .= ' AND t.begins_on >= ?';
+            $params[] = $c->from;
+        }
+        if ($c->to !== '') {
+            $where .= ' AND t.begins_on <= ?';
+            $params[] = $c->to;
+        }
+        return (int) Database::fetchValue("SELECT COUNT(DISTINCT tj.job_id) FROM trips t JOIN trip_jobs tj ON tj.trip_id = t.id WHERE {$where}", $params);
+    }
+
     public function foremanReport(TripCriteria $c): array
     {
         $where = 't.deleted_at IS NULL';
@@ -196,7 +217,7 @@ final class TripRepository
         $sums = implode(', ', array_map(static fn (string $m): string => "COALESCE(SUM(tj.{$m}), 0) AS {$m}", self::MONEY));
 
         return Database::fetchAll(
-            "SELECT f.id, f.name, f.active, COUNT(DISTINCT t.id) AS trips, COUNT(tj.id) AS jobs, {$sums}
+            "SELECT f.id, f.name, f.active, COUNT(DISTINCT t.id) AS trips, COUNT(DISTINCT tj.job_id) AS jobs, COUNT(tj.id) AS entries, {$sums}
              FROM trips t JOIN foremen f ON f.id = t.foreman_id LEFT JOIN trip_jobs tj ON tj.trip_id = t.id
              WHERE {$where} GROUP BY f.id, f.name, f.active ORDER BY f.name ASC",
             $params

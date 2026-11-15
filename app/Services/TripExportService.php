@@ -68,7 +68,7 @@ final class TripExportService
     /** @param array{rows:array<int,array<string,mixed>>,totals:array<string,string|int>,money:bool} $report */
     public function reportCsv(array $report, TripCriteria $criteria): Response
     {
-        $head = ['Foreman', 'Trips', 'Jobs'];
+        $head = ['Foreman', 'Trips', 'Jobs', 'Entries'];
         if ($report['money']) {
             $head = [...$head, ...array_values(self::MONEY_LABELS), 'Total Expenses'];
         }
@@ -89,7 +89,7 @@ final class TripExportService
      */
     private function reportLine(string $name, array $r, bool $money): array
     {
-        $line = [$name, (string) $r['trips'], (string) $r['jobs']];
+        $line = [$name, (string) $r['trips'], (string) $r['jobs'], (string) $r['entries']];
         if ($money) {
             foreach ([...array_keys(self::MONEY_LABELS), 'total'] as $k) {
                 $line[] = (string) $r[$k];

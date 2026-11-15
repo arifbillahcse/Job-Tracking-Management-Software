@@ -181,6 +181,10 @@ final class JobRepository
             $sql .= ' AND j.foreman_id = ?';
             $params[] = $c->foremanId;
         }
+        if ($c->overdue) {
+            $sql .= ' AND j.status = ? AND j.first_available_date < ?';
+            array_push($params, 'booked', Clock::today());
+        }
         if ($c->broker !== '') {
             $sql .= ' AND j.broker = ?';
             $params[] = $c->broker;
@@ -244,13 +248,8 @@ final class JobRepository
      */
     public function readySlice(bool $overdue, int $limit): array
     {
-        if ($overdue) {
-            [$where, $params] = ["j.deleted_at IS NULL AND j.status = ? AND j.first_available_date < ?", ['booked', Clock::today()]];
-        } else {
-            [$where, $params] = JobBucket::condition(JobBucket::READY, 'j');
-            $where .= ' AND j.first_available_date >= ?';
-            $params[] = Clock::today();
-        }
+        // Booked jobs split at today by their 1st available date: overdue (it has passed) or upcoming (today or later).
+        [$where, $params] = ["j.deleted_at IS NULL AND j.status = ? AND j.first_available_date " . ($overdue ? '<' : '>=') . ' ?', ['booked', Clock::today()]];
 
         return Database::fetchAll(
             "SELECT j.* FROM jobs j WHERE {$where} ORDER BY j.first_available_date ASC, j.id ASC LIMIT ?",

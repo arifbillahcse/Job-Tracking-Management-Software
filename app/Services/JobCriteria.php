@@ -79,6 +79,8 @@ final class JobCriteria
         public readonly int $foremanId,
         public readonly string $trip,
         public readonly string $broker,
+        /** Only booked jobs whose 1st available date has passed (what the dashboard's Overdue card counts). */
+        public readonly bool $overdue,
         public readonly string $sort,
         public readonly string $dir,
         public readonly int $page,
@@ -90,7 +92,7 @@ final class JobCriteria
     public static function forBucket(string $bucket): self
     {
         [$sort, $dir] = self::DEFAULT_SORT[$bucket] ?? ['created', 'desc'];
-        return new self($bucket, '', '', '', '', '', '', '', '', 0, '', '', $sort, $dir, 1, self::defaultPerPage());
+        return new self($bucket, '', '', '', '', '', '', '', '', 0, '', '', false, $sort, $dir, 1, self::defaultPerPage());
     }
 
     public static function fromRequest(Request $request, string $bucket, bool $canSeeFinancials): self
@@ -153,6 +155,7 @@ final class JobCriteria
             $foremanId,
             $text('trip', 40),
             $text('broker', 100),
+            $request->queryStr('overdue') === '1',
             $sort,
             $dir,
             max(1, $request->queryInt('page', 1)),
@@ -185,7 +188,7 @@ final class JobCriteria
     {
         return count(array_filter([
             $this->q, $this->status, $this->dateFrom, $this->dateTo,
-            $this->fromLocation, $this->toLocation, $this->carrier, $this->balance, $this->trip, $this->broker, $this->foremanId !== 0 ? 'x' : '',
+            $this->fromLocation, $this->toLocation, $this->carrier, $this->balance, $this->trip, $this->broker, $this->overdue ? 'x' : '', $this->foremanId !== 0 ? 'x' : '',
         ], static fn (string $v): bool => $v !== ''));
     }
 
@@ -210,7 +213,7 @@ final class JobCriteria
         $params = [
             'q' => $this->q, 'status' => $this->status, 'from_date' => $this->dateFrom, 'to_date' => $this->dateTo,
             'from' => $this->fromLocation, 'to' => $this->toLocation, 'carrier' => $this->carrier, 'balance' => $this->balance,
-            'foreman' => $this->foremanId === -1 ? 'none' : ($this->foremanId > 0 ? (string) $this->foremanId : ''), 'trip' => $this->trip, 'broker' => $this->broker,
+            'foreman' => $this->foremanId === -1 ? 'none' : ($this->foremanId > 0 ? (string) $this->foremanId : ''), 'trip' => $this->trip, 'broker' => $this->broker, 'overdue' => $this->overdue ? '1' : '',
         ];
         [$defaultSort, $defaultDir] = self::DEFAULT_SORT[$this->bucket] ?? ['created', 'desc'];
         if ($this->sort !== $defaultSort || $this->dir !== $defaultDir) {
@@ -240,7 +243,7 @@ final class JobCriteria
     {
         return new self(
             $this->bucket, $this->q, $this->status, $this->dateFrom, $this->dateTo, $this->fromLocation, $this->toLocation,
-            $this->carrier, $this->balance, $this->foremanId, $this->trip, $this->broker, $this->sort, $this->dir, $page, $this->perPage
+            $this->carrier, $this->balance, $this->foremanId, $this->trip, $this->broker, $this->overdue, $this->sort, $this->dir, $page, $this->perPage
         );
     }
 }

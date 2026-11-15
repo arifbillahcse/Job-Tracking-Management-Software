@@ -67,6 +67,12 @@ $advanced = $criteria->activeFilterCount() - ($criteria->q !== '' ? 1 : 0);
                         <input type="text" class="form-control" id="f-carrier" name="carrier" value="<?= e($criteria->carrier) ?>" maxlength="100">
                     </div>
                 <?php endif; ?>
+                <div class="col-12 col-sm-6 col-lg-3 d-flex align-items-end">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" id="f-overdue" name="overdue" value="1"<?= $criteria->overdue ? ' checked' : '' ?>>
+                        <label class="form-check-label" for="f-overdue">Overdue only <span class="jt-subtle">(booked, 1st available date passed)</span></label>
+                    </div>
+                </div>
                 <div class="col-12 col-sm-6 col-lg-3">
                     <label class="form-label" for="f-broker">Broker</label>
                     <select class="form-select" id="f-broker" name="broker">

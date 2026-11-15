@@ -62,10 +62,10 @@ $threshold = JobBucket::threshold();
                 <div class="card-header bg-transparent fw-semibold d-flex align-items-center gap-2">
                     <?= icon('alert-circle', 'text-danger') ?> Overdue
                     <?php if ($data['overdue_count'] > 0): ?><span class="badge text-bg-danger"><?= e($data['overdue_count']) ?></span><?php endif; ?>
-                    <a class="ms-auto small fw-normal" href="<?= e(list_url('/jobs/ready', ['sort' => 'available', 'dir' => 'asc'])) ?>">View all ready</a>
+                    <a class="ms-auto small fw-normal" href="<?= e(list_url('/jobs/booked', ['overdue' => '1', 'sort' => 'available', 'dir' => 'asc'])) ?>">View all overdue</a>
                 </div>
                 <?php if ($data['overdue'] === []): ?>
-                    <div class="card-body text-body-secondary">Nothing is overdue. Every booked job is still within its available date.</div>
+                    <div class="card-body text-body-secondary">Nothing is overdue. No booked job has passed its 1st available date.</div>
                 <?php else: ?>
                     <ul class="list-group list-group-flush jt-joblist">
                         <?php foreach ($data['overdue'] as $job): ?>
@@ -78,10 +78,10 @@ $threshold = JobBucket::threshold();
             <div class="card jt-card">
                 <div class="card-header bg-transparent fw-semibold d-flex align-items-center gap-2">
                     <?= icon('clock', 'text-warning') ?> Coming up next
-                    <a class="ms-auto small fw-normal" href="<?= e(url('/jobs/ready')) ?>">View ready for delivery</a>
+                    <a class="ms-auto small fw-normal" href="<?= e(list_url('/jobs/booked', ['sort' => 'available', 'dir' => 'asc'])) ?>">View booked jobs</a>
                 </div>
                 <?php if ($data['upcoming'] === []): ?>
-                    <div class="card-body text-body-secondary">No booked jobs are due in the next <?= e($threshold) ?> days.</div>
+                    <div class="card-body text-body-secondary">No booked job has a 1st available date from today on.</div>
                 <?php else: ?>
                     <ul class="list-group list-group-flush jt-joblist">
                         <?php foreach ($data['upcoming'] as $job): ?>
@@ -120,7 +120,7 @@ $threshold = JobBucket::threshold();
                     <div class="card-body">
                         <div class="row g-3">
                             <div class="col-4"><div class="text-body-secondary small">Trips</div><div class="h4 mb-0"><?= e($trips['trips']) ?></div></div>
-                            <div class="col-4"><div class="text-body-secondary small">Jobs</div><div class="h4 mb-0"><?= e($trips['jobs']) ?></div></div>
+                            <div class="col-4"><div class="text-body-secondary small">Jobs</div><div class="h4 mb-0"><?= e($trips['jobs']) ?></div><?php if ((int) $trips['entries'] !== (int) $trips['jobs']): ?><div class="jt-subtle"><?= e($trips['entries']) ?> entries</div><?php endif; ?></div>
                             <?php if ($trips['expenses'] !== null): ?>
                                 <div class="col-4"><div class="text-body-secondary small">Expenses</div><div class="h4 mb-0 jt-money"><?= e(fmt_money($trips['expenses'])) ?></div></div>
                             <?php endif; ?>

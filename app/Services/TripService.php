@@ -104,11 +104,11 @@ final class TripService
         $rows = [];
         $cents = array_fill_keys([...TripRepository::MONEY, 'total'], 0);
         $trips = 0;
-        $jobs = 0;
+        $entries = 0;
         foreach ($this->trips->foremanReport($criteria) as $r) {
-            $line = ['id' => (int) $r['id'], 'name' => (string) $r['name'], 'active' => (int) $r['active'], 'trips' => (int) $r['trips'], 'jobs' => (int) $r['jobs']];
+            $line = ['id' => (int) $r['id'], 'name' => (string) $r['name'], 'active' => (int) $r['active'], 'trips' => (int) $r['trips'], 'jobs' => (int) $r['jobs'], 'entries' => (int) $r['entries']];
             $trips += $line['trips'];
-            $jobs += $line['jobs'];
+            $entries += $line['entries'];
             if ($money) {
                 $lineCents = 0;
                 foreach (TripRepository::MONEY as $m) {
@@ -122,7 +122,8 @@ final class TripService
             }
             $rows[] = $line;
         }
-        $totals = ['trips' => $trips, 'jobs' => $jobs];
+        // Jobs are counted once however many days (entries) they have on a trip; the total counts a job once across foremen too.
+        $totals = ['trips' => $trips, 'jobs' => $this->trips->reportJobTotal($criteria), 'entries' => $entries];
         if ($money) {
             foreach ($cents as $k => $c) {
                 $totals[$k] = number_format($c / 100, 2, '.', '');
@@ -384,7 +385,7 @@ final class TripService
     public function dashboardFigures(): array
     {
         $f = $this->trips->recentFigures(\App\Core\Clock::addDays(\App\Core\Clock::today(), -30));
-        return ['trips' => $f['trips'], 'jobs' => $f['jobs'], 'expenses' => $this->canSeeFinancials() ? $f['expenses'] : null];
+        return ['trips' => $f['trips'], 'jobs' => $f['jobs'], 'entries' => $f['entries'], 'expenses' => $this->canSeeFinancials() ? $f['expenses'] : null];
     }
 
     /** @return array<int,array<string,mixed>> the stored rows, expenses included (for prepare(): hidden expenses are kept) */
