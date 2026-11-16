@@ -752,5 +752,6 @@ require __DIR__ . '/phase18.php';
 require __DIR__ . '/phase19.php';
 require __DIR__ . '/phase20.php';
 require __DIR__ . '/phase21.php';
+require __DIR__ . '/phase22.php';
 
 finish();

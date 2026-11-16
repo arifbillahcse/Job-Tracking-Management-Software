@@ -18,8 +18,12 @@ final class JobService
     private const EDITABLE = [
         'job_number', 'customer_first_name', 'customer_last_name', 'pickup_date', 'first_available_date',
         'from_location', 'to_location', 'job_location', 'cf', 'estimated_cf', 'notes', 'customer_phone',
-        'job_lot', 'color', 'job_range', 'pads', 'broker',
+        'job_lot', 'color', 'job_range', 'pads', 'broker', 'pickup_time', 'miles',
+        'confirmed', 'e_signed', 'job_docs', 'bill_of_lading',
     ];
+
+    /** Yes / no ticks: a ticked box posts 1, an unticked box posts nothing, and both are stored as 1 / 0. */
+    public const CHECKS = ['confirmed' => 'Confirmed', 'e_signed' => 'E-Signed', 'job_docs' => 'Job Docs', 'bill_of_lading' => 'Bill of Lading'];
 
     /** Columns only users with jobs.edit_financials may write. */
     private const FINANCIAL = ['balance', 'storage_fee_override', 'estimated_total', 'deposit', 'grand_total', 'bh_total', 'paid'];
@@ -27,7 +31,7 @@ final class JobService
     /** Writable only while the job is In Transit (to correct a typo); otherwise they change through the workflow. */
     private const CARRIER = ['carrier_name', 'driver_name', 'driver_phone'];
 
-    private const DECIMAL = ['cf', 'estimated_cf', 'balance', 'storage_fee', 'storage_fee_override', 'estimated_total', 'deposit', 'grand_total', 'bh_total', 'paid'];
+    private const DECIMAL = ['cf', 'estimated_cf', 'miles', 'balance', 'storage_fee', 'storage_fee_override', 'estimated_total', 'deposit', 'grand_total', 'bh_total', 'paid'];
 
     public function __construct(private JobRepository $jobs = new JobRepository())
     {
@@ -311,6 +315,9 @@ final class JobService
 
     private function normalize(string $column, mixed $value): ?string
     {
+        if (array_key_exists($column, self::CHECKS)) {
+            return in_array($value, [1, '1', true, 'on'], true) ? '1' : '0';
+        }
         if (in_array($column, self::DECIMAL, true)) {
             return $this->decimal($value);
         }

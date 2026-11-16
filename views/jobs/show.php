@@ -65,6 +65,9 @@ $dl = static function (string $label, string $valueHtml): string {
                 <dl class="row mb-0 gy-2">
                     <?= $dl('Pickup date', e(fmt_date($job['pickup_date']) ?: '—')) ?>
                     <?= $dl('1st available', e(fmt_date($job['first_available_date'])) . ' ' . availability_chip($job)) ?>
+                    <?= $dl('Pickup time', e($job['pickup_time'] ?? '') ?: '—') ?>
+                    <?= $dl('Miles', e(fmt_number($job['miles'] ?? null) ?: '—')) ?>
+                    <?= $dl('Checks', implode(' &middot; ', array_map(static fn (string $k, string $label): string => '<span class="' . (!empty($job[$k]) ? 'text-success fw-semibold' : 'text-body-secondary') . '">' . (!empty($job[$k]) ? '&#10003; ' : '&#9744; ') . e($label) . '</span>', array_keys(\App\Services\JobService::CHECKS), \App\Services\JobService::CHECKS))) ?>
                     <?php if (!empty($job['loaded_date'])): ?>
                         <?= $dl('Loaded date', e(fmt_date((string) $job['loaded_date']))) ?>
                     <?php endif; ?>

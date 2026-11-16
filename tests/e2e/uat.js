@@ -515,6 +515,19 @@ async function createJob(page, number, availableOffset, extra = {}) {
         await page.goto(BASE + '/jobs?q=' + RUN + '-STO');
         must(/\$350\.00/.test(await page.textContent('main')) && /paid \$250\.00/.test(await page.textContent('main')), 'the list does not show $350.00 due and $250.00 paid');
     });
+    await step('pickup time, miles and the four checks: typed and ticked on the job form, shown on the job page', async () => {
+        await page.goto(BASE + '/jobs/create');
+        await page.fill('#job_number', RUN + '-PD'); await page.fill('#customer_first_name', 'Pia'); await page.fill('#customer_last_name', 'Dunn');
+        await page.fill('#from_location', 'X'); await page.fill('#to_location', 'Y'); await page.fill('#first_available_date', day(10));
+        await page.fill('#pickup_time', '08-10AM'); await page.fill('#miles', '593');
+        await page.check('#confirmed'); await page.check('#bill_of_lading');
+        await Promise.all([page.waitForNavigation(), page.click('main form button[type=submit]')]);
+        const text = (await page.textContent('main')).replace(/\s+/g, ' ');
+        must(/Pickup time\s*08-10AM/.test(text) && /Miles\s*593/.test(text), 'time and miles are not on the job page: ' + text.slice(0, 220));
+        must(text.includes('\u2713 Confirmed') && text.includes('\u2713 Bill of Lading') && text.includes('\u2610 E-Signed') && text.includes('\u2610 Job Docs'), 'the checks are not shown correctly: ' + text.slice(0, 260));
+        await page.click('a:has-text("Edit")');
+        must(await page.isChecked('#confirmed') && await page.isChecked('#bill_of_lading') && !(await page.isChecked('#e_signed')), 'the edit form does not show the saved checks');
+    });
     await step('a trip can be deleted', async () => {
         await page.goto(BASE + '/trips?q=' + RUN + '-TR');
         await page.click('a.jt-jobno[href^="/trips/"]');

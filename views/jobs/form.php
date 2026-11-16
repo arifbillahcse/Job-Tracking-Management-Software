@@ -86,6 +86,19 @@ $input = static function (string $name, string $label, array $opts = []) use ($v
                         <div class="col-12"><?= $input('job_location', 'Job location', ['maxlength' => 190, 'help' => 'Where the job is currently held, e.g. a warehouse or storage site.']) ?></div>
                         <div class="col-12 col-md-6"><?= $input('pickup_date', 'Pickup date', ['type' => 'date']) ?></div>
                         <div class="col-12 col-md-6"><?= $input('first_available_date', '1st available date', ['type' => 'date', 'required' => true, 'help' => 'The first day the customer can accept delivery.']) ?></div>
+                        <div class="col-12 col-md-6"><?= $input('pickup_time', 'Pickup time', ['maxlength' => 40, 'placeholder' => '08-10AM']) ?></div>
+                        <div class="col-12 col-md-6"><?= $input('miles', 'Miles', ['type' => 'number', 'step' => '0.01', 'min' => '0', 'inputmode' => 'decimal', 'help' => 'Typed by hand.']) ?></div>
+                        <div class="col-12">
+                            <div class="form-label mb-1">Checks</div>
+                            <div class="d-flex flex-wrap gap-4">
+                                <?php foreach (\App\Services\JobService::CHECKS as $name => $label): ?>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="<?= e($name) ?>" name="<?= e($name) ?>" value="1"<?= $val($name) === '1' ? ' checked' : '' ?>>
+                                        <label class="form-check-label" for="<?= e($name) ?>"><?= e($label) ?></label>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

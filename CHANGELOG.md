@@ -2,6 +2,13 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.8.0 - pickup time, miles and four checks on a job (calendar, phase 1)
+
+* **New boxes on New Job / Edit Job, in the Route & dates section:** **Pickup time** (free text, like 08-10AM), **Miles** (a number you type; nothing is calculated) and four ticks: **Confirmed, E-Signed, Job Docs, Bill of Lading**. They show on the job page and in the audit log. Pickup Time and Miles are also optional columns in the CSV import and export. The Jobs list has no new columns.
+* Preparation for the pickup calendar (next version): the calendar will show these on each job.
+* Migration **019** adds six empty columns to `jobs` (existing jobs are untouched, nothing ticked).
+* **Upgrade:** `git pull origin main`, `php cli/migrate.php` (019), `php cli/doctor.php`, `php cli/verify.php`, then Ctrl+F5.
+
 ## 1.7.1 - the Jobs list fits a 1650 px screen; a job is counted once; Overdue matches its list
 
 * **The Jobs lists fit on a Windows screen at 115 to 125% scaling (about 1650 px wide) with the menu shown.** The job's status badge now sits under the Job #, the quick button reads "In Transit" / "Delivered" (the full wording is in its tooltip and the confirmation), and the actions column is narrower. Before, Balance due and Status were pushed off the right edge.
