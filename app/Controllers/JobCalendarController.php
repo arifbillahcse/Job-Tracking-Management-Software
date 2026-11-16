@@ -17,7 +17,7 @@ use DateTimeImmutable;
  * The pickup calendar (client request, v1.8.1): Future Jobs on the day they are picked up, one month at a time.
  *
  * The jobs are exactly the Future Jobs section (JobBucket::FUTURE: booked, pickup date after today), so the month's count
- * agrees with the Future Jobs list. Weeks start on Sunday. The month comes from ?month=YYYY-MM (anything else means this month).
+ * agrees with the Future Jobs list. Second pickups (client request, phase 3) come from trip entries and are counted apart. Weeks start on Sunday. The month comes from ?month=YYYY-MM (anything else means this month).
  */
 final class JobCalendarController extends Controller
 {
@@ -40,6 +40,11 @@ final class JobCalendarController extends Controller
         $byDay = [];
         foreach ($jobs as $job) {
             $byDay[substr((string) $job['pickup_date'], 0, 10)][] = $job;
+        }
+        // Second pickups (trip entries with the activity Pickup on a later day) go after the first pickups of their day.
+        $second = (new JobRepository())->secondPickupsInRange($first->format('Y-m-d'), $last->format('Y-m-d'), $foremanId);
+        foreach ($second as $job) {
+            $byDay[(string) $job['second_date']][] = $job + ['second' => true];
         }
 
         // Sunday-first weeks, padded with empty cells before the 1st and after the last day.
@@ -69,6 +74,7 @@ final class JobCalendarController extends Controller
             'tabCounts' => $tabCounts,
             'weeks' => $weeks,
             'count' => count($jobs),
+            'secondCount' => count($second),
             'monthLabel' => $first->format('F Y'),
             'month' => $first->format('Y-m'),
             'prevMonth' => $first->modify('-1 month')->format('Y-m'),

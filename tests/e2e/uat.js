@@ -547,6 +547,25 @@ async function createJob(page, number, availableOffset, extra = {}) {
         }
         await page.setViewportSize({ width: 1280, height: 800 });
     });
+    await step('a trip entry with the activity Pickup on a later day shows on the calendar as a second pickup', async () => {
+        await page.goto(BASE + '/trips/create');
+        await page.fill('#trip_number', RUN + '-2ND');
+        await page.selectOption('#foreman_id', { label: RUN + ' Foreman' });
+        await Promise.all([page.waitForNavigation(), page.click('main form button[type=submit]')]);
+        const tripUrl = page.url();
+        await page.evaluate(() => { document.querySelector('#add-entry').open = true; });
+        await page.fill('#add-job-number', RUN + '-FUT');
+        await page.fill('#add-job-date', day(25));
+        await page.selectOption('#add-job-activity', 'pickup');
+        await Promise.all([page.waitForNavigation(), page.click('button:has-text("Add daily entry")')]);
+        await page.goto(BASE + '/jobs/calendar?month=' + day(25).slice(0, 7));
+        const second = page.locator('.jt-cal-job-second', { has: page.locator('a.jt-jobno', { hasText: RUN + '-FUT' }) });
+        must((await second.count()) === 1, 'the second pickup is not on the calendar on ' + day(25));
+        must(/2nd pickup/.test(await second.textContent()), 'the card is not marked 2nd pickup');
+        await page.goto(tripUrl);
+        page.once('dialog', (d) => d.accept());
+        await Promise.all([page.waitForNavigation(), page.click('button[data-confirm]')]);
+    });
     await step('a trip can be deleted', async () => {
         await page.goto(BASE + '/trips?q=' + RUN + '-TR');
         await page.click('a.jt-jobno[href^="/trips/"]');

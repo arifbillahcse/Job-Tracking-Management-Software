@@ -96,6 +96,42 @@ final class JobRepository
     }
 
     /**
+     * Second pickups for the pickup calendar: trip entries whose activity is Pickup and whose date is after today, in a date range,
+     * for booked jobs. An entry on the job's own pickup date is not a second pickup. A job with two such entries on one day shows once.
+     * $foremanId works as in futureInRange().
+     *
+     * @return array<int,array<string,mixed>> job rows plus second_date (Y-m-d) and trip_number
+     */
+    public function secondPickupsInRange(string $from, string $to, int $foremanId = 0): array
+    {
+        $where = "tj.activity = 'pickup' AND tj.job_date > ? AND tj.job_date >= ? AND tj.job_date <= ? AND t.deleted_at IS NULL AND j.deleted_at IS NULL AND j.status = ? AND (j.pickup_date IS NULL OR j.pickup_date <> tj.job_date)";
+        $params = [Clock::today(), $from, $to, 'booked'];
+        if ($foremanId === -1) {
+            $where .= ' AND j.foreman_id IS NULL';
+        } elseif ($foremanId > 0) {
+            $where .= ' AND j.foreman_id = ?';
+            $params[] = $foremanId;
+        }
+
+        $rows = Database::fetchAll(
+            'SELECT j.*, af.name AS foreman, tj.job_date AS second_date, t.trip_number AS trip_number
+             FROM trip_jobs tj JOIN trips t ON t.id = tj.trip_id JOIN jobs j ON j.id = tj.job_id' . self::ASSIGN_JOIN . "
+             WHERE {$where} ORDER BY tj.job_date ASC, j.job_number ASC, tj.id ASC",
+            $params
+        );
+        $seen = [];
+        $out = [];
+        foreach ($rows as $row) {
+            $key = $row['id'] . '|' . $row['second_date'];
+            if (!isset($seen[$key])) {
+                $seen[$key] = true;
+                $out[] = $row;
+            }
+        }
+        return $out;
+    }
+
+    /**
      * Brokers already used on a live job, for the suggestions in the job form and the filter.
      *
      * @return array<int,string>

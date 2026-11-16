@@ -1,7 +1,7 @@
 <?php
 /**
  * Pickup calendar: Future Jobs on their pickup date, one month at a time.
- * @var array<string,int> $tabCounts  @var array<int,array<int,array<string,mixed>|null>> $weeks  @var int $count  @var string $monthLabel  @var string $month
+ * @var int $secondCount  @var array<string,int> $tabCounts  @var array<int,array<int,array<string,mixed>|null>> $weeks  @var int $count  @var string $monthLabel  @var string $month
  * @var string $prevMonth  @var string $nextMonth  @var string $thisMonth  @var int $foremanId  @var array<int,array<string,mixed>> $foremen  @var bool $showFinancials
  */
 use App\Services\JobService;
@@ -13,14 +13,14 @@ $dows = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 <?= \App\Core\View::partial('jobs/_tabs', ['bucket' => 'calendar', 'tabCounts' => $tabCounts]) ?>
 
 <div class="jt-page-actions">
-    <p class="text-body-secondary mb-0 me-auto jt-section-note">Future Jobs on the day they are picked up: booked jobs with a pickup date after today. Jobs on hold, cancelled, in transit or delivered, and jobs with no pickup date, are not shown.</p>
+    <p class="text-body-secondary mb-0 me-auto jt-section-note">Future Jobs on the day they are picked up: booked jobs with a pickup date after today. Jobs on hold, cancelled, in transit or delivered, and jobs with no pickup date, are not shown. A trip entry with the activity Pickup on a later day shows as a second pickup.</p>
     <a class="btn btn-outline-secondary" href="<?= e(url('/jobs/future')) ?>">Future Jobs list</a>
 </div>
 
 <div class="card jt-card mb-3">
     <div class="card-body d-flex flex-wrap align-items-end gap-3">
         <div class="jt-cal-title me-auto">
-            <div class="h5 mb-0">Future Jobs (Pick-up): <?= e($count) ?></div>
+            <div class="h5 mb-0">Future Jobs (Pick-up): <?= e($count) ?><?php if ($secondCount > 0): ?> <span class="jt-cal-more">+ <?= e($secondCount) ?> second pickup<?= $secondCount === 1 ? '' : 's' ?></span><?php endif; ?></div>
             <div class="text-body-secondary"><?= e($monthLabel) ?></div>
         </div>
         <div class="btn-group" role="group" aria-label="Month">
@@ -58,10 +58,11 @@ $dows = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
                     $cf = ($job['cf'] ?? null) !== null && (float) $job['cf'] > 0 ? fmt_number($job['cf']) . ' cf' : (($job['estimated_cf'] ?? null) !== null && (float) $job['estimated_cf'] > 0 ? 'E ' . fmt_number($job['estimated_cf']) . ' cf' : '');
                     $miles = ($job['miles'] ?? null) !== null ? fmt_number($job['miles']) . ' mi' : '';
                     ?>
-                    <div class="jt-cal-job">
+                    <div class="jt-cal-job<?= !empty($job['second']) ? ' jt-cal-job-second' : '' ?>">
                         <div class="jt-cal-job-top">
                             <span class="jt-cal-ord"><?= e($i + 1) ?></span>
                             <a class="jt-jobno" href="<?= e(url('/jobs/' . $job['id'])) ?>"><?= e($job['job_number']) ?></a>
+                            <?php if (!empty($job['second'])): ?><span class="jt-cal-2nd" title="A trip entry with the activity Pickup on this day (trip <?= e($job['trip_number']) ?>)">2nd pickup</span><?php endif; ?>
                             <?php if (($job['pickup_time'] ?? '') !== ''): ?><span class="jt-cal-time"><?= e($job['pickup_time']) ?></span><?php endif; ?>
                         </div>
                         <div><?= e($job['customer_first_name'] . ' ' . $job['customer_last_name']) ?></div>

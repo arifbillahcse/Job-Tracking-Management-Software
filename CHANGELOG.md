@@ -2,6 +2,11 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.8.2 - second pickups on the calendar (calendar phase 3)
+
+* **A trip entry with the activity "Pickup" on a later day now shows on the pickup calendar** as a second pickup: a dashed card with a "2nd pickup" label on that day, beside the job's normal pickup. Only booked jobs, only dates after today; an entry on the job's own pickup day, a delivery entry, an entry on a deleted trip, or a job on hold, in transit or delivered does not add one. The title adds "+ N second pickups" and the Future Jobs count is unchanged. The calendar knows a second pickup only when staff enter it on a trip.
+* No migration. **Upgrade:** `git pull origin main`, then Ctrl+F5.
+
 ## 1.8.1 - the pickup calendar (calendar phase 2)
 
 * **New page Jobs > Calendar** (a Calendar button next to the section tabs): a month grid with the **Future Jobs** on their pickup day, like the client's reference. Each job shows its number (a link), pickup time, customer, route, miles and cubic feet, foreman, balance (only for people who may see money) and its ticked checks (Confirmed, E-Signed, Job Docs, Bill of Lading). A day shows how many pickups it has, and today is highlighted.

@@ -922,3 +922,6 @@ summary:focus-visible {
     .jt-cal-dow { display: inline; }
 }
 @media print { .jt-cal-day { min-height: 0; } }
+.jt-cal-2nd { background: #ede9fe; color: #5b21b6; border-radius: 0.25rem; font-size: 0.68rem; font-weight: 700; padding: 0 0.3rem; }
+.jt-cal-job-second { border-style: dashed; border-color: #a78bfa; }
+.jt-cal-more { color: var(--jt-muted); font-size: 0.8rem; font-weight: 500; }
