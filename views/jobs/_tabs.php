@@ -9,4 +9,5 @@
             <span class="jt-tab-count"><?= e($tabCounts[$key] ?? 0) ?></span>
         </a>
     <?php endforeach; ?>
+    <a class="jt-tab jt-tab-calendar<?= ($bucket ?? '') === 'calendar' ? ' active' : '' ?>" href="<?= e(url('/jobs/calendar')) ?>"<?= ($bucket ?? '') === 'calendar' ? ' aria-current="page"' : '' ?>><span>Calendar</span></a>
 </nav>

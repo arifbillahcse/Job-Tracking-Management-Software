@@ -528,6 +528,25 @@ async function createJob(page, number, availableOffset, extra = {}) {
         await page.click('a:has-text("Edit")');
         must(await page.isChecked('#confirmed') && await page.isChecked('#bill_of_lading') && !(await page.isChecked('#e_signed')), 'the edit form does not show the saved checks');
     });
+    await step('the pickup calendar shows a Future Job on its pickup day, from the Calendar button, and fits desktop and phone', async () => {
+        await page.goto(BASE + '/jobs/future');
+        await Promise.all([page.waitForNavigation(), page.click('a.jt-tab-calendar')]);
+        must(/Future Jobs \(Pick-up\)/.test(await page.textContent('main')), 'the Calendar button did not open the calendar');
+        const month = day(20).slice(0, 7);
+        await page.goto(BASE + '/jobs/calendar?month=' + month);
+        const cell = page.locator('.jt-cal-day', { has: page.locator('a.jt-jobno', { hasText: RUN + '-FUT' }) });
+        must((await cell.count()) === 1, 'the job picked up in 20 days is not on the calendar for ' + month);
+        must((await cell.locator('.jt-cal-num').textContent()).trim() === String(parseInt(day(20).slice(8, 10), 10)), 'the job is on the wrong day');
+        await page.click('a:has-text("Next Month")');
+        must(/month=/.test(page.url()), 'Next Month did not change the month');
+        for (const [w, h] of [[1650, 900], [390, 800]]) {
+            await page.setViewportSize({ width: w, height: h });
+            await page.goto(BASE + '/jobs/calendar?month=' + month);
+            const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+            must(over <= 0, 'the calendar scrolls sideways by ' + over + 'px at ' + w + ' px');
+        }
+        await page.setViewportSize({ width: 1280, height: 800 });
+    });
     await step('a trip can be deleted', async () => {
         await page.goto(BASE + '/trips?q=' + RUN + '-TR');
         await page.click('a.jt-jobno[href^="/trips/"]');

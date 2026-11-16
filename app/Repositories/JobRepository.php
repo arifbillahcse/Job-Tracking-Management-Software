@@ -72,6 +72,30 @@ final class JobRepository
     }
 
     /**
+     * Future Jobs (the section's own condition) whose pickup date is in a date range, for the pickup calendar.
+     * $foremanId: 0 = any foreman, -1 = no foreman, otherwise that foreman.
+     *
+     * @return array<int,array<string,mixed>>
+     */
+    public function futureInRange(string $from, string $to, int $foremanId = 0): array
+    {
+        [$where, $params] = JobBucket::condition(JobBucket::FUTURE, 'j');
+        $where .= ' AND j.pickup_date >= ? AND j.pickup_date <= ?';
+        array_push($params, $from, $to);
+        if ($foremanId === -1) {
+            $where .= ' AND j.foreman_id IS NULL';
+        } elseif ($foremanId > 0) {
+            $where .= ' AND j.foreman_id = ?';
+            $params[] = $foremanId;
+        }
+
+        return Database::fetchAll(
+            'SELECT j.*, af.name AS foreman FROM jobs j' . self::ASSIGN_JOIN . " WHERE {$where} ORDER BY j.pickup_date ASC, j.job_number ASC",
+            $params
+        );
+    }
+
+    /**
      * Brokers already used on a live job, for the suggestions in the job form and the filter.
      *
      * @return array<int,string>

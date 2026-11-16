@@ -2,6 +2,14 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.8.1 - the pickup calendar (calendar phase 2)
+
+* **New page Jobs > Calendar** (a Calendar button next to the section tabs): a month grid with the **Future Jobs** on their pickup day, like the client's reference. Each job shows its number (a link), pickup time, customer, route, miles and cubic feet, foreman, balance (only for people who may see money) and its ticked checks (Confirmed, E-Signed, Job Docs, Bill of Lading). A day shows how many pickups it has, and today is highlighted.
+* **Previous Month / Today / Next Month** buttons, a **Foreman filter** (any, none, or one foreman) and the month's count in the title ("Future Jobs (Pick-up): 8"), which equals the jobs in the Future Jobs list for that month.
+* Only Future Jobs: not on hold, cancelled, in transit or delivered, and no job without a pickup date. No pickup limit per day. On a phone the grid becomes a list of the days that have jobs.
+* No migration. Second pickups from trip entries come in the next version.
+* **Upgrade:** `git pull origin main`, then Ctrl+F5.
+
 ## 1.8.0 - pickup time, miles and four checks on a job (calendar, phase 1)
 
 * **New boxes on New Job / Edit Job, in the Route & dates section:** **Pickup time** (free text, like 08-10AM), **Miles** (a number you type; nothing is calculated) and four ticks: **Confirmed, E-Signed, Job Docs, Bill of Lading**. They show on the job page and in the audit log. Pickup Time and Miles are also optional columns in the CSV import and export. The Jobs list has no new columns.
