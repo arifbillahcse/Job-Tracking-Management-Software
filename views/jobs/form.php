@@ -143,7 +143,22 @@ $input = static function (string $name, string $label, array $opts = []) use ($v
                     <div class="card-body">
                         <p class="small text-body-secondary">Optional. Record who is carrying the job, or correct it.</p>
                         <div class="row g-3">
-                            <div class="col-12"><?= $input('carrier_name', 'Carrier name', ['maxlength' => 150]) ?></div>
+                            <div class="col-12">
+                                <?php $carriers = \App\Services\CarrierList::all(); ?>
+                                <?php if ($carriers === []): ?>
+                                    <?= $input('carrier_name', 'Carrier name', ['maxlength' => 150]) ?>
+                                <?php else: $current = $val('carrier_name'); ?>
+                                    <label for="carrier_name" class="form-label">Carrier</label>
+                                    <select class="form-select<?= has_error('carrier_name') ? ' is-invalid' : '' ?>" id="carrier_name" name="carrier_name">
+                                        <option value="">No carrier</option>
+                                        <?php if ($current !== '' && \App\Services\CarrierList::find($current) === null): ?><option value="<?= e($current) ?>" selected><?= e($current) ?> (not on the list)</option><?php endif; ?>
+                                        <?php foreach ($carriers as $carrier): ?>
+                                            <option value="<?= e($carrier) ?>"<?= mb_strtolower($current) === mb_strtolower($carrier) ? ' selected' : '' ?>><?= e($carrier) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <?= error_text('carrier_name') ?>
+                                <?php endif; ?>
+                            </div>
                             <div class="col-12 col-sm-6 col-xl-12"><?= $input('driver_name', 'Driver name', ['maxlength' => 150]) ?></div>
                             <div class="col-12 col-sm-6 col-xl-12"><?= $input('driver_phone', 'Driver phone number', ['type' => 'tel', 'maxlength' => 30, 'inputmode' => 'tel']) ?></div>
                         </div>

@@ -2,6 +2,15 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.9.0 - a carrier from a fixed list when a job goes In Transit (calendar phase 4)
+
+* **New "Carriers" box on the Settings page:** one carrier per line (a foreman can be listed too).
+* **Once the list has names, moving a job to In Transit needs a carrier from it.** Moving a job (from its page, or the "In Transit" button in a list, which now opens the job's dialog) asks for the **carrier** (required drop-down) and the **driver's name and phone** (optional). Today's date is still saved as the loaded date. The carrier and driver show in the job's history, its page and the In Transit list.
+* **While the list is empty nothing changes:** Move to In Transit stays one click, so this update changes nothing until carriers are added in Settings.
+* On an In Transit job the Carrier on the edit form is a drop-down of the list (a carrier the job already has stays choosable). Changing it to a name that is not on the list is refused. Jobs already In Transit without a carrier keep working.
+* Hold, Cancel, Delivered and reopening a delivered job do not ask for a carrier. Renaming a carrier in Settings does not rename it on existing jobs.
+* No migration. **Upgrade:** `git pull origin main`, then Ctrl+F5. Then add the carriers in Settings.
+
 ## 1.8.2 - second pickups on the calendar (calendar phase 3)
 
 * **A trip entry with the activity "Pickup" on a later day now shows on the pickup calendar** as a second pickup: a dashed card with a "2nd pickup" label on that day, beside the job's normal pickup. Only booked jobs, only dates after today; an entry on the job's own pickup day, a delivery entry, an entry on a deleted trip, or a job on hold, in transit or delivered does not add one. The title adds "+ N second pickups" and the Future Jobs count is unchanged. The calendar knows a second pickup only when staff enter it on a trip.

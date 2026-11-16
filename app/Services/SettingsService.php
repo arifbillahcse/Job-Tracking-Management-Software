@@ -55,7 +55,7 @@ final class SettingsService
     }
 
     /** Settings the page may change. Anything else in the table (or in a request) is ignored. */
-    public const KEYS = ['company_name', 'ready_threshold_days', 'section_basis', 'currency_symbol', 'timezone', 'page_size', 'storage_fee_rate', 'storage_fee_after_days', 'storage_fee_basis', 'storage_fee_mode'];
+    public const KEYS = ['company_name', 'ready_threshold_days', 'section_basis', 'currency_symbol', 'timezone', 'page_size', 'storage_fee_rate', 'storage_fee_after_days', 'storage_fee_basis', 'storage_fee_mode', 'carriers'];
 
     /** Changing any of these re-assesses every open job's storage fee. */
     public const STORAGE_KEYS = ['storage_fee_rate', 'storage_fee_after_days', 'storage_fee_basis', 'storage_fee_mode'];
@@ -136,6 +136,12 @@ final class SettingsService
             $errors['storage_fee_mode'] = 'Choose whether the fee is charged every month or once.';
         }
         $values['storage_fee_mode'] = $mode;
+
+        $carriers = CarrierList::parse($input['carriers'] ?? '');
+        if ($carriers['error'] !== null) {
+            $errors['carriers'] = $carriers['error'];
+        }
+        $values['carriers'] = $carriers['value'];
 
         return ['values' => $values, 'errors' => $errors];
     }

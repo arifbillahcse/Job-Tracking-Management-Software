@@ -152,6 +152,15 @@ final class JobController extends Controller
         if (($taken = (new JobRepository())->findByNumberAnyState((string) $data['job_number'], $id)) !== null) {
             return $this->redirectWithErrors($request, ['job_number' => [$this->duplicateMessage((string) $data['job_number'], $taken)]], $editUrl);
         }
+        // A carrier typed or picked on an In Transit job must be on the list, unless it is the one the job already has.
+        $newCarrier = trim((string) ($data['carrier_name'] ?? ''));
+        if ($job['status'] === 'in_transit' && $newCarrier !== '' && \App\Services\CarrierList::required()
+            && mb_strtolower($newCarrier) !== mb_strtolower((string) ($job['carrier_name'] ?? '')) && \App\Services\CarrierList::find($newCarrier) === null) {
+            return $this->redirectWithErrors($request, ['carrier_name' => ['Choose a carrier from the list.']], $editUrl);
+        }
+        if ($job['status'] === 'in_transit' && $newCarrier !== '' && ($listed = \App\Services\CarrierList::find($newCarrier)) !== null) {
+            $data['carrier_name'] = $listed; // the list's own spelling
+        }
         $note = null;
         if ($this->jobs->canAssign()) {
             $assignment = (new TripService())->resolveAssignment($data['foreman_id'] ?? null, $data['trip_id'] ?? null, $job);

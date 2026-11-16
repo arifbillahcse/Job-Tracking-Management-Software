@@ -63,7 +63,7 @@ $admin = make_user('Admin', 'p7-admin@example.com');
 $mgr = make_user('Manager', 'p7-mgr@example.com');
 $staff = make_user('Staff', 'p7-stf@example.com');
 
-$good = ['company_name' => 'Acme Moving', 'ready_threshold_days' => '45', 'section_basis' => 'first_available', 'currency_symbol' => '€', 'timezone' => 'America/Chicago', 'page_size' => '50', 'storage_fee_rate' => '0.75', 'storage_fee_after_days' => '45', 'storage_fee_basis' => 'loaded', 'storage_fee_mode' => 'once'];
+$good = ['company_name' => 'Acme Moving', 'ready_threshold_days' => '45', 'section_basis' => 'first_available', 'currency_symbol' => '€', 'timezone' => 'America/Chicago', 'page_size' => '50', 'storage_fee_rate' => '0.75', 'storage_fee_after_days' => '45', 'storage_fee_basis' => 'loaded', 'storage_fee_mode' => 'once', 'carriers' => ''];
 $r = SettingsService::validate($good);
 check($r['errors'] === [] && $r['values'] === $good, 'valid input passes and comes back normalised');
 

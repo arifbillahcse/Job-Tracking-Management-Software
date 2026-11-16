@@ -21,4 +21,6 @@ return [
     'storage_fee_basis' => 'pickup', // or 'first_available' or 'loaded' (assumption N1)
     // 'monthly' = CF x rate x months stayed, no prorating (the client's sheet); 'once' = CF x rate a single time (assumption N2).
     'storage_fee_mode' => 'monthly',
+    // The fixed list of carriers, one name per line. Empty = no carrier is required; with names, a job needs one of them to go In Transit (v1.9.0).
+    'carriers' => '',
 ];

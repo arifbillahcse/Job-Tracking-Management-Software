@@ -566,6 +566,31 @@ async function createJob(page, number, availableOffset, extra = {}) {
         page.once('dialog', (d) => d.accept());
         await Promise.all([page.waitForNavigation(), page.click('button[data-confirm]')]);
     });
+    await step('carriers: a list in Settings, then Move to In Transit asks for one in a dialog', async () => {
+        await page.goto(BASE + '/settings');
+        await page.fill('#carriers', RUN + ' KEN\n' + RUN + ' DINOCA');
+        await Promise.all([page.waitForNavigation(), page.click('button:has-text("Save settings")')]);
+        await createJob(page, RUN + '-CAR', 10);
+        await page.goto(BASE + '/jobs/ready?q=' + RUN + '-CAR');
+        const link = page.locator('tr:has-text("' + RUN + '-CAR") a[href*="do=in_transit"]');
+        must((await link.count()) === 1, 'the list button does not open the carrier dialog');
+        await Promise.all([page.waitForNavigation(), link.click()]);
+        await page.waitForSelector('#statusModal-in_transit.show', { timeout: 5000 });
+        // no carrier: refused
+        await page.click('#statusModal-in_transit button[type=submit]');
+        await page.waitForSelector('#statusModal-in_transit.show');
+        must(/In Transit/.test(await page.textContent('main')) === true && !/Job .* is now In Transit/.test(await page.textContent('main')), 'the job moved without a carrier');
+        await page.selectOption('#statusModal-in_transit-carrier', { label: RUN + ' DINOCA' });
+        await page.fill('#statusModal-in_transit-driver', 'Dan Miller');
+        await Promise.all([page.waitForNavigation(), page.click('#statusModal-in_transit button[type=submit]')]);
+        const text = (await page.textContent('main')).replace(/\s+/g, ' ');
+        must(/is now In Transit/.test(text), 'the job did not move to In Transit: ' + text.slice(0, 160));
+        must(text.includes(RUN + ' DINOCA') && text.includes('Dan Miller'), 'the carrier and driver are not on the job page');
+        // put the setting back so later steps (and the demo) keep one-click moves
+        await page.goto(BASE + '/settings');
+        await page.fill('#carriers', '');
+        await Promise.all([page.waitForNavigation(), page.click('button:has-text("Save settings")')]);
+    });
     await step('a trip can be deleted', async () => {
         await page.goto(BASE + '/trips?q=' + RUN + '-TR');
         await page.click('a.jt-jobno[href^="/trips/"]');

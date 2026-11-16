@@ -27,24 +27,28 @@ $invalid = static fn (string $to, string $field): string => $failed === $to && h
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <?php if ($t['form'] === 'dispatch'): ?>
-                        <p class="text-body-secondary">The job moves to <strong>In Transit</strong>. All three carrier details are required.</p>
+                    <?php if ($t['form'] === 'dispatch'): $chosen = $value($to, 'carrier_name', $job['carrier_name'] ?? ''); ?>
+                        <p class="text-body-secondary">The job moves to <strong>In Transit</strong>. Choose the carrier that takes it; today's date is saved as the loaded date.</p>
                         <div class="mb-3">
-                            <label class="form-label" for="<?= e($modalId) ?>-carrier">Carrier name <span class="text-danger" aria-hidden="true">*</span></label>
-                            <input type="text" class="form-control<?= $invalid($to, 'carrier_name') ?>" id="<?= e($modalId) ?>-carrier" name="carrier_name" maxlength="150" required
-                                   value="<?= e($value($to, 'carrier_name', $job['carrier_name'] ?? '')) ?>">
+                            <label class="form-label" for="<?= e($modalId) ?>-carrier">Carrier <span class="text-danger" aria-hidden="true">*</span></label>
+                            <select class="form-select<?= $invalid($to, 'carrier_name') ?>" id="<?= e($modalId) ?>-carrier" name="carrier_name" required>
+                                <option value="">Choose a carrier</option>
+                                <?php foreach (\App\Services\CarrierList::all() as $carrier): ?>
+                                    <option value="<?= e($carrier) ?>"<?= mb_strtolower($chosen) === mb_strtolower($carrier) ? ' selected' : '' ?>><?= e($carrier) ?></option>
+                                <?php endforeach; ?>
+                            </select>
                             <?= $error($to, 'carrier_name') ?>
                         </div>
                         <div class="row g-3 mb-3">
                             <div class="col-12 col-sm-6">
-                                <label class="form-label" for="<?= e($modalId) ?>-driver">Driver name <span class="text-danger" aria-hidden="true">*</span></label>
-                                <input type="text" class="form-control<?= $invalid($to, 'driver_name') ?>" id="<?= e($modalId) ?>-driver" name="driver_name" maxlength="150" required
+                                <label class="form-label" for="<?= e($modalId) ?>-driver">Driver name</label>
+                                <input type="text" class="form-control<?= $invalid($to, 'driver_name') ?>" id="<?= e($modalId) ?>-driver" name="driver_name" maxlength="150"
                                        value="<?= e($value($to, 'driver_name', $job['driver_name'] ?? '')) ?>">
                                 <?= $error($to, 'driver_name') ?>
                             </div>
                             <div class="col-12 col-sm-6">
-                                <label class="form-label" for="<?= e($modalId) ?>-phone">Phone number <span class="text-danger" aria-hidden="true">*</span></label>
-                                <input type="tel" class="form-control<?= $invalid($to, 'driver_phone') ?>" id="<?= e($modalId) ?>-phone" name="driver_phone" maxlength="30" required inputmode="tel"
+                                <label class="form-label" for="<?= e($modalId) ?>-phone">Driver phone</label>
+                                <input type="tel" class="form-control<?= $invalid($to, 'driver_phone') ?>" id="<?= e($modalId) ?>-phone" name="driver_phone" maxlength="30" inputmode="tel"
                                        value="<?= e($value($to, 'driver_phone', $job['driver_phone'] ?? '')) ?>">
                                 <?= $error($to, 'driver_phone') ?>
                             </div>

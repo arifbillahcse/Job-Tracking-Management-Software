@@ -40,10 +40,18 @@ final class JobWorkflowService
         $available = [];
         foreach ((array) Config::get('statuses.transitions.' . $job['status'], []) as $to => $definition) {
             if (Auth::can((string) $definition['permission'])) {
-                $available[] = ['to' => (string) $to] + $definition;
+                $available[] = ['to' => (string) $to, 'form' => $this->formFor((string) $job['status'], (string) $to, (string) $definition['form'])] + $definition;
             }
         }
         return $available;
+    }
+
+    /**
+     * The dialog a transition needs. Booked > In Transit is one click until the carrier list has names; then it asks for the carrier.
+     */
+    private function formFor(string $from, string $to, string $configured): string
+    {
+        return $from === 'booked' && $to === 'in_transit' && CarrierList::required() ? 'dispatch' : $configured;
     }
 
     /**
@@ -81,17 +89,30 @@ final class JobWorkflowService
             return ['ok' => false, 'code' => 'forbidden'];
         }
 
+        $form = $this->formFor($from, $to, (string) $definition['form']);
         $rules = ['note' => ($definition['note'] === 'required' ? 'required' : 'nullable') . '|max:1000'];
+        $labels = ['note' => 'Note'];
+        if ($form === 'dispatch') {
+            $rules += ['carrier_name' => 'required|max:150', 'driver_name' => 'nullable|max:150', 'driver_phone' => 'nullable|phone|max:30'];
+            $labels += ['carrier_name' => 'Carrier', 'driver_name' => 'Driver name', 'driver_phone' => 'Driver phone'];
+        }
 
-        $validator = Validator::make($input, $rules, ['note' => 'Note']);
+        $validator = Validator::make($input, $rules, $labels);
         $errors = $validator->errors();
         $data = $validator->validated();
+
+        if ($form === 'dispatch' && !isset($errors['carrier_name']) && ($carrier = CarrierList::find((string) ($data['carrier_name'] ?? ''))) === null) {
+            $errors['carrier_name'] = ['Choose a carrier from the list.'];
+        }
 
         if ($errors !== []) {
             return ['ok' => false, 'code' => 'validation', 'errors' => $errors];
         }
+        if ($form === 'dispatch') {
+            $data['carrier_name'] = $carrier ?? $data['carrier_name']; // the list's own spelling
+        }
 
-        [$changes, $details] = $this->plan($job, $to, (string) $definition['form'], $data);
+        [$changes, $details] = $this->plan($job, $to, $form, $data);
         $note = $data['note'] ?? null;
 
         $moved = Database::transaction(function () use ($id, $from, $to, $changes, $note, $details): bool {
@@ -173,6 +194,12 @@ final class JobWorkflowService
                     $changes['loaded_date'] = $today; // the click is the loading: today's date, in the business time zone
                     $changes['in_transit_at'] = gmdate('Y-m-d H:i:s');
                     $details = ['loaded_date' => $today];
+                    if ($form === 'dispatch') {
+                        foreach (self::CARRIER as $column) {
+                            $changes[$column] = ($data[$column] ?? '') === '' ? null : (string) $data[$column];
+                        }
+                        $details += ['carrier_name' => $changes['carrier_name'], 'driver_name' => $changes['driver_name'], 'driver_phone' => $changes['driver_phone']];
+                    }
                 }
                 break;
 
