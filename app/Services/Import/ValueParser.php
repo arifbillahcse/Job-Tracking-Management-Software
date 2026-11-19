@@ -18,7 +18,7 @@ final class ValueParser
         'booked' => 'booked', 'new' => 'booked',
         'intransit' => 'in_transit', 'transit' => 'in_transit', 'dispatched' => 'in_transit',
         'delivered' => 'delivered', 'complete' => 'delivered', 'completed' => 'delivered',
-        'onhold' => 'on_hold', 'hold' => 'on_hold',
+        'stage' => 'staged', 'staged' => 'staged', 'onhold' => 'on_hold', 'hold' => 'on_hold',
         'cancelled' => 'cancelled', 'canceled' => 'cancelled',
     ];
 

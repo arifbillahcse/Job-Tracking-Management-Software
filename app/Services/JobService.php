@@ -162,7 +162,7 @@ final class JobService
         if ($this->canAssign()) {
             $row += $this->assignmentRow($input);
         }
-        if ((string) $current['status'] === 'in_transit') {
+        if (in_array((string) $current['status'], ['staged', 'in_transit'], true)) {
             foreach (self::CARRIER as $column) {
                 $row[$column] = $this->normalize($column, $input[$column] ?? null);
             }

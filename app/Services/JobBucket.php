@@ -18,6 +18,7 @@ use App\Core\Clock;
  *   Ready for Delivery  status = booked AND available date from today - N days to today + N days   (assumptions A2, K1)
  *   More Than 30 Days   status = booked AND available date more than N days away, in the future OR in the past
  *                       (jobs that have already waited more than N days are the ones that carry the storage fee)
+ *   Stage               status = staged (carrier and driver chosen; not on the road yet)
  *   In Transit          status = in_transit
  *   Delivered           status = delivered
  *   All Jobs            every job that is not deleted (also on hold / cancelled, which belong to no other section)
@@ -31,6 +32,7 @@ final class JobBucket
     public const FUTURE = 'future';
     public const READY = 'ready';
     public const LATER = 'later';
+    public const STAGE = 'stage';
     public const TRANSIT = 'transit';
     public const DELIVERED = 'delivered';
 
@@ -45,6 +47,7 @@ final class JobBucket
             self::FUTURE    => ['label' => 'Future Jobs',         'path' => '/jobs/future',      'icon' => 'calendar',     'tone' => 'future'],
             self::READY     => ['label' => 'Ready for Delivery',  'path' => '/jobs/ready',       'icon' => 'clock',        'tone' => 'ready'],
             self::LATER     => ['label' => 'More Than 30 Days',   'path' => '/jobs/more-than-30', 'icon' => 'calendar',     'tone' => 'later'],
+            self::STAGE     => ['label' => 'Stage',               'path' => '/jobs/stage',       'icon' => 'inbox',        'tone' => 'stage'],
             self::TRANSIT   => ['label' => 'In Transit',          'path' => '/jobs/in-transit',  'icon' => 'truck',        'tone' => 'transit'],
             self::DELIVERED => ['label' => 'Delivered',           'path' => '/jobs/delivered',   'icon' => 'check-circle', 'tone' => 'delivered'],
         ];
@@ -129,7 +132,7 @@ final class JobBucket
 
         if ($bucket === self::BOOKED) {
             // Every job that has not been delivered yet (booked, on the road, on hold); delivered and cancelled jobs are not booked.
-            return ["{$base} AND {$alias}.status IN (?, ?, ?)", ['booked', 'in_transit', 'on_hold']];
+            return ["{$base} AND {$alias}.status IN (?, ?, ?, ?)", ['booked', 'staged', 'in_transit', 'on_hold']];
         }
         if ($bucket === self::FUTURE) {
             // Booked jobs with a pickup date after today: not picked up yet. A job with no pickup date is not a future job (it is counted from its 1st available date, as before).
@@ -146,6 +149,7 @@ final class JobBucket
         return match ($bucket) {
             self::READY => ["{$base} AND {$alias}.status = ? AND {$alias}.first_available_date <= ? AND {$alias}.first_available_date >= ?", ['booked', self::cutoff(), self::pastCutoff()]],
             self::LATER => ["{$base} AND {$alias}.status = ? AND ({$alias}.first_available_date > ? OR {$alias}.first_available_date < ?)", ['booked', self::cutoff(), self::pastCutoff()]],
+            self::STAGE => ["{$base} AND {$alias}.status = ?", ['staged']],
             self::TRANSIT => ["{$base} AND {$alias}.status = ?", ['in_transit']],
             self::DELIVERED => ["{$base} AND {$alias}.status = ?", ['delivered']],
             default => [$base, []],
@@ -164,6 +168,7 @@ final class JobBucket
             'booked' => self::basis() === 'pickup'
                 ? ((string) ($job['pickup_date'] ?? '') !== '' && substr((string) $job['pickup_date'], 0, 10) > Clock::today() ? self::FUTURE : (self::dateOf($job) >= self::pastCutoff() ? self::READY : self::LATER))
                 : ((string) $job['first_available_date'] <= self::cutoff() && (string) $job['first_available_date'] >= self::pastCutoff() ? self::READY : self::LATER),
+            'staged' => self::STAGE,
             'in_transit' => self::TRANSIT,
             'delivered' => self::DELIVERED,
             default => null,

@@ -125,7 +125,7 @@ async function createJob(page, number, availableOffset, extra = {}) {
     await step('Move to In Transit on a job saves today as the loaded date and moves it to In Transit', async () => {
         await page.goto(BASE + '/jobs?q=' + RUN + '-A');
         await Promise.all([page.waitForNavigation(), page.click('a[href^="/jobs/"]:has-text("' + RUN + '-A")')]);
-        must(!(await page.isVisible('#statusModal-in_transit')), 'a dialog is in the way: this should be one click');
+        must(!(await page.isVisible('#statusModal-staged')), 'a dialog is in the way: this should be one click');
         accept();
         await Promise.all([page.waitForNavigation(), page.click('button:has-text("Move to In Transit")')]);
         const main = await page.textContent('main');
@@ -134,8 +134,12 @@ async function createJob(page, number, availableOffset, extra = {}) {
         await page.goto(BASE + '/jobs/in-transit?q=' + RUN + '-A');
         must((await page.textContent('main')).includes(RUN + '-A'), 'not listed under In Transit');
     });
-    await step('the button next to a job in the Ready list does the same', async () => {
+    await step('the button next to a job in the Ready list moves it to Stage, then the Stage list moves it to In Transit', async () => {
         await page.goto(BASE + '/jobs/ready?q=' + RUN + '-C30');
+        accept();
+        await Promise.all([page.waitForNavigation(), page.click('tr:has-text("' + RUN + '-C30") button[title="Move to Stage"]')]);
+        await page.goto(BASE + '/jobs/stage?q=' + RUN + '-C30');
+        must((await page.textContent('main')).includes(RUN + '-C30'), 'not in the Stage list');
         accept();
         await Promise.all([page.waitForNavigation(), page.click('tr:has-text("' + RUN + '-C30") button[title="Move to In Transit"]')]);
         await page.goto(BASE + '/jobs/in-transit?q=' + RUN + '-C30');
@@ -585,26 +589,39 @@ async function createJob(page, number, availableOffset, extra = {}) {
         must(over <= 0, 'the page scrolls sideways by ' + over + 'px at 360 px');
         await page.setViewportSize({ width: 1280, height: 800 });
     });
-    await step('carriers: a list in Settings, then Move to In Transit asks for one in a dialog', async () => {
+    await step('carriers: a list in Settings, then Move to Stage asks for one in a dialog, and the statement lists the job', async () => {
         await page.goto(BASE + '/settings');
         await page.fill('#carriers', RUN + ' KEN\n' + RUN + ' DINOCA');
         await Promise.all([page.waitForNavigation(), page.click('button:has-text("Save settings")')]);
         await createJob(page, RUN + '-CAR', 10);
         await page.goto(BASE + '/jobs/ready?q=' + RUN + '-CAR');
-        const link = page.locator('tr:has-text("' + RUN + '-CAR") a[href*="do=in_transit"]');
+        const link = page.locator('tr:has-text("' + RUN + '-CAR") a[href*="do=staged"]');
         must((await link.count()) === 1, 'the list button does not open the carrier dialog');
         await Promise.all([page.waitForNavigation(), link.click()]);
-        await page.waitForSelector('#statusModal-in_transit.show', { timeout: 5000 });
+        await page.waitForSelector('#statusModal-staged.show', { timeout: 5000 });
         // no carrier: refused
-        await page.click('#statusModal-in_transit button[type=submit]');
-        await page.waitForSelector('#statusModal-in_transit.show');
-        must(/In Transit/.test(await page.textContent('main')) === true && !/Job .* is now In Transit/.test(await page.textContent('main')), 'the job moved without a carrier');
-        await page.selectOption('#statusModal-in_transit-carrier', { label: RUN + ' DINOCA' });
-        await page.fill('#statusModal-in_transit-driver', 'Dan Miller');
-        await Promise.all([page.waitForNavigation(), page.click('#statusModal-in_transit button[type=submit]')]);
+        await page.click('#statusModal-staged button[type=submit]');
+        await page.waitForSelector('#statusModal-staged.show');
+        must(!/is now Stage/.test(await page.textContent('main')), 'the job moved without a carrier');
+        await page.selectOption('#statusModal-staged-carrier', { label: RUN + ' DINOCA' });
+        await page.fill('#statusModal-staged-driver', 'Dan Miller');
+        await Promise.all([page.waitForNavigation(), page.click('#statusModal-staged button[type=submit]')]);
         const text = (await page.textContent('main')).replace(/\s+/g, ' ');
-        must(/is now In Transit/.test(text), 'the job did not move to In Transit: ' + text.slice(0, 160));
+        must(/is now Stage/.test(text), 'the job did not move to Stage: ' + text.slice(0, 160));
         must(text.includes(RUN + ' DINOCA') && text.includes('Dan Miller'), 'the carrier and driver are not on the job page');
+        // Stage > In Transit is one click and keeps the carrier
+        accept();
+        await Promise.all([page.waitForNavigation(), page.click('button:has-text("Move to In Transit")')]);
+        must((await page.textContent('main')).includes(RUN + ' DINOCA'), 'the carrier was lost at In Transit');
+        // the statement: rate x actual CF
+        await page.goto(BASE + '/jobs/statement?go=1&carrier=' + encodeURIComponent(RUN + ' DINOCA') + '&rate=2.50');
+        const sheet = (await page.textContent('main')).replace(/\s+/g, ' ');
+        must(sheet.includes(RUN + '-CAR') && /TOTAL DUE/.test(sheet) && /Rate \$2\.50 per CF/.test(sheet), 'the carrier statement does not list the job: ' + sheet.slice(0, 200));
+        await page.setViewportSize({ width: 360, height: 740 });
+        await page.goto(BASE + '/jobs/statement?go=1&carrier=' + encodeURIComponent(RUN + ' DINOCA') + '&rate=2.50');
+        const wide = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        must(wide <= 0, 'the statement scrolls sideways by ' + wide + 'px at 360 px');
+        await page.setViewportSize({ width: 1280, height: 800 });
         // put the setting back so later steps (and the demo) keep one-click moves
         await page.goto(BASE + '/settings');
         await page.fill('#carriers', '');

@@ -85,7 +85,7 @@ check($state($j2)['status'] === 'in_transit' && $state($j2)['driver_name'] === n
 // 3. the one-click button in the lists
 $j3 = $mk('CR-3');
 $ready = call('GET', '/jobs/ready')->body();
-check(preg_match('~href="/jobs/' . $j3 . '\?do=in_transit"~', $ready) === 1 && !preg_match('~action="[^"]*/jobs/' . $j3 . '/status"~', $ready), 'in a list the In Transit button opens the job\'s carrier dialog (no one-click post)');
+check(preg_match('~href="/jobs/' . $j3 . '\?do=staged"~', $ready) === 1 && !preg_match('~action="[^"]*/jobs/' . $j3 . '/status"~', $ready), 'in a list the Stage button opens the job\'s carrier dialog (no one-click post)');
 $auto = call('GET', "/jobs/{$j3}", [], ['do' => 'in_transit'])->body();
 check(str_contains($auto, 'id="statusModal-in_transit"'), 'the link opens the job page with the dialog available');
 

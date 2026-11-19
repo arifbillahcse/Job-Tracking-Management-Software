@@ -140,7 +140,7 @@ final class JobController extends Controller
         $editUrl = '/jobs/' . $id . '/edit';
         $data = $this->validate(
             $request,
-            JobRules::rules($id, $this->jobs->canEditFinancials(), $job['status'] === 'in_transit', false, $this->jobs->canAssign()) + JobRules::dateRules((string) $job['status']),
+            JobRules::rules($id, $this->jobs->canEditFinancials(), in_array($job['status'], ['staged', 'in_transit'], true), false, $this->jobs->canAssign()) + JobRules::dateRules((string) $job['status']),
             $editUrl,
             JobRules::labels(),
             [],
@@ -154,11 +154,11 @@ final class JobController extends Controller
         }
         // A carrier typed or picked on an In Transit job must be on the list, unless it is the one the job already has.
         $newCarrier = trim((string) ($data['carrier_name'] ?? ''));
-        if ($job['status'] === 'in_transit' && $newCarrier !== '' && \App\Services\CarrierList::required()
+        if (in_array($job['status'], ['staged', 'in_transit'], true) && $newCarrier !== '' && \App\Services\CarrierList::required()
             && mb_strtolower($newCarrier) !== mb_strtolower((string) ($job['carrier_name'] ?? '')) && \App\Services\CarrierList::find($newCarrier) === null) {
             return $this->redirectWithErrors($request, ['carrier_name' => ['Choose a carrier from the list.']], $editUrl);
         }
-        if ($job['status'] === 'in_transit' && $newCarrier !== '' && ($listed = \App\Services\CarrierList::find($newCarrier)) !== null) {
+        if (in_array($job['status'], ['staged', 'in_transit'], true) && $newCarrier !== '' && ($listed = \App\Services\CarrierList::find($newCarrier)) !== null) {
             $data['carrier_name'] = $listed; // the list's own spelling
         }
         $note = null;

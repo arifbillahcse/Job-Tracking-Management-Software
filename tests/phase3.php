@@ -470,7 +470,7 @@ $r = $wf->change($id, 'in_transit', ['note' => 'Wrong delivery']);
 check(!$r['ok'] && $r['code'] === 'forbidden' && (new JobRepository())->find($id)['status'] === 'delivered', 'Staff cannot reopen a delivered job (needs jobs.reopen)');
 check(last_audit('access_denied') !== null, '...and the attempt is audited');
 $booked = (new JobRepository())->find(mk_job(['job_number' => 'W-5']));
-check(array_column($wf->availableTransitions($booked), 'to') === ['in_transit', 'on_hold', 'cancelled'], 'Staff on a booked job: move to In Transit, hold, cancel');
+check(array_column($wf->availableTransitions($booked), 'to') === ['staged', 'in_transit', 'on_hold', 'cancelled'], 'Staff on a booked job: move to Stage or In Transit, hold, cancel');
 check($wf->canMove($booked, 'in_transit') && !$wf->canMove($booked, 'delivered'), 'canMove follows the rules and permissions');
 
 sign_in($manager);
@@ -567,7 +567,7 @@ foreach ($pages as $path => $bucket) {
 $ready = call('GET', '/jobs/ready')->body();
 $rid = (int) Database::fetchValue("SELECT id FROM jobs WHERE job_number = 'R-soon'");
 $tid = (int) Database::fetchValue("SELECT id FROM jobs WHERE job_number = 'T-1'");
-check(str_contains($ready, "action=\"/jobs/{$rid}/status\"") && str_contains($ready, 'value="in_transit"') && str_contains($ready, 'Move to In Transit') && str_contains($ready, 'data-confirm='), 'Ready rows have a one-click Move to In Transit button (a form, with a confirmation)');
+check(str_contains($ready, "action=\"/jobs/{$rid}/status\"") && str_contains($ready, 'value="staged"') && str_contains($ready, 'Move to Stage') && str_contains($ready, 'data-confirm='), 'Ready rows have a one-click Move to Stage button (a form, with a confirmation)');
 $transitBody = call('GET', '/jobs/in-transit')->body();
 check(str_contains($transitBody, "action=\"/jobs/{$tid}/status\"") && str_contains($transitBody, 'value="delivered"') && str_contains($transitBody, 'Mark as Delivered'), 'In Transit rows have a one-click Mark as Delivered button');
 check(!str_contains(call('GET', '/jobs/delivered')->body(), 'Mark as Delivered') && !str_contains(call('GET', '/jobs/delivered')->body(), 'Move to In Transit'), 'Delivered rows offer no shortcut');

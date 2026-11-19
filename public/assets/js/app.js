@@ -195,6 +195,13 @@
         }
     });
 
+    // Print button: <button type="button" data-print>
+    document.addEventListener('click', function (event) {
+        if (event.target.closest('[data-print]')) {
+            window.print();
+        }
+    });
+
     // Re-enable submit buttons when the page is restored from the back/forward cache.
     window.addEventListener('pageshow', function (event) {
         if (event.persisted) {

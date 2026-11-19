@@ -257,8 +257,8 @@ $c0 = $counts();
 check($c0['ready'] === 2 && $c0['later'] === 1 && $c0['transit'] === 0 && $c0['delivered'] === 0 && $c0['all'] === 3, 'start: 2 ready, 1 later, 0 in transit, 0 delivered (3 jobs)');
 
 $page = call('GET', '/jobs/ready')->body();
-check(substr_count($page, 'Move to In Transit') === 2 && str_contains($page, 'data-confirm="Move job OC-1 to In Transit? Today (Oct 23, 2026) will be saved as the loaded date."'), 'every ready row has the button, and it says what date will be saved');
-check(str_contains(call('GET', '/jobs/more-than-30')->body(), 'Move to In Transit'), 'the More Than 30 Days list has it too');
+check(substr_count($page, 'Move to Stage') === 2 && str_contains($page, 'data-confirm="Move job OC-1 to Stage?"'), 'every ready row has the Move to Stage button, with a confirmation');
+check(str_contains(call('GET', '/jobs/more-than-30')->body(), 'Move to Stage'), 'the More Than 30 Days list has it too');
 $r = call('POST', "/jobs/{$j1}/status", ['to' => 'in_transit']);
 check($r->status() === 302 && (new JobRepository())->find($j1)['loaded_date'] === '2026-10-23', 'one click: In Transit with today as the loaded date');
 $c1 = $counts();

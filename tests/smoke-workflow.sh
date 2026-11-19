@@ -76,8 +76,8 @@ check "dashboard: Ready +2, More Than 30 back to start" '[[ $(card "Ready for de
 
 echo "== Move to In Transit (one click)"
 check "details page offers one-click Move to In Transit, plus Put on hold / Cancel dialogs" 'P=$(get "$AJ" "/jobs/$RID"); grep -q "Move to In Transit" <<<"$P" && ! grep -q "statusModal-in_transit" <<<"$P" && grep -q "statusModal-on_hold" <<<"$P" && grep -q "statusModal-cancelled" <<<"$P" && ! grep -q "statusModal-delivered" <<<"$P"'
-check "the Ready list has the button on the job's row (a form that posts to the job)" 'get "$AJ" /jobs/ready | grep -q "action=\"/jobs/$RID/status\"" && get "$AJ" /jobs/ready | grep -q "Move to In Transit"'
-check "the button asks for confirmation and names the date it will save" 'get "$AJ" /jobs/ready | grep -q "data-confirm=\"Move job $RUN-R to In Transit? Today ($TODAY_FMT) will be saved as the loaded date."'
+check "the Ready list has the button on the job's row (a form that posts to the job)" 'get "$AJ" /jobs/ready | grep -q "action=\"/jobs/$RID/status\"" && get "$AJ" /jobs/ready | grep -q "Move to Stage"'
+check "the button asks for confirmation and names the date it will save" 'get "$AJ" /jobs/ready | grep -q "data-confirm=\"Move job $RUN-R to Stage?"'
 R1=$(status "$AJ" "$RID" in_transit "note=Picked up" "loaded_date=2001-01-01" "carrier_name=Smuggled" "status=delivered")
 check "one click moves the job into In Transit" 'in_list /jobs/in-transit "$RUN-R" && ! in_list /jobs/ready "$RUN-R"'
 P=$(get "$AJ" "/jobs/$RID")

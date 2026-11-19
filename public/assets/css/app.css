@@ -27,6 +27,8 @@
     --jt-ready-bg: #fef3c7;
     --jt-later: #be123c;
     --jt-later-bg: #ffe4e6;
+    --jt-stage: #7e22ce;
+    --jt-stage-bg: #f3e8ff;
     --jt-transit: #15803d;
     --jt-transit-bg: #dcfce7;
     --jt-delivered: #475569;
@@ -326,6 +328,7 @@ body {
 .jt-badge-booked { background: #e0e7ff; color: #3730a3; }
 .jt-badge-ready { background: var(--jt-ready-bg); color: var(--jt-ready); }
 .jt-badge-later { background: var(--jt-later-bg); color: var(--jt-later); }
+.jt-badge-stage { background: var(--jt-stage-bg); color: var(--jt-stage); }
 .jt-badge-transit { background: var(--jt-transit-bg); color: var(--jt-transit); }
 .jt-badge-delivered { background: var(--jt-delivered-bg); color: var(--jt-delivered); }
 .jt-badge-hold { background: #fef9c3; color: #854d0e; }
@@ -553,6 +556,7 @@ body {
 .jt-tab-future.active { background: var(--jt-future); }
 .jt-tab-ready.active { background: var(--jt-ready); }
 .jt-tab-later.active { background: var(--jt-later); }
+.jt-tab-stage.active { background: var(--jt-stage); }
 .jt-tab-transit.active { background: var(--jt-transit); }
 .jt-tab-delivered.active { background: var(--jt-delivered); }
 
@@ -637,6 +641,7 @@ body {
 .jt-stat-future { --tone: var(--jt-future); --tone-bg: var(--jt-future-bg); }
 .jt-stat-ready { --tone: var(--jt-ready); --tone-bg: var(--jt-ready-bg); }
 .jt-stat-later { --tone: var(--jt-later); --tone-bg: var(--jt-later-bg); }
+.jt-stat-stage { --tone: var(--jt-stage); --tone-bg: var(--jt-stage-bg); }
 .jt-stat-transit { --tone: var(--jt-transit); --tone-bg: var(--jt-transit-bg); }
 .jt-stat-delivered { --tone: var(--jt-delivered); --tone-bg: var(--jt-delivered-bg); }
 
@@ -688,6 +693,7 @@ body {
     box-shadow: 0 0 0 1px var(--dot);
 }
 
+.jt-timeline-stage { --dot: var(--jt-stage); }
 .jt-timeline-transit { --dot: var(--jt-transit); }
 .jt-timeline-delivered { --dot: var(--jt-delivered); }
 .jt-timeline-hold { --dot: #ca8a04; }
@@ -933,3 +939,12 @@ summary:focus-visible {
 .jt-btn-amber:focus-visible { outline: 3px solid #1d4ea3; outline-offset: 2px; color: #fff; }
 .jt-btn-amber-ic { font-size: 1rem; line-height: 1; }
 @media print { .jt-tracklinks { display: none; } }
+
+/* Carrier / driver statement (v1.11.0) */
+.jt-statement-sum { max-width: 24rem; border: 1px solid var(--jt-card-border); border-radius: 0.5rem; overflow: hidden; }
+.jt-statement-sum > div { display: flex; justify-content: space-between; gap: 1rem; padding: 0.45rem 0.8rem; border-bottom: 1px solid var(--jt-card-border); }
+.jt-statement-sum > div:last-child { border-bottom: 0; }
+.jt-statement-sum small { color: var(--jt-muted); }
+.jt-statement-due { background: #334155; color: #fff; font-weight: 700; }
+.jt-statement td, .jt-statement th { overflow-wrap: anywhere; }
+@media print { .jt-noprint { display: none !important; } .jt-statement-due { background: #fff !important; color: #000 !important; border-top: 2px solid #000; } }

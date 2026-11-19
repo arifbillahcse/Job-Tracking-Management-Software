@@ -40,7 +40,7 @@ final class JobWorkflowService
         $available = [];
         foreach ((array) Config::get('statuses.transitions.' . $job['status'], []) as $to => $definition) {
             if (Auth::can((string) $definition['permission'])) {
-                $available[] = ['to' => (string) $to, 'form' => $this->formFor((string) $job['status'], (string) $to, (string) $definition['form'])] + $definition;
+                $available[] = ['to' => (string) $to, 'form' => $this->formForJob($job, (string) $to)] + $definition;
             }
         }
         return $available;
@@ -49,9 +49,31 @@ final class JobWorkflowService
     /**
      * The dialog a transition needs. Booked > In Transit is one click until the carrier list has names; then it asks for the carrier.
      */
-    private function formFor(string $from, string $to, string $configured): string
+    private function formFor(string $from, string $to, string $configured, ?array $job = null): string
     {
-        return $from === 'booked' && $to === 'in_transit' && CarrierList::required() ? 'dispatch' : $configured;
+        if (!CarrierList::required()) {
+            return $configured;
+        }
+        // Stage (v1.11.0) is where the carrier and driver are chosen. A job going straight to In Transit is asked then; a staged job
+        // is asked only when it has no carrier yet (staged before the list had names).
+        if ($from === 'booked' && in_array($to, ['staged', 'in_transit'], true)) {
+            return 'dispatch';
+        }
+        if ($from === 'staged' && $to === 'in_transit' && trim((string) ($job['carrier_name'] ?? '')) === '') {
+            return 'dispatch';
+        }
+        return $configured;
+    }
+
+    /**
+     * The dialog a move needs for this job (also used by the list-row shortcuts).
+     *
+     * @param array<string,mixed> $job
+     */
+    public function formForJob(array $job, string $to): string
+    {
+        $configured = (string) Config::get('statuses.transitions.' . $job['status'] . '.' . $to . '.form', 'none');
+        return $this->formFor((string) $job['status'], $to, $configured, $job);
     }
 
     /**
@@ -89,7 +111,7 @@ final class JobWorkflowService
             return ['ok' => false, 'code' => 'forbidden'];
         }
 
-        $form = $this->formFor($from, $to, (string) $definition['form']);
+        $form = $this->formFor($from, $to, (string) $definition['form'], $job);
         $rules = ['note' => ($definition['note'] === 'required' ? 'required' : 'nullable') . '|max:1000'];
         $labels = ['note' => 'Note'];
         if ($form === 'dispatch') {
@@ -184,6 +206,18 @@ final class JobWorkflowService
         $today = Clock::today();
 
         switch ($to) {
+            case 'staged':
+                // Staged: the carrier and driver are chosen now; the loaded date comes when the job goes In Transit.
+                $details = [];
+                if ($form === 'dispatch') {
+                    foreach (self::CARRIER as $column) {
+                        $changes[$column] = ($data[$column] ?? '') === '' ? null : (string) $data[$column];
+                    }
+                    $details = ['carrier_name' => $changes['carrier_name'], 'driver_name' => $changes['driver_name'], 'driver_phone' => $changes['driver_phone']];
+                }
+                $details = $details === [] ? null : $details;
+                break;
+
             case 'in_transit':
                 $changes['delivered_at'] = null;
                 $changes['delivery_date'] = null;

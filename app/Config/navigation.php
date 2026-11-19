@@ -13,9 +13,11 @@ return [
     ['group' => 'Jobs', 'label' => 'All Jobs',           'path' => '/jobs',              'icon' => 'briefcase',    'permission' => 'jobs.view', 'match' => '#^/jobs(/(create|trash|\d+(/.*)?))?$#'],
     ['group' => 'Jobs', 'label' => 'Ready for Delivery', 'path' => '/jobs/ready',        'icon' => 'clock',        'permission' => 'jobs.view'],
     ['group' => 'Jobs', 'label' => 'More Than 30 Days',  'path' => '/jobs/more-than-30', 'icon' => 'calendar',     'permission' => 'jobs.view'],
+    ['group' => 'Jobs', 'label' => 'Stage',              'path' => '/jobs/stage',        'icon' => 'inbox',        'permission' => 'jobs.view'],
     ['group' => 'Jobs', 'label' => 'In Transit',         'path' => '/jobs/in-transit',   'icon' => 'truck',        'permission' => 'jobs.view'],
     ['group' => 'Jobs', 'label' => 'Delivered',          'path' => '/jobs/delivered',    'icon' => 'check-circle', 'permission' => 'jobs.view'],
 
+    ['group' => 'Jobs', 'label' => 'Carrier Statement',  'path' => '/jobs/statement',    'icon' => 'file-text',    'permission' => 'jobs.view_financials'],
     ['group' => 'Jobs', 'label' => 'Import Jobs',        'path' => '/jobs/import',       'icon' => 'upload',       'permission' => 'jobs.import'],
 
     ['group' => 'Foremen & Trips', 'label' => 'Trips',   'path' => '/trips',   'icon' => 'truck', 'permission' => 'trips.view', 'match' => '#^/trips(/(create|export|\\d+(/.*)?))?$#'],

@@ -2,6 +2,14 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.11.0 - the Stage step and the carrier statement
+
+* **New step "Stage" between Booked and In Transit** (Jobs > Stage, with its own tab and count). A booked job's button now says **Move to Stage**; a staged job has **Move to In Transit**. A job can still go straight from Booked to In Transit.
+* **Carrier and driver are chosen when the job is staged** (the carrier list from Settings; the driver name and phone are optional). Moving a staged job to In Transit is then one click and keeps them; the loaded date is saved when it goes In Transit. A staged job that has no carrier (staged before the list had names) is asked for one at In Transit. While the carrier list is empty both moves stay one click.
+* A staged job can go Back to Booked (the carrier is cleared, kept in the history), be put on hold or be cancelled. It cannot be marked Delivered without going In Transit first. It still counts in Booked Jobs and its storage fee keeps running. It is in no other section (Ready, More Than 30 Days, Future) while staged, like a job in transit.
+* **New page Jobs > Carrier Statement** (for people who may see money). Choose a carrier and/or a driver, type the **rate per CF**, and optionally dates (empty = every job). It lists that person's jobs in Stage, In Transit and Delivered: Job #, Status, Customer, Phone, From, To, **A-CF**, Rate, **CF Pay** (= rate x actual CF), **Bal. Due**, Remarks, with totals, then **Subtotal** (Bal. Due total) - **CF Pay** = **TOTAL DUE**. Print and Download CSV (CSV needs the export permission). Nothing is stored: the rate is only typed on the page.
+* No migration. **Upgrade:** `git pull origin main`, then Ctrl+F5.
+
 ## 1.10.0 - Driver Tracking and Job Tracking buttons
 
 * **Two orange buttons at the very top of every page** (above the page title): **Driver Tracking** (https://app.bhrelocationinc.com/) and **Job Tracking**. Both open in the same tab. Not shown on the login page or when printing.

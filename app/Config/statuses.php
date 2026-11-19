@@ -16,6 +16,7 @@ declare(strict_types=1);
 return [
     'statuses' => [
         'booked'     => ['label' => 'Booked',     'badge' => 'booked'],
+        'staged'     => ['label' => 'Stage',      'badge' => 'stage'],
         'in_transit' => ['label' => 'In Transit', 'badge' => 'transit'],
         'delivered'  => ['label' => 'Delivered',  'badge' => 'delivered'],
         'on_hold'    => ['label' => 'On Hold',    'badge' => 'hold'],
@@ -24,7 +25,15 @@ return [
 
     'transitions' => [
         'booked' => [
+            // Stage is the step before In Transit (client request, v1.11.0). A job can still go straight to In Transit.
+            'staged'     => ['label' => 'Move to Stage', 'permission' => 'jobs.status', 'style' => 'primary', 'form' => 'none', 'note' => 'optional'],
             'in_transit' => ['label' => 'Move to In Transit', 'permission' => 'jobs.status', 'style' => 'primary', 'form' => 'none', 'note' => 'optional'],
+            'on_hold'    => ['label' => 'Put on hold', 'permission' => 'jobs.status', 'style' => 'outline-secondary', 'form' => 'note', 'note' => 'required'],
+            'cancelled'  => ['label' => 'Cancel job', 'permission' => 'jobs.status', 'style' => 'outline-danger', 'form' => 'note', 'note' => 'required'],
+        ],
+        'staged' => [
+            'in_transit' => ['label' => 'Move to In Transit', 'permission' => 'jobs.status', 'style' => 'primary', 'form' => 'none', 'note' => 'optional'],
+            'booked'     => ['label' => 'Back to Booked', 'permission' => 'jobs.status', 'style' => 'outline-secondary', 'form' => 'note', 'note' => 'optional'],
             'on_hold'    => ['label' => 'Put on hold', 'permission' => 'jobs.status', 'style' => 'outline-secondary', 'form' => 'note', 'note' => 'required'],
             'cancelled'  => ['label' => 'Cancel job', 'permission' => 'jobs.status', 'style' => 'outline-danger', 'form' => 'note', 'note' => 'required'],
         ],

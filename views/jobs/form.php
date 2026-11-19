@@ -137,7 +137,7 @@ $input = static function (string $name, string $label, array $opts = []) use ($v
                 </div>
             </div>
 
-            <?php if ($job !== null && (string) $job['status'] === 'in_transit'): ?>
+            <?php if ($job !== null && in_array((string) $job['status'], ['staged', 'in_transit'], true)): ?>
                 <div class="card jt-card mb-4">
                     <div class="card-header bg-transparent fw-semibold">Carrier</div>
                     <div class="card-body">

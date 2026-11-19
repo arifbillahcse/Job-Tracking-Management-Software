@@ -28,7 +28,11 @@ $invalid = static fn (string $to, string $field): string => $failed === $to && h
                 </div>
                 <div class="modal-body">
                     <?php if ($t['form'] === 'dispatch'): $chosen = $value($to, 'carrier_name', $job['carrier_name'] ?? ''); ?>
-                        <p class="text-body-secondary">The job moves to <strong>In Transit</strong>. Choose the carrier that takes it; today's date is saved as the loaded date.</p>
+                        <?php if ($to === 'staged'): ?>
+                            <p class="text-body-secondary">The job moves to <strong>Stage</strong>. Choose the carrier that takes it; the loaded date is saved when it goes In Transit.</p>
+                        <?php else: ?>
+                            <p class="text-body-secondary">The job moves to <strong>In Transit</strong>. Choose the carrier that takes it; today's date is saved as the loaded date.</p>
+                        <?php endif; ?>
                         <div class="mb-3">
                             <label class="form-label" for="<?= e($modalId) ?>-carrier">Carrier <span class="text-danger" aria-hidden="true">*</span></label>
                             <select class="form-select<?= $invalid($to, 'carrier_name') ?>" id="<?= e($modalId) ?>-carrier" name="carrier_name" required>
@@ -62,7 +66,7 @@ $invalid = static fn (string $to, string $field): string => $failed === $to && h
                             <?= $error($to, 'delivered_on') ?>
                         </div>
                     <?php elseif ($to === 'booked'): ?>
-                        <p class="text-body-secondary">The job returns to <strong>Booked</strong>. Any carrier details are cleared (they stay in the history) and it has to be dispatched again.</p>
+                        <p class="text-body-secondary">The job returns to <strong>Booked</strong>. Any carrier details are cleared (they stay in the history) and it has to be staged or dispatched again.</p>
                     <?php endif; ?>
 
                     <label class="form-label" for="<?= e($modalId) ?>-note"><?= $required ? 'Reason' : 'Note (optional)' ?><?= $required ? ' <span class="text-danger" aria-hidden="true">*</span>' : '' ?></label>

@@ -61,6 +61,7 @@ final class JobCriteria
         JobBucket::FUTURE => ['pickup', 'asc'],
         JobBucket::READY => ['available', 'asc'],
         JobBucket::LATER => ['available', 'asc'],
+        JobBucket::STAGE => ['created', 'desc'],
         JobBucket::TRANSIT => ['dispatched', 'desc'],
         JobBucket::DELIVERED => ['delivered', 'desc'],
     ];

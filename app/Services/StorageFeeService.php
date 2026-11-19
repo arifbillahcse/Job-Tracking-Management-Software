@@ -31,7 +31,7 @@ final class StorageFeeService
     public const MODES = ['monthly' => 'every month (CF × rate × months)', 'once' => 'once (CF × rate, one time)'];
     /** Length of one storage month, in days (assumption N2). */
     public const MONTH_DAYS = 30;
-    private const OPEN = ['booked', 'in_transit', 'on_hold'];
+    private const OPEN = ['booked', 'staged', 'in_transit', 'on_hold'];
 
     public static function rate(): string
     {
@@ -163,7 +163,7 @@ final class StorageFeeService
         $after = 0;
         while (true) {
             $rows = Database::fetchAll(
-                "SELECT * FROM jobs WHERE deleted_at IS NULL AND id > ? AND (status IN ('booked', 'in_transit', 'on_hold') OR status = 'cancelled' OR storage_fee_override IS NOT NULL) ORDER BY id LIMIT 500",
+                "SELECT * FROM jobs WHERE deleted_at IS NULL AND id > ? AND (status IN ('booked', 'staged', 'in_transit', 'on_hold') OR status = 'cancelled' OR storage_fee_override IS NOT NULL) ORDER BY id LIMIT 500",
                 [$after]
             );
             if ($rows === []) {

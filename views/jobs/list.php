@@ -43,6 +43,7 @@ $layouts = [
     JobBucket::FUTURE => [...$core, 'dates', 'routeloc', 'assign', ...$money],
     JobBucket::READY => [...$core, 'dates', 'routeloc', 'assign', ...$money],
     JobBucket::LATER => [...$core, 'dates', 'routeloc', 'assign', ...$money],
+    JobBucket::STAGE => [...$core, 'dates', 'routeloc', 'assign', ...$money, 'carrierblock'],
     JobBucket::TRANSIT => [...$core, 'routeloc', 'assign', ...$money, 'dispatched', 'carrierblock'],
     JobBucket::DELIVERED => [...$core, 'dates', 'routeloc', 'assign', ...$money, 'delivered'],
 ];
@@ -53,7 +54,7 @@ $columns = array_values(array_filter(
 
 $descriptions = [
     JobBucket::ALL => 'Every job, including those on hold or cancelled.',
-    JobBucket::BOOKED => 'Every job that is not delivered yet: booked, on the road or on hold. Delivered and cancelled jobs are not listed here.',
+    JobBucket::BOOKED => 'Every job that is not delivered yet: booked, staged, on the road or on hold. Delivered and cancelled jobs are not listed here.',
     JobBucket::FUTURE => 'Booked jobs with a pickup date after today: they are not picked up yet. A job with no pickup date is never listed here.',
     JobBucket::READY => JobBucket::basis() === 'pickup'
         ? "Booked jobs picked up within the last {$threshold} days (up to today). Jobs with no pickup date are counted from their 1st available date."
@@ -61,6 +62,7 @@ $descriptions = [
     JobBucket::LATER => JobBucket::basis() === 'pickup'
         ? "Booked jobs picked up more than {$threshold} days ago (the storage fee applies to those). Jobs with no pickup date are counted from their 1st available date."
         : "Booked jobs whose 1st available date is more than {$threshold} days away, or that have already waited more than {$threshold} days past it (the storage fee applies to those). Jobs ahead of time move to Ready for Delivery by themselves as the date approaches.",
+    JobBucket::STAGE => 'Jobs that are staged: the carrier and driver are chosen, but the job is not on the road yet. Use Move to In Transit when it is loaded.',
     JobBucket::TRANSIT => 'Jobs on the road, with the loaded date, carrier and driver. Use Mark as Delivered when a job arrives.',
     JobBucket::DELIVERED => 'Completed deliveries.',
 ];
@@ -71,6 +73,7 @@ $emptyBucket = [
     JobBucket::FUTURE => ['calendar', 'No future jobs', 'Booked jobs with a pickup date after today will appear here.'],
     JobBucket::READY => ['clock', 'Nothing is ready for delivery', "Booked jobs with a 1st available date in the next {$threshold} days will appear here."],
     JobBucket::LATER => ['calendar', 'Nothing more than ' . $threshold . ' days away', 'Booked jobs with a later available date will appear here.'],
+    JobBucket::STAGE => ['inbox', 'No staged jobs', 'Jobs appear here when you press Move to Stage.'],
     JobBucket::TRANSIT => ['truck', 'No jobs in transit', 'Jobs appear here when you press Move to In Transit.'],
     JobBucket::DELIVERED => ['check-circle', 'No deliveries yet', 'Completed deliveries will appear here.'],
 ];

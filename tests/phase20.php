@@ -67,7 +67,7 @@ check(str_contains(plain(call('GET', '/jobs')->body()), 'of 9 jobs'), 'All Jobs 
 $ready = $list('/jobs/ready');
 check(array_intersect($list('/jobs/future'), $ready, $list('/jobs/more-than-30'), $list('/jobs/delivered')) === [] && array_intersect($list('/jobs/future'), $ready) === [], 'no job is in Future and in Ready (a job appears once in the date sections)');
 $tabs = plain(call('GET', '/jobs')->body());
-check(preg_match('~All Jobs \d+ Booked Jobs 7 Future Jobs 2 Ready for Delivery 2 More Than 30 Days 1 In Transit 1 Delivered 1~', $tabs) === 1, 'the tabs on top show Booked Jobs and Future Jobs with their counts: ' . (preg_match('~All Jobs.*?Delivered \d+~', $tabs, $tm) ? $tm[0] : '?'));
+check(preg_match('~All Jobs \d+ Booked Jobs 7 Future Jobs 2 Ready for Delivery 2 More Than 30 Days 1 Stage 0 In Transit 1 Delivered 1~', $tabs) === 1, 'the tabs on top show Booked Jobs and Future Jobs with their counts: ' . (preg_match('~All Jobs.*?Delivered \d+~', $tabs, $tm) ? $tm[0] : '?'));
 $dash = plain(call('GET', '/dashboard')->body());
 check(str_contains($dash, 'Booked jobs') && str_contains($dash, 'Future jobs') && str_contains($dash, 'pickup date after today'), 'the dashboard has Booked jobs and Future jobs cards');
 check(JobBucket::of(['status' => 'booked', 'pickup_date' => '2026-11-16', 'first_available_date' => '2026-11-16']) === JobBucket::FUTURE && JobBucket::of(['status' => 'on_hold', 'pickup_date' => '2026-11-16', 'first_available_date' => '2026-11-16']) === null, 'the PHP twin agrees: future for a booked job, none for a job on hold');
