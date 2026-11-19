@@ -62,6 +62,20 @@ $val = static fn (string $key): string => old_or($key, $values[$key] ?? '');
                 </div>
             </div>
             <div class="card-body border-top">
+                <div class="fw-semibold mb-2">Tracking buttons</div>
+                <p class="form-text mt-0">Two orange buttons at the top of every page. Each opens its address in a new tab. Leave an address empty to hide its button.</p>
+                <div class="mb-3">
+                    <label for="tracking_driver_url" class="form-label">Driver Tracking address</label>
+                    <input type="url" class="form-control<?= has_error('tracking_driver_url') ? ' is-invalid' : '' ?>" id="tracking_driver_url" name="tracking_driver_url" maxlength="300" value="<?= e($val('tracking_driver_url')) ?>" placeholder="https://...">
+                    <?= error_text('tracking_driver_url') ?>
+                </div>
+                <div class="mb-3">
+                    <label for="tracking_job_url" class="form-label">Job Tracking address</label>
+                    <input type="url" class="form-control<?= has_error('tracking_job_url') ? ' is-invalid' : '' ?>" id="tracking_job_url" name="tracking_job_url" maxlength="300" value="<?= e($val('tracking_job_url')) ?>" placeholder="https://...">
+                    <?= error_text('tracking_job_url') ?>
+                </div>
+            </div>
+            <div class="card-body border-top">
                 <label for="carriers" class="form-label">Carriers</label>
                 <textarea class="form-control<?= has_error('carriers') ? ' is-invalid' : '' ?>" id="carriers" name="carriers" rows="6" aria-describedby="carriers-help"><?= e($val('carriers')) ?></textarea>
                 <div class="form-text" id="carriers-help">One carrier per line (a foreman can be listed too). While the list is empty nothing is required. Once it has names, a job needs one of them to be moved to In Transit, and the carrier is picked from this list. Renaming a carrier here does not rename it on jobs that already have it.</div>

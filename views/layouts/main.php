@@ -12,6 +12,7 @@
 <div class="jt-shell">
     <?= \App\Core\View::partial('partials/sidebar') ?>
     <div class="jt-main">
+        <?= \App\Core\View::partial('partials/tracking-links') ?>
         <?= \App\Core\View::partial('partials/topbar', ['title' => $title ?? '']) ?>
         <main class="jt-content" id="main" tabindex="-1">
             <?= \App\Core\View::partial('partials/flash') ?>

@@ -2,6 +2,12 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.10.0 - Driver Tracking and Job Tracking buttons
+
+* **Two orange buttons at the very top of every page** (above the page title): **Driver Tracking** (https://app.bhrelocationinc.com/) and **Job Tracking**. Both open in the same tab. Not shown on the login page or when printing.
+* **The two addresses are in Settings** ("Tracking buttons"). Leave one empty to hide that button. Only http / https addresses are accepted.
+* No migration. **Upgrade:** `git pull origin main`, then Ctrl+F5.
+
 ## 1.9.0 - a carrier from a fixed list when a job goes In Transit (calendar phase 4)
 
 * **New "Carriers" box on the Settings page:** one carrier per line (a foreman can be listed too).

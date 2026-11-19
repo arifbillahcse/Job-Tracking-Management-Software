@@ -566,6 +566,25 @@ async function createJob(page, number, availableOffset, extra = {}) {
         page.once('dialog', (d) => d.accept());
         await Promise.all([page.waitForNavigation(), page.click('button[data-confirm]')]);
     });
+    await step('the Driver / Job Tracking buttons sit at the top, open in the same tab and fit a phone', async () => {
+        // the earlier HTTP suites share this database and may have saved Settings without these two fields, so set them here, as a person would
+        await page.goto(BASE + '/settings');
+        await page.fill('#tracking_driver_url', 'https://app.bhrelocationinc.com/');
+        await page.fill('#tracking_job_url', 'http://app.americanprovanline.com/');
+        await Promise.all([page.waitForNavigation(), page.click('button:has-text("Save settings")')]);
+        for (const path of ['/dashboard', '/jobs', '/jobs/calendar']) {
+            await page.goto(BASE + path);
+            const links = page.locator('nav.jt-tracklinks a.jt-btn-amber');
+            must((await links.count()) === 2, 'the tracking buttons are missing on ' + path);
+            must((await links.nth(0).getAttribute('href')) === 'https://app.bhrelocationinc.com/', 'Driver Tracking points to the wrong address');
+            must((await links.nth(0).getAttribute('target')) === null && (await links.nth(1).getAttribute('target')) === null, 'a tracking button opens a new tab');
+        }
+        await page.setViewportSize({ width: 360, height: 740 });
+        await page.goto(BASE + '/jobs');
+        const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        must(over <= 0, 'the page scrolls sideways by ' + over + 'px at 360 px');
+        await page.setViewportSize({ width: 1280, height: 800 });
+    });
     await step('carriers: a list in Settings, then Move to In Transit asks for one in a dialog', async () => {
         await page.goto(BASE + '/settings');
         await page.fill('#carriers', RUN + ' KEN\n' + RUN + ' DINOCA');
