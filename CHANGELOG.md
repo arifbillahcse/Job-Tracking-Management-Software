@@ -2,6 +2,10 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.11.1 - wording
+
+* The help text under Carriers in Settings now says a carrier is needed to move a job to Stage (or straight to In Transit). No other change, no migration. **Upgrade:** `git pull origin main`, then Ctrl+F5.
+
 ## 1.11.0 - the Stage step and the carrier statement
 
 * **New step "Stage" between Booked and In Transit** (Jobs > Stage, with its own tab and count). A booked job's button now says **Move to Stage**; a staged job has **Move to In Transit**. A job can still go straight from Booked to In Transit.

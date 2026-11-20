@@ -78,7 +78,7 @@ $val = static fn (string $key): string => old_or($key, $values[$key] ?? '');
             <div class="card-body border-top">
                 <label for="carriers" class="form-label">Carriers</label>
                 <textarea class="form-control<?= has_error('carriers') ? ' is-invalid' : '' ?>" id="carriers" name="carriers" rows="6" aria-describedby="carriers-help"><?= e($val('carriers')) ?></textarea>
-                <div class="form-text" id="carriers-help">One carrier per line (a foreman can be listed too). While the list is empty nothing is required. Once it has names, a job needs one of them to be moved to In Transit, and the carrier is picked from this list. Renaming a carrier here does not rename it on jobs that already have it.</div>
+                <div class="form-text" id="carriers-help">One carrier per line (a foreman can be listed too). While the list is empty nothing is required. Once it has names, a job needs one of them to be moved to Stage (or straight to In Transit), and the carrier is picked from this list. Renaming a carrier here does not rename it on jobs that already have it.</div>
                 <?= error_text('carriers') ?>
             </div>
             <?= \App\Core\View::partial('settings/_storage_fields', ['values' => $values, 'val' => $val]) ?>
