@@ -40,6 +40,7 @@ async function createJob(page, number, availableOffset, extra = {}) {
     if (extra.pickup !== undefined) await page.fill('#pickup_date', day(extra.pickup));
     if (extra.balance) await page.fill('#grand_total', extra.balance); // Total to BH = Grand total - Deposit, Balance due = Total to BH - Paid: with no deposit and nothing paid the balance equals the grand total
     if (extra.cf) await page.fill('#cf', extra.cf);
+    if (extra.rate) await page.fill('#carrier_rate', extra.rate);
     if (extra.phone) await page.fill('#customer_phone', extra.phone);
     if (extra.broker) await page.fill('#broker', extra.broker);
     await Promise.all([page.waitForNavigation(), page.click('main form button[type=submit]')]);
@@ -588,6 +589,13 @@ async function createJob(page, number, availableOffset, extra = {}) {
         const over = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
         must(over <= 0, 'the page scrolls sideways by ' + over + 'px at 360 px');
         await page.setViewportSize({ width: 1280, height: 800 });
+    });
+    await step('the carrier rate is typed on the job form and shown on the job page', async () => {
+        await createJob(page, RUN + '-RATE', 10, { rate: '2.50' });
+        await page.goto(BASE + '/jobs?q=' + RUN + '-RATE');
+        await Promise.all([page.waitForNavigation(), page.click('a[href^="/jobs/"]:has-text("' + RUN + '-RATE")')]);
+        const text = (await page.textContent('main')).replace(/\s+/g, ' ');
+        must(/Carrier rate\s*\$2\.50 per CF/.test(text), 'the rate is not on the job page: ' + text.slice(0, 200));
     });
     await step('carriers: a list in Settings, then Move to Stage asks for one in a dialog, and the statement lists the job', async () => {
         await page.goto(BASE + '/settings');

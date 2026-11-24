@@ -53,6 +53,7 @@ final class JobRules
                 $rules[$field] = 'nullable|money|min_value:0|max_value:9999999999.99';
             }
             $rules['storage_fee_override'] = 'nullable|money|min_value:0|max_value:9999999999.99';
+            $rules['carrier_rate'] = 'nullable|money|min_value:0|max_value:9999.99'; // dollars per CF paid to the carrier
         }
 
         if ($withAssignment) {
@@ -137,6 +138,7 @@ final class JobRules
             'grand_total' => 'Grand total',
             'bh_total' => 'Total to BH',
             'paid' => 'Paid',
+            'carrier_rate' => 'Carrier rate',
             'foreman_id' => 'Foreman',
             'trip_id' => 'Trip',
             'foreman' => 'Foreman',

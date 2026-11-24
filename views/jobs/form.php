@@ -125,6 +125,7 @@ $input = static function (string $name, string $label, array $opts = []) use ($v
                                 <?php $calc = $name === 'bh_total'; ?>
                                 <div class="col-12 col-sm-6 col-xl-12"><?= $input($name, $label, ['type' => 'number', 'step' => '0.01', 'min' => $calc ? '-9999999999' : '0', 'inputmode' => 'decimal', 'data-money' => $name] + ($calc ? ['readonly' => 'readonly', 'help' => 'Calculated: Grand total - Deposit.'] : [])) ?></div>
                             <?php endforeach; ?>
+                            <div class="col-12 col-sm-6 col-xl-12"><?= $input('carrier_rate', 'Carrier rate (per CF)', ['type' => 'number', 'step' => '0.01', 'min' => '0', 'inputmode' => 'decimal', 'help' => 'Dollars per cubic foot paid to the carrier. The Carrier Statement multiplies it by the A-CF.']) ?></div>
                             <div class="col-12 col-sm-6 col-xl-12"><?= $input('balance', 'Balance due', ['type' => 'number', 'step' => '0.01', 'min' => '-9999999999', 'inputmode' => 'decimal', 'data-money' => 'balance', 'readonly' => 'readonly', 'help' => 'Calculated: Total to BH - Paid. What the customer still owes.']) ?></div>
                             <div class="col-12 col-sm-6 col-xl-12">
                                 <?= $input('storage_fee_override', 'Storage fee override', ['type' => 'number', 'step' => '0.01', 'min' => '0', 'inputmode' => 'decimal', 'help' => 'Leave empty for the automatic fee (CF × rate after ' . \App\Services\StorageFeeService::days() . ' days). A number here replaces it.']) ?>

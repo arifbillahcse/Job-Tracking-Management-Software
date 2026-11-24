@@ -26,12 +26,12 @@ final class JobService
     public const CHECKS = ['confirmed' => 'Confirmed', 'e_signed' => 'E-Signed', 'job_docs' => 'Job Docs', 'bill_of_lading' => 'Bill of Lading'];
 
     /** Columns only users with jobs.edit_financials may write. */
-    private const FINANCIAL = ['balance', 'storage_fee_override', 'estimated_total', 'deposit', 'grand_total', 'bh_total', 'paid'];
+    private const FINANCIAL = ['balance', 'storage_fee_override', 'estimated_total', 'deposit', 'grand_total', 'bh_total', 'paid', 'carrier_rate'];
 
     /** Writable only while the job is In Transit (to correct a typo); otherwise they change through the workflow. */
     private const CARRIER = ['carrier_name', 'driver_name', 'driver_phone'];
 
-    private const DECIMAL = ['cf', 'estimated_cf', 'miles', 'balance', 'storage_fee', 'storage_fee_override', 'estimated_total', 'deposit', 'grand_total', 'bh_total', 'paid'];
+    private const DECIMAL = ['cf', 'estimated_cf', 'miles', 'balance', 'storage_fee', 'storage_fee_override', 'estimated_total', 'deposit', 'grand_total', 'bh_total', 'paid', 'carrier_rate'];
 
     public function __construct(private JobRepository $jobs = new JobRepository())
     {

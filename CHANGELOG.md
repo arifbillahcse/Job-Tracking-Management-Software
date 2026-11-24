@@ -2,6 +2,11 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.12.0 - a carrier rate on each job (rate phase 1)
+
+* **New field "Carrier rate (per CF)" on every job**, in the Cargo & money box of the job form and on the job page (only for people who may see money). It is the rate paid to the carrier, in dollars per cubic foot, like 2.50, set separately on each job. Empty means no rate yet. This phase only stores it; the Carrier Statement uses it in the next version.
+* **Migration 020** adds one column (`carrier_rate`); existing jobs get no rate. **Upgrade:** `git pull origin main`, `php cli/migrate.php`, `php cli/doctor.php`, then Ctrl+F5.
+
 ## 1.11.1 - wording
 
 * The help text under Carriers in Settings now says a carrier is needed to move a job to Stage (or straight to In Transit). No other change, no migration. **Upgrade:** `git pull origin main`, then Ctrl+F5.

@@ -87,6 +87,7 @@ $dl = static function (string $label, string $valueHtml): string {
                         <?php foreach (['estimated_total' => 'E-Total', 'deposit' => 'Deposit', 'grand_total' => 'Grand total', 'bh_total' => 'Total to BH', 'paid' => 'Paid'] as $field => $label): ?>
                             <?= $dl($label, ($job[$field] ?? null) === null ? '—' : e(fmt_money($job[$field]))) ?>
                         <?php endforeach; ?>
+                        <?= $dl('Carrier rate', ($job['carrier_rate'] ?? null) === null ? '—' : e(fmt_money($job['carrier_rate'])) . ' per CF') ?>
                         <?= $dl('Balance', e(fmt_money($job['balance']))) ?>
                         <?= $dl('Storage fee', e(fmt_money($job['storage_fee'])) . '<div class="jt-subtle">' . e(storage_fee_note($job)) . '</div>') ?>
                         <?= $dl('Storage paid', e(fmt_money($job['storage_paid'] ?? 0))) ?>
