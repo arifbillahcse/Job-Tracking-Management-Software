@@ -9,7 +9,7 @@ use App\Core\Database;
 /**
  * The carrier / driver statement (client request, v1.11.0): the jobs of one carrier and/or driver, with what the carrier is paid.
  *
- *   CF Pay   = Rate x actual CF (the client's words: "rate times A-CF"; the rate is typed on the statement, nothing new is stored)
+ *   CF Pay   = the job's own carrier rate x its actual CF (the client's words: "rate times A-CF"; each job has its own rate, v1.12.0)
  *   Subtotal = the Bal. Due of the listed jobs
  *   TOTAL DUE = Subtotal - CF Pay
  *
@@ -20,19 +20,6 @@ final class CarrierStatement
 {
     public const STATUSES = ['staged', 'in_transit', 'delivered'];
     public const MAX_ROWS = 1000;
-
-    /** @return array{value:string,error:?string} the rate as "2.50" (at most 2 decimals, up to 9999.99) */
-    public static function parseRate(mixed $input): array
-    {
-        $text = is_string($input) ? trim($input) : '';
-        if ($text === '') {
-            return ['value' => '', 'error' => 'Enter the rate per cubic foot.'];
-        }
-        if (preg_match('/^\d{1,4}(\.\d{1,2})?$/', $text) !== 1 || (float) $text <= 0) {
-            return ['value' => $text, 'error' => 'The rate must be a number above 0, up to 9999.99, with at most 2 decimals.'];
-        }
-        return ['value' => number_format((float) $text, 2, '.', ''), 'error' => null];
-    }
 
     /** @return array{value:string,error:?string} a date as Y-m-d, or '' (no limit) */
     public static function parseDate(mixed $input, string $label): array
@@ -73,7 +60,7 @@ final class CarrierStatement
     /**
      * @return array{rows:array<int,array<string,mixed>>,totals:array<string,mixed>,truncated:bool}
      */
-    public static function build(string $carrier, string $driver, string $from, string $to, string $rate): array
+    public static function build(string $carrier, string $driver, string $from, string $to): array
     {
         $marks = implode(',', array_fill(0, count(self::STATUSES), '?'));
         $where = "j.deleted_at IS NULL AND j.status IN ({$marks})";
@@ -102,20 +89,24 @@ final class CarrierStatement
         $truncated = count($found) > self::MAX_ROWS;
         $found = array_slice($found, 0, self::MAX_ROWS);
 
-        $rateCents = (int) round((float) $rate * 100);
         $rows = [];
         $cfTotal = 0;
         $feeTotal = 0;
         $balTotal = 0;
         $noCf = 0;
+        $noRate = 0;
+        $incomplete = 0;
         foreach ($found as $job) {
-            $cf = $job['cf'] === null || $job['cf'] === '' ? null : (int) round((float) $job['cf'] * 100); // hundredths of a cubic foot
-            $fee = $cf === null ? 0 : intdiv($cf * $rateCents + 50, 100);                                 // cents, half up
+            $cf = $job['cf'] === null || $job['cf'] === '' ? null : (int) round((float) $job['cf'] * 100);                    // hundredths of a cubic foot
+            $rateCents = $job['carrier_rate'] === null || $job['carrier_rate'] === '' ? null : (int) round((float) $job['carrier_rate'] * 100);
+            $fee = $cf === null || $rateCents === null ? null : intdiv($cf * $rateCents + 50, 100);                          // cents, half up; no CF or no rate = no CF Pay
             $bal = (int) round((float) $job['balance'] * 100);
             $cfTotal += $cf ?? 0;
-            $feeTotal += $fee;
+            $feeTotal += $fee ?? 0;
             $balTotal += $bal;
             $noCf += $cf === null ? 1 : 0;
+            $noRate += $rateCents === null ? 1 : 0;
+            $incomplete += $fee === null ? 1 : 0;
             $rows[] = [
                 'id' => (int) $job['id'],
                 'job_number' => (string) $job['job_number'],
@@ -125,7 +116,8 @@ final class CarrierStatement
                 'from' => (string) $job['from_location'],
                 'to' => (string) $job['to_location'],
                 'cf' => $cf === null ? null : self::cents($cf),
-                'fee' => $cf === null ? null : self::cents($fee),
+                'rate' => $rateCents === null ? null : self::cents($rateCents),
+                'fee' => $fee === null ? null : self::cents($fee),
                 'balance' => self::cents($bal),
                 'remarks' => (string) ($job['notes'] ?? ''),
             ];
@@ -141,6 +133,8 @@ final class CarrierStatement
                 'subtotal' => self::cents($balTotal),
                 'due' => self::cents($balTotal - $feeTotal),
                 'no_cf' => $noCf,
+                'no_rate' => $noRate,
+                'incomplete' => $incomplete,
             ],
         ];
     }

@@ -2,13 +2,13 @@
 /**
  * Carrier / driver statement.
  * @var array<int,string> $carriers  @var array<int,string> $drivers  @var string $carrier  @var string $driver  @var string $from  @var string $to
- * @var string $rate  @var array<int,string> $errors  @var array<string,mixed>|null $statement  @var bool $canExport
+ * @var array<int,string> $errors  @var array<string,mixed>|null $statement  @var bool $canExport
  */
-$q = ['carrier' => $carrier, 'driver' => $driver, 'from' => $from, 'to' => $to, 'rate' => $rate, 'go' => '1'];
+$q = ['carrier' => $carrier, 'driver' => $driver, 'from' => $from, 'to' => $to, 'go' => '1'];
 $label = static fn (string $s): string => (string) \App\Core\Config::get('statuses.statuses.' . $s . '.label', $s);
 ?>
 <div class="jt-page-actions">
-    <p class="text-body-secondary mb-0 me-auto jt-section-note">The jobs of one carrier or driver (Stage, In Transit and Delivered). CF Pay is the rate times the actual CF; Total Due is the Bal. Due total minus CF Pay. Leave the dates empty to include every job.</p>
+    <p class="text-body-secondary mb-0 me-auto jt-section-note">The jobs of one carrier or driver (Stage, In Transit and Delivered). CF Pay is each job's own carrier rate times its actual CF; Total Due is the Bal. Due total minus CF Pay. Leave the dates empty to include every job.</p>
 </div>
 
 <div class="card jt-card mb-3 jt-noprint">
@@ -32,10 +32,6 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
                         <option value="<?= e($d) ?>"<?= mb_strtolower($driver) === mb_strtolower($d) ? ' selected' : '' ?>><?= e($d) ?></option>
                     <?php endforeach; ?>
                 </select>
-            </div>
-            <div class="col-12 col-md-4">
-                <label class="form-label" for="st-rate">Rate per CF <span class="text-danger" aria-hidden="true">*</span></label>
-                <input type="text" class="form-control" id="st-rate" name="rate" inputmode="decimal" maxlength="7" placeholder="2.50" value="<?= e($rate) ?>">
             </div>
             <div class="col-6 col-md-4">
                 <label class="form-label" for="st-from">From (optional)</label>
@@ -65,7 +61,6 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
                 <div>
                     <div class="h5 mb-1">Statement &middot; <?= e(trim(($carrier !== '' ? $carrier : '') . ($carrier !== '' && $driver !== '' ? ' / ' : '') . $driver)) ?></div>
                     <div class="text-body-secondary small">
-                        Rate <?= e(fmt_money(\App\Services\CarrierStatement::parseRate($rate)['value'])) ?> per CF &middot;
                         <?= $from === '' && $to === '' ? 'all dates' : e(($from !== '' ? fmt_date($from) : 'the start') . ' to ' . ($to !== '' ? fmt_date($to) : 'today')) ?>
                     </div>
                 </div>
@@ -79,8 +74,12 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
             <?php if ($statement['truncated']): ?>
                 <div class="alert alert-warning">Only the first <?= e(\App\Services\CarrierStatement::MAX_ROWS) ?> jobs are shown. Choose dates to narrow it down.</div>
             <?php endif; ?>
-            <?php if ($t['no_cf'] > 0): ?>
-                <div class="alert alert-warning"><?= e($t['no_cf']) ?> job<?= $t['no_cf'] === 1 ? ' has' : 's have' ?> no actual CF yet, so <?= $t['no_cf'] === 1 ? 'its CF Pay is' : 'their CF Pay is' ?> left out ($0).</div>
+            <?php if ($t['incomplete'] > 0): ?>
+                <div class="alert alert-warning">
+                    <?php if ($t['no_rate'] > 0): ?><div><?= e($t['no_rate']) ?> job<?= $t['no_rate'] === 1 ? ' has' : 's have' ?> no carrier rate.</div><?php endif; ?>
+                    <?php if ($t['no_cf'] > 0): ?><div><?= e($t['no_cf']) ?> job<?= $t['no_cf'] === 1 ? ' has' : 's have' ?> no actual CF.</div><?php endif; ?>
+                    <div>Their CF Pay is left out ($0), so Total Due is not final until the rate and the A-CF are entered on the job.</div>
+                </div>
             <?php endif; ?>
 
             <?php if ($statement['rows'] === []): ?>
@@ -102,7 +101,7 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
                                 <td><?= e($r['from']) ?></td>
                                 <td><?= e($r['to']) ?></td>
                                 <td class="text-end"><?= $r['cf'] === null ? '&mdash;' : e(fmt_number($r['cf'])) ?></td>
-                                <td class="text-end"><?= e(fmt_money(\App\Services\CarrierStatement::parseRate($rate)['value'])) ?></td>
+                                <td class="text-end"><?= $r['rate'] === null ? '&mdash;' : e(fmt_money($r['rate'])) ?></td>
                                 <td class="text-end"><?= $r['fee'] === null ? '&mdash;' : e(fmt_money($r['fee'])) ?></td>
                                 <td class="text-end"><?= e(fmt_money($r['balance'])) ?></td>
                                 <td><?= e($r['remarks']) ?></td>

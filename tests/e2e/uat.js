@@ -601,7 +601,7 @@ async function createJob(page, number, availableOffset, extra = {}) {
         await page.goto(BASE + '/settings');
         await page.fill('#carriers', RUN + ' KEN\n' + RUN + ' DINOCA');
         await Promise.all([page.waitForNavigation(), page.click('button:has-text("Save settings")')]);
-        await createJob(page, RUN + '-CAR', 10);
+        await createJob(page, RUN + '-CAR', 10, { cf: '900', rate: '2.50' });
         await page.goto(BASE + '/jobs/ready?q=' + RUN + '-CAR');
         const link = page.locator('tr:has-text("' + RUN + '-CAR") a[href*="do=staged"]');
         must((await link.count()) === 1, 'the list button does not open the carrier dialog');
@@ -622,11 +622,11 @@ async function createJob(page, number, availableOffset, extra = {}) {
         await Promise.all([page.waitForNavigation(), page.click('button:has-text("Move to In Transit")')]);
         must((await page.textContent('main')).includes(RUN + ' DINOCA'), 'the carrier was lost at In Transit');
         // the statement: rate x actual CF
-        await page.goto(BASE + '/jobs/statement?go=1&carrier=' + encodeURIComponent(RUN + ' DINOCA') + '&rate=2.50');
+        await page.goto(BASE + '/jobs/statement?go=1&carrier=' + encodeURIComponent(RUN + ' DINOCA'));
         const sheet = (await page.textContent('main')).replace(/\s+/g, ' ');
-        must(sheet.includes(RUN + '-CAR') && /TOTAL DUE/.test(sheet) && /Rate \$2\.50 per CF/.test(sheet), 'the carrier statement does not list the job: ' + sheet.slice(0, 200));
+        must(sheet.includes(RUN + '-CAR') && /TOTAL DUE/.test(sheet) && /\$2,250\.00/.test(sheet), 'the carrier statement does not list the job: ' + sheet.slice(0, 200));
         await page.setViewportSize({ width: 360, height: 740 });
-        await page.goto(BASE + '/jobs/statement?go=1&carrier=' + encodeURIComponent(RUN + ' DINOCA') + '&rate=2.50');
+        await page.goto(BASE + '/jobs/statement?go=1&carrier=' + encodeURIComponent(RUN + ' DINOCA'));
         const wide = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
         must(wide <= 0, 'the statement scrolls sideways by ' + wide + 'px at 360 px');
         await page.setViewportSize({ width: 1280, height: 800 });
