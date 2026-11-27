@@ -7,7 +7,8 @@ namespace App\Services;
 use App\Core\Database;
 
 /**
- * The carrier / driver statement (client request, v1.11.0): the jobs of one carrier and/or driver, with what the carrier is paid.
+ * The carrier / driver / company statement (client request, v1.11.0, company v1.14.0): the jobs of one carrier, driver and/or company
+ * (the job's broker), with what the carrier is paid.
  *
  *   CF Pay   = the job's own carrier rate x its actual CF (the client's words: "rate times A-CF"; each job has its own rate, v1.12.0)
  *   Subtotal = the Bal. Due of the listed jobs
@@ -46,6 +47,12 @@ final class CarrierStatement
         return self::distinct('driver_name');
     }
 
+    /** The companies (brokers) of jobs that can be on a statement. @return array<int,string> */
+    public static function brokers(): array
+    {
+        return self::distinct('broker');
+    }
+
     /** @return array<int,string> */
     private static function distinct(string $column): array
     {
@@ -60,18 +67,22 @@ final class CarrierStatement
     /**
      * @return array{rows:array<int,array<string,mixed>>,totals:array<string,mixed>,truncated:bool}
      */
-    public static function build(string $carrier, string $driver, string $from, string $to): array
+    public static function build(string $carrier, string $driver, string $broker, string $from, string $to): array
     {
         $marks = implode(',', array_fill(0, count(self::STATUSES), '?'));
         $where = "j.deleted_at IS NULL AND j.status IN ({$marks})";
         $params = self::STATUSES;
         if ($carrier !== '') {
-            $where .= ' AND j.carrier_name = ?';
-            $params[] = $carrier;
+            $where .= ' AND LOWER(j.carrier_name) = ?'; // the same on MySQL and SQLite: letter case never matters
+            $params[] = mb_strtolower($carrier);
         }
         if ($driver !== '') {
-            $where .= ' AND j.driver_name = ?';
-            $params[] = $driver;
+            $where .= ' AND LOWER(j.driver_name) = ?'; // the same on MySQL and SQLite: letter case never matters
+            $params[] = mb_strtolower($driver);
+        }
+        if ($broker !== '') {
+            $where .= ' AND LOWER(j.broker) = ?'; // the same on MySQL and SQLite: letter case never matters
+            $params[] = mb_strtolower($broker);
         }
         $date = 'COALESCE(j.loaded_date, j.pickup_date, j.first_available_date)';
         if ($from !== '') {
@@ -117,6 +128,9 @@ final class CarrierStatement
                 'status' => (string) $job['status'],
                 'customer' => trim((string) $job['customer_first_name'] . ' ' . (string) $job['customer_last_name']),
                 'phone' => (string) ($job['customer_phone'] ?? ''),
+                'broker' => (string) ($job['broker'] ?? ''),
+                'carrier' => (string) ($job['carrier_name'] ?? ''),
+                'driver' => (string) ($job['driver_name'] ?? ''),
                 'from' => (string) $job['from_location'],
                 'to' => (string) $job['to_location'],
                 'cf' => $cf === null ? null : self::cents($cf),

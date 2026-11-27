@@ -56,7 +56,7 @@ $byDriver = $body(['driver' => 'Eve']);
 check(str_contains($byDriver, 'S-3') && !str_contains($byDriver, 'S-1'), 'a statement can be for a driver alone');
 
 section('Statement: refusals and permissions');
-check(str_contains($body([]), 'Choose a carrier or a driver.'), 'with no carrier and no driver it asks for one');
+check(str_contains($body([]), 'Choose a carrier, a driver or a company.'), 'with no carrier and no driver it asks for one');
 check(str_contains($body(['carrier' => 'KEN', 'from' => '2026-12-01', 'to' => '2026-11-01']), 'From date is after the To date'), 'dates the wrong way round are refused');
 check(!str_contains(plain(call('GET', '/jobs/statement')->body()), 'Total jobs'), 'the page without a request shows only the form');
 check(str_contains(call('GET', '/jobs/statement', [], ['go' => '1', 'carrier' => '<script>x</script>'])->body(), '&lt;script&gt;') || !str_contains(call('GET', '/jobs/statement', [], ['go' => '1', 'carrier' => '<script>x</script>'])->body(), '<script>x</script>'), 'a carrier typed as markup is never output raw');

@@ -1,14 +1,14 @@
 <?php
 /**
  * Carrier / driver statement.
- * @var array<int,string> $carriers  @var array<int,string> $drivers  @var string $carrier  @var string $driver  @var string $from  @var string $to
+ * @var array<int,string> $carriers  @var array<int,string> $drivers  @var array<int,string> $companies  @var string $company  @var string $carrier  @var string $driver  @var string $from  @var string $to
  * @var array<int,string> $errors  @var array<string,mixed>|null $statement  @var bool $canExport
  */
-$q = ['carrier' => $carrier, 'driver' => $driver, 'from' => $from, 'to' => $to, 'go' => '1'];
+$q = ['carrier' => $carrier, 'driver' => $driver, 'company' => $company, 'from' => $from, 'to' => $to, 'go' => '1'];
 $label = static fn (string $s): string => (string) \App\Core\Config::get('statuses.statuses.' . $s . '.label', $s);
 ?>
 <div class="jt-page-actions">
-    <p class="text-body-secondary mb-0 me-auto jt-section-note">The jobs of one carrier or driver (Stage, In Transit and Delivered). CF Pay is each job's own carrier rate times its actual CF; Total Due is the Bal. Due total minus CF Pay. Leave the dates empty to include every job.</p>
+    <p class="text-body-secondary mb-0 me-auto jt-section-note">The jobs of one carrier, driver or company (Stage, In Transit and Delivered). CF Pay is each job's own carrier rate times its actual CF; Total Due is the Bal. Due total minus CF Pay. Leave the dates empty to include every job.</p>
 </div>
 
 <div class="card jt-card mb-3 jt-noprint">
@@ -30,6 +30,15 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
                     <option value="">Any driver</option>
                     <?php foreach ($drivers as $d): ?>
                         <option value="<?= e($d) ?>"<?= mb_strtolower($driver) === mb_strtolower($d) ? ' selected' : '' ?>><?= e($d) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label" for="st-company">Company</label>
+                <select class="form-select" id="st-company" name="company">
+                    <option value="">Any company</option>
+                    <?php foreach ($companies as $c): ?>
+                        <option value="<?= e($c) ?>"<?= mb_strtolower($company) === mb_strtolower($c) ? ' selected' : '' ?>><?= e($c) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -63,7 +72,9 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
             $mc = \App\Services\CompanyProfile::mc();
             $phone = \App\Services\CompanyProfile::phone();
             $address = \App\Services\CompanyProfile::address();
-            $title = $driver !== '' ? 'Driver Statement' : 'Carrier Statement';
+            $title = $driver !== '' ? 'Driver Statement' : ($carrier !== '' ? 'Carrier Statement' : 'Company Statement');
+            $subject = $driver !== '' ? $driver : ($carrier !== '' ? $carrier : $company);
+            $showWho = $carrier === '' || $driver === ''; // each row says who carried it when the statement does not name both
             ?>
             <div class="jt-stmt-head">
                 <div class="jt-stmt-company">
@@ -77,8 +88,9 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
                 </div>
                 <div class="jt-stmt-who">
                     <div class="jt-stmt-title"><?= e($title) ?></div>
-                    <div class="jt-stmt-name"><?= e($driver !== '' ? $driver : $carrier) ?></div>
+                    <div class="jt-stmt-name"><?= e($subject) ?></div>
                     <?php if ($driver !== '' && $carrier !== ''): ?><div>Carrier: <?= e($carrier) ?></div><?php endif; ?>
+                    <?php if ($company !== '' && $subject !== $company): ?><div>Company: <?= e($company) ?></div><?php endif; ?>
                     <?php if ($driver !== '' && $statement['driver_phone'] !== ''): ?><div>Phone: <?= e($statement['driver_phone']) ?></div><?php endif; ?>
                     <div>Date: <?= e(fmt_date(\App\Core\Clock::today())) ?></div>
                     <div>Period: <?= $from === '' && $to === '' ? 'all dates' : e(($from !== '' ? fmt_date($from) : 'the start') . ' to ' . ($to !== '' ? fmt_date($to) : 'today')) ?></div>
@@ -107,7 +119,7 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
                 <div class="table-responsive">
                     <table class="table align-middle jt-table jt-compact jt-statement">
                         <thead><tr>
-                            <th>Job #</th><th>Status</th><th>Customer</th><th>Phone</th><th>From</th><th>To</th>
+                            <th>Job #</th><th>Status</th><?php if ($showWho): ?><th>Carrier / Driver</th><?php endif; ?><th>Customer</th><th>Phone</th><th>From</th><th>To</th>
                             <th class="text-end">A-CF</th><th class="text-end">Rate</th><th class="text-end">CF Pay</th><th class="text-end">Bal. Due</th><th>Remarks</th>
                         </tr></thead>
                         <tbody>
@@ -115,6 +127,7 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
                             <tr>
                                 <td><a href="<?= e(url('/jobs/' . $r['id'])) ?>"><?= e($r['job_number']) ?></a></td>
                                 <td><?= e($label($r['status'])) ?></td>
+                                <?php if ($showWho): ?><td><?= e($r['carrier'] !== '' ? $r['carrier'] : '—') ?><?= $r['driver'] !== '' ? '<div class="jt-subtle">' . e($r['driver']) . '</div>' : '' ?></td><?php endif; ?>
                                 <td><?= e($r['customer']) ?></td>
                                 <td><?= e($r['phone']) ?></td>
                                 <td><?= e($r['from']) ?></td>
@@ -128,7 +141,7 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
                         <?php endforeach; ?>
                         </tbody>
                         <tfoot><tr class="fw-semibold">
-                            <td colspan="6">TOTALS</td>
+                            <td colspan="<?= $showWho ? 7 : 6 ?>">TOTALS</td>
                             <td class="text-end"><?= e(fmt_number($t['cf'])) ?></td><td></td>
                             <td class="text-end"><?= e(fmt_money($t['fee'])) ?></td><td class="text-end"><?= e(fmt_money($t['subtotal'])) ?></td><td></td>
                         </tr></tfoot>

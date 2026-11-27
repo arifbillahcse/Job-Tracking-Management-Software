@@ -2,6 +2,14 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.14.0 - a statement by company (print phase 2)
+
+* **New "Company" choice on the Carrier Statement.** The company is the job's **Broker**. Pick a company alone (a "Company Statement" with every carrier and driver that took its jobs) or together with a carrier and/or a driver. The hishab is the same: Bal. Due total minus CF Pay total.
+* When the statement does not name both a carrier and a driver, each row has a **Carrier / Driver** column saying who took the job.
+* The header names the company ("Company: Prime") and the CSV has three new columns at the end: Company, Carrier, Driver.
+* Choosing a carrier, a driver or a company is now enough (at least one). Carrier, driver and company are matched ignoring letter case.
+* No migration. **Upgrade:** `git pull origin main`, then Ctrl+F5.
+
 ## 1.13.0 - a printable statement (print phase 1)
 
 * **The Carrier Statement now has a proper header**: the company name and (when filled in) its address, DOT and MC number and phone on the left; on the right the title ("Driver Statement" when a driver is chosen, else "Carrier Statement"), the driver or carrier, the driver's phone (taken from the jobs), the date and the period. Below the table there is a **Remarks** and **Signature** line. The filter box and buttons are left out when printing.
