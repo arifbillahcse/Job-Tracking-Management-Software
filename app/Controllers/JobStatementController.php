@@ -104,6 +104,8 @@ final class JobStatementController extends Controller
                 }
             }
             fputcsv($out, ['TOTAL DUE', '', '', '', '', '', '', '', '', $t['due'], '', '', '', ''], ',', '"', '');
+            $dir = CarrierStatement::direction($t['due'], (int) $t['incomplete'] === 0);
+            fputcsv($out, [$dir['text'], '', '', '', '', '', '', '', '', $dir['code'] === 'settled' ? '' : $dir['amount'], '', '', '', ''], ',', '"', '');
             fclose($out);
         }, ['Content-Type' => 'text/csv; charset=UTF-8', 'Content-Disposition' => 'attachment; filename="' . $name . '"']);
     }

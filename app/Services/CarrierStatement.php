@@ -179,6 +179,25 @@ final class CarrierStatement
         ];
     }
 
+    /**
+     * Who owes whom, from Total Due (the carrier collects the Bal. Due, keeps its CF Pay and hands the rest to the company):
+     * a positive Total Due is owed by the carrier to the company, a negative one by the company to the carrier.
+     *
+     * @return array{text:string,amount:string,code:string} amount is never negative
+     */
+    public static function direction(string $due, bool $final = true): array
+    {
+        $cents = (int) round((float) $due * 100);
+        $amount = self::cents(abs($cents));
+        $code = $cents > 0 ? 'carrier_owes' : ($cents < 0 ? 'company_owes' : 'settled');
+        $text = match ($code) {
+            'carrier_owes' => 'Carrier owes company',
+            'company_owes' => 'Company owes carrier',
+            default => 'Settled, nothing due',
+        };
+        return ['text' => $text . ($final ? '' : ' (not final)'), 'amount' => $amount, 'code' => $code];
+    }
+
     /** Whole cents (or hundredths) as a decimal string with 2 places: 225000 => "2250.00". */
     private static function cents(int $value): string
     {

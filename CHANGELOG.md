@@ -2,6 +2,12 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.15.1 - the statement says who owes whom
+
+* **A line under TOTAL DUE now says who pays whom:** "Carrier owes company $25.74" when Total Due is positive, "Company owes carrier $3,251.22" when it is negative (shown without the minus), and "Settled, nothing due" at zero. It also appears next to the total in the header and in the CSV.
+* When a job on the statement has no rate or no A-CF, the line ends with "(not final)".
+* No hishab changed. No migration. **Upgrade:** `git pull origin main`, then Ctrl+F5.
+
 ## 1.15.0 - Labor, Pads and Paid on the statement (print phase 3)
 
 * **Three optional boxes on the Carrier Statement: Labor cost, Pads and Paid** (all default to 0, nothing is stored). **Total Due = Subtotal - CF Pay - Labor - Pads + Paid**, the same as the old application. A minus sign is allowed: a negative Paid (like -100) takes money off Total Due.

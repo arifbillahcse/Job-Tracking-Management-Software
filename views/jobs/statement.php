@@ -81,6 +81,7 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
             $address = \App\Services\CompanyProfile::address();
             $title = $driver !== '' ? 'Driver Statement' : ($carrier !== '' ? 'Carrier Statement' : 'Company Statement');
             $subject = $driver !== '' ? $driver : ($carrier !== '' ? $carrier : $company);
+            $dir = \App\Services\CarrierStatement::direction($t['due'], (int) $t['incomplete'] === 0);
             $showWho = $carrier === '' || $driver === ''; // each row says who carried it when the statement does not name both
             ?>
             <div class="jt-stmt-head">
@@ -106,7 +107,7 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
             <div class="jt-stmt-totals">
                 <span>Total jobs: <strong><?= e($t['jobs']) ?></strong></span>
                 <span>Total CF: <strong><?= e(fmt_number($t['cf'])) ?></strong></span>
-                <span>Total due: <strong><?= e(fmt_money($t['due'])) ?></strong></span>
+                <span>Total due: <strong><?= e(fmt_money($t['due'])) ?></strong> <span class="text-body-secondary">(<?= e($dir['text']) ?><?= $dir['code'] === 'settled' ? '' : ' ' . e(fmt_money($dir['amount'])) ?>)</span></span>
             </div>
 
             <?php if ($statement['truncated']): ?>
@@ -162,6 +163,7 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
                     <?php if ($t['pads'] !== '0.00'): ?><div><span>Pads</span><span>&minus; <?= e(fmt_money($t['pads'])) ?></span></div><?php endif; ?>
                     <?php if ($t['paid'] !== '0.00'): ?><div><span>Paid</span><span><?= (float) $t['paid'] < 0 ? '&minus; ' . e(fmt_money(ltrim($t['paid'], '-'))) : '+ ' . e(fmt_money($t['paid'])) ?></span></div><?php endif; ?>
                     <div class="jt-statement-due"><span>TOTAL DUE</span><span><?= e(fmt_money($t['due'])) ?></span></div>
+                    <div class="jt-statement-dir jt-statement-dir-<?= e($dir['code']) ?>"><span><?= e($dir['text']) ?></span><span><?= $dir['code'] === 'settled' ? '' : e(fmt_money($dir['amount'])) ?></span></div>
                 </div>
 
                 <div class="jt-stmt-foot">
