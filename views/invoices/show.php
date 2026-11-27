@@ -67,6 +67,7 @@ $period = ($invoice['period_from'] === null && $invoice['period_to'] === null)
                     <?php if ($invoice['broker'] && $subject !== (string) $invoice['broker']): ?><div>Company: <?= e($invoice['broker']) ?></div><?php endif; ?>
                 <?php endif; ?>
                 <?php if ($invoice['driver_phone']): ?><div>Phone: <?= e($invoice['driver_phone']) ?></div><?php endif; ?>
+                <?php if ($invoice['driver_license']): ?><div>License: <?= e($invoice['driver_license']) ?></div><?php endif; ?>
                 <div>Date: <?= e(fmt_date((string) $invoice['invoice_date'])) ?></div>
                 <div>Period: <?= e($period) ?></div>
             </div>

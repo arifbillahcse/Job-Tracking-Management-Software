@@ -47,7 +47,9 @@ $invalid = static fn (string $to, string $field): string => $failed === $to && h
                             <div class="col-12 col-sm-6">
                                 <label class="form-label" for="<?= e($modalId) ?>-driver">Driver name</label>
                                 <input type="text" class="form-control<?= $invalid($to, 'driver_name') ?>" id="<?= e($modalId) ?>-driver" name="driver_name" maxlength="150"
+                                       list="driver-list-<?= e($to) ?>" autocomplete="off" data-driver-phones="<?= e(json_encode(\App\Services\DriverService::phones(), JSON_UNESCAPED_UNICODE)) ?>" data-phone-target="<?= e($modalId) ?>-phone"
                                        value="<?= e($value($to, 'driver_name', $job['driver_name'] ?? '')) ?>">
+                                <datalist id="driver-list-<?= e($to) ?>"><?php foreach (\App\Services\DriverService::choices() as $dn): ?><option value="<?= e($dn) ?>"></option><?php endforeach; ?></datalist>
                                 <?= $error($to, 'driver_name') ?>
                             </div>
                             <div class="col-12 col-sm-6">

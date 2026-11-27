@@ -156,14 +156,18 @@ final class InvoiceService
     {
         $t = $statement['totals'];
         $now = gmdate('Y-m-d H:i:s');
+        // The driver's phone comes from the jobs, else from the driver's record; the licence is copied from the record (a snapshot, like the lines).
+        $record = $driver === '' ? null : DriverService::findByName($driver);
+        $phone = (string) $statement['driver_phone'] !== '' ? (string) $statement['driver_phone'] : (string) ($record['phone'] ?? '');
+        $license = (string) ($record['license'] ?? '');
         $seq = (int) Database::fetchValue('SELECT COALESCE(MAX(seq), 0) + 1 FROM invoices WHERE type = ?', [$type]);
         $id = Database::insert(
-            'INSERT INTO invoices (type, seq, invoice_date, carrier, driver, broker, company_info, driver_phone, period_from, period_to, total_cf, subtotal, carrier_fee, labor, pads, paid_amount, total, remarks, created_by, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO invoices (type, seq, invoice_date, carrier, driver, broker, company_info, driver_phone, driver_license, period_from, period_to, total_cf, subtotal, carrier_fee, labor, pads, paid_amount, total, remarks, created_by, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $type, $seq, $date, $carrier === '' ? null : $carrier, $driver === '' ? null : $driver, $broker === '' ? null : $broker,
                 $broker === '' ? null : CompanyService::snapshot($broker),
-                $statement['driver_phone'] === '' ? null : $statement['driver_phone'], $from === '' ? null : $from, $to === '' ? null : $to,
+                $phone === '' ? null : $phone, $license === '' ? null : $license, $from === '' ? null : $from, $to === '' ? null : $to,
                 $t['cf'], $t['subtotal'], $t['fee'], $t['labor'], $t['pads'], $t['paid'], $t['due'], $remarks === '' ? null : $remarks, Auth::id(), $now, $now,
             ]
         );
@@ -406,10 +410,10 @@ final class InvoiceService
             }
             $seq = (int) Database::fetchValue("SELECT COALESCE(MAX(seq), 0) + 1 FROM invoices WHERE type = 'CI'");
             $id = Database::insert(
-                'INSERT INTO invoices (type, seq, invoice_date, carrier, driver, broker, company_info, driver_phone, period_from, period_to, total_cf, subtotal, carrier_fee, labor, pads, paid_amount, total, remarks, source_invoice_id, created_by, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?, ?, ?, ?, ?)',
+                'INSERT INTO invoices (type, seq, invoice_date, carrier, driver, broker, company_info, driver_phone, driver_license, period_from, period_to, total_cf, subtotal, carrier_fee, labor, pads, paid_amount, total, remarks, source_invoice_id, created_by, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?, ?, ?, ?, ?)',
                 [
-                    'CI', $seq, $di['invoice_date'], $di['carrier'], $di['driver'], $names[$key], CompanyService::snapshot($names[$key]), $di['driver_phone'], $di['period_from'], $di['period_to'],
+                    'CI', $seq, $di['invoice_date'], $di['carrier'], $di['driver'], $names[$key], CompanyService::snapshot($names[$key]), $di['driver_phone'], $di['driver_license'], $di['period_from'], $di['period_to'],
                     $fmt($cf), $fmt($sub), $fmt($fee), $fmt($sub - $fee), $di['remarks'], $di['id'], Auth::id(), $now, $now,
                 ]
             );

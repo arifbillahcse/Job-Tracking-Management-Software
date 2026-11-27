@@ -612,6 +612,19 @@ async function createJob(page, number, availableOffset, extra = {}) {
         must(coWide <= 0, 'the Companies page scrolls sideways by ' + coWide + 'px at 360 px');
         await page.setViewportSize({ width: 1280, height: 800 });
     });
+    await step('a driver can be added and is listed', async () => {
+        await page.goto(BASE + '/drivers/create');
+        await page.fill('#name', RUN + ' Driver');
+        await page.fill('#phone', '555-0142');
+        await page.fill('#license', 'GA-12345');
+        await Promise.all([page.waitForNavigation(), page.click('main form button[type=submit]')]);
+        must((await page.textContent('main')).includes(RUN + ' Driver') && (await page.textContent('main')).includes('GA-12345'), 'the driver is not listed');
+        await page.setViewportSize({ width: 360, height: 740 });
+        await page.goto(BASE + '/drivers');
+        const drWide = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        must(drWide <= 0, 'the Drivers page scrolls sideways by ' + drWide + 'px at 360 px');
+        await page.setViewportSize({ width: 1280, height: 800 });
+    });
     await step('carriers: a list in Settings, then Move to Stage asks for one in a dialog, and the statement lists the job', async () => {
         await page.goto(BASE + '/settings');
         await page.fill('#carriers', RUN + ' KEN\n' + RUN + ' DINOCA');

@@ -12,6 +12,7 @@ use App\Controllers\ImportController;
 use App\Controllers\JobController;
 use App\Controllers\JobCalendarController;
 use App\Controllers\CompanyController;
+use App\Controllers\DriverController;
 use App\Controllers\InvoiceController;
 use App\Controllers\JobStatementController;
 use App\Controllers\JobListController;
@@ -49,6 +50,13 @@ return static function (Router $router): void {
     $router->get('/companies/{id:int}/edit', [CompanyController::class, 'edit'])->can('companies.manage')->name('companies.edit');
     $router->post('/companies/{id:int}', [CompanyController::class, 'update'])->can('companies.manage')->name('companies.update');
     $router->post('/companies/{id:int}/delete', [CompanyController::class, 'destroy'])->can('companies.manage')->name('companies.delete');
+    // Drivers (v1.19.0): /drivers/create is a literal path; {id:int} only matches digits.
+    $router->get('/drivers', [DriverController::class, 'index'])->can('drivers.manage')->name('drivers');
+    $router->get('/drivers/create', [DriverController::class, 'create'])->can('drivers.manage')->name('drivers.create');
+    $router->post('/drivers', [DriverController::class, 'store'])->can('drivers.manage')->name('drivers.store');
+    $router->get('/drivers/{id:int}/edit', [DriverController::class, 'edit'])->can('drivers.manage')->name('drivers.edit');
+    $router->post('/drivers/{id:int}', [DriverController::class, 'update'])->can('drivers.manage')->name('drivers.update');
+    $router->post('/drivers/{id:int}/delete', [DriverController::class, 'destroy'])->can('drivers.manage')->name('drivers.delete');
     // Saved invoices (v1.16.0).
     $router->get('/invoices', [InvoiceController::class, 'index'])->can('invoices.view')->name('invoices');
     $router->post('/invoices', [InvoiceController::class, 'store'])->can('invoices.manage')->name('invoices.store');

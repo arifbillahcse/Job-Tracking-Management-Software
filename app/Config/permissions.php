@@ -34,6 +34,7 @@ return [
         'invoices.view'         => ['Invoices', 'See saved invoices (they show balances)'],
         'invoices.manage'       => ['Invoices', 'Save, edit, mark paid and void invoices'],
         'companies.manage'      => ['Companies', 'Manage the companies (address, DOT, MC) that jobs and invoices refer to by broker name'],
+        'drivers.manage'        => ['Drivers', 'Manage the drivers (phone, license) that jobs and invoices refer to by driver name'],
         'settings.manage'       => ['Administration', 'Change application settings'],
         'settings.storage_fee'  => ['Administration', 'Change the storage fee rate and rules'],
     ],
@@ -51,7 +52,7 @@ return [
                 'dashboard.view', 'jobs.view', 'jobs.create', 'jobs.edit', 'jobs.delete', 'jobs.status',
                 'jobs.reopen', 'jobs.view_financials', 'jobs.edit_financials', 'jobs.import', 'jobs.export',
                 'settings.storage_fee', 'trips.view', 'trips.manage', 'trips.financials', 'trips.export', 'foremen.manage',
-                'invoices.view', 'invoices.manage', 'companies.manage',
+                'invoices.view', 'invoices.manage', 'companies.manage', 'drivers.manage',
             ],
         ],
         'Staff' => [

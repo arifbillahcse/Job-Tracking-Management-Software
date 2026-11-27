@@ -2,6 +2,15 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.19.0 - drivers (phase 2)
+
+* **New menu item Drivers (Jobs group).** A driver has a name, a **phone** and a **licence number** (only the name is required). **A driver is the same as a job's Driver name**, matched by name ignoring letter case, so the jobs you already have need no change, and a driver with no record simply has no details.
+* **The Drivers page** lists them with how many jobs carry each name, has a search (name, phone or licence), and lists the **driver names that are on jobs but have no details yet**, each with an "Add details" button that opens the form with the name filled in. Renaming a driver can change the Driver name on its jobs too (a ticked box says how many); removing a driver only removes its details.
+* **Picking a driver fills in the phone.** In the **Move to Stage** dialog and on the job's Carrier box the Driver name offers the known drivers; choosing one fills the Driver phone when that box is empty.
+* **The licence is printed:** a driver statement shows **License** (and the phone from the driver's record when the jobs have none), and a **saved invoice keeps a copy** of the licence taken when it was saved (and the generated company invoices copy it), so changing a licence later never changes an invoice already given out.
+* **New permission `drivers.manage`** (Admin and Manager hold it by default). **Migration 024** adds the `drivers` table and one column on invoices.
+* **Upgrade:** `git pull origin main`, `php cli/migrate.php`, `php cli/seed.php`, `php cli/sync-roles.php --apply`, `php cli/verify.php`, then Ctrl+F5 and log out / in.
+
 ## 1.18.0 - companies (phase 1)
 
 * **New menu item Companies (Jobs group).** A company has a name, address, city, phone, **DOT number** and **MC number** (all but the name optional). **A company is the same as a job's Broker**: they are matched by name, ignoring letter case, so nothing changes on the jobs you already have, and a broker with no record here simply has no details.

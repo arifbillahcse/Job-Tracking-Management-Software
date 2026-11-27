@@ -110,7 +110,12 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
                         if (($companyRow['phone'] ?? '') !== '') { echo '<div>Phone: ' . e($companyRow['phone']) . '</div>'; }
                     }
                     ?>
-                    <?php if ($driver !== '' && $statement['driver_phone'] !== ''): ?><div>Phone: <?= e($statement['driver_phone']) ?></div><?php endif; ?>
+                    <?php
+                    $driverRow = $driver === '' ? null : \App\Services\DriverService::findByName($driver);
+                    $driverPhone = $statement['driver_phone'] !== '' ? $statement['driver_phone'] : (string) ($driverRow['phone'] ?? '');
+                    ?>
+                    <?php if ($driver !== '' && $driverPhone !== ''): ?><div>Phone: <?= e($driverPhone) ?></div><?php endif; ?>
+                    <?php if (($driverRow['license'] ?? '') !== ''): ?><div>License: <?= e($driverRow['license']) ?></div><?php endif; ?>
                     <div>Date: <?= e(fmt_date(\App\Core\Clock::today())) ?></div>
                     <div>Period: <?= $from === '' && $to === '' ? 'all dates' : e(($from !== '' ? fmt_date($from) : 'the start') . ' to ' . ($to !== '' ? fmt_date($to) : 'today')) ?></div>
                 </div>

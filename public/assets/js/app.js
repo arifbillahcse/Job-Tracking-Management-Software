@@ -195,6 +195,31 @@
         }
     });
 
+    // Picking a known driver fills the phone box when it is empty: <input data-driver-phones='{"Joe":"555"}' data-phone-target="driver_phone">
+    function fillDriverPhone(input) {
+        var target = document.getElementById(input.getAttribute('data-phone-target') || '');
+        if (!target || target.value.trim() !== '') {
+            return;
+        }
+        var phones;
+        try {
+            phones = JSON.parse(input.getAttribute('data-driver-phones') || '{}');
+        } catch (e) {
+            return;
+        }
+        var typed = input.value.trim().toLowerCase();
+        Object.keys(phones).forEach(function (name) {
+            if (name.toLowerCase() === typed) {
+                target.value = phones[name];
+            }
+        });
+    }
+    document.addEventListener('change', function (event) {
+        if (event.target && event.target.matches && event.target.matches('[data-driver-phones]')) {
+            fillDriverPhone(event.target);
+        }
+    });
+
     // Print button: <button type="button" data-print>
     document.addEventListener('click', function (event) {
         if (event.target.closest('[data-print]')) {

@@ -7,7 +7,7 @@ $val = static fn (string $key): string => old_or($key, $job[$key] ?? '');
 $input = static function (string $name, string $label, array $opts = []) use ($val): string {
     $type = $opts['type'] ?? 'text';
     $attrs = '';
-    foreach (['maxlength', 'min', 'max', 'step', 'inputmode', 'placeholder', 'list', 'autocomplete', 'readonly', 'title', 'data-money'] as $attr) {
+    foreach (['maxlength', 'min', 'max', 'step', 'inputmode', 'placeholder', 'list', 'autocomplete', 'readonly', 'title', 'data-money', 'data-driver-phones', 'data-phone-target'] as $attr) {
         if (isset($opts[$attr])) {
             $attrs .= ' ' . $attr . '="' . e($opts[$attr]) . '"';
         }
@@ -160,7 +160,8 @@ $input = static function (string $name, string $label, array $opts = []) use ($v
                                     <?= error_text('carrier_name') ?>
                                 <?php endif; ?>
                             </div>
-                            <div class="col-12 col-sm-6 col-xl-12"><?= $input('driver_name', 'Driver name', ['maxlength' => 150]) ?></div>
+                            <div class="col-12 col-sm-6 col-xl-12"><?= $input('driver_name', 'Driver name', ['maxlength' => 150, 'list' => 'driver-list', 'autocomplete' => 'off', 'data-driver-phones' => json_encode(\App\Services\DriverService::phones(), JSON_UNESCAPED_UNICODE), 'data-phone-target' => 'driver_phone']) ?>
+                                <datalist id="driver-list"><?php foreach (\App\Services\DriverService::choices() as $dn): ?><option value="<?= e($dn) ?>"></option><?php endforeach; ?></datalist></div>
                             <div class="col-12 col-sm-6 col-xl-12"><?= $input('driver_phone', 'Driver phone number', ['type' => 'tel', 'maxlength' => 30, 'inputmode' => 'tel']) ?></div>
                         </div>
                     </div>
