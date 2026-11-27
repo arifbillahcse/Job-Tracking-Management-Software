@@ -597,6 +597,21 @@ async function createJob(page, number, availableOffset, extra = {}) {
         const text = (await page.textContent('main')).replace(/\s+/g, ' ');
         must(/Carrier rate\s*\$2\.50 per CF/.test(text), 'the rate is not on the job page: ' + text.slice(0, 200));
     });
+    await step('a company can be added and is listed, and the Broker box offers it', async () => {
+        await page.goto(BASE + '/companies/create');
+        await page.fill('#name', RUN + ' Freight');
+        await page.fill('#address', '12 Main St');
+        await page.fill('#dot_number', '2521000');
+        await Promise.all([page.waitForNavigation(), page.click('main form button[type=submit]')]);
+        must((await page.textContent('main')).includes(RUN + ' Freight'), 'the company is not listed');
+        await page.goto(BASE + '/jobs/create');
+        must((await page.locator('#broker-list option[value="' + RUN + ' Freight"]').count()) === 1, 'the Broker box does not offer the company');
+        await page.setViewportSize({ width: 360, height: 740 });
+        await page.goto(BASE + '/companies');
+        const coWide = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        must(coWide <= 0, 'the Companies page scrolls sideways by ' + coWide + 'px at 360 px');
+        await page.setViewportSize({ width: 1280, height: 800 });
+    });
     await step('carriers: a list in Settings, then Move to Stage asks for one in a dialog, and the statement lists the job', async () => {
         await page.goto(BASE + '/settings');
         await page.fill('#carriers', RUN + ' KEN\n' + RUN + ' DINOCA');

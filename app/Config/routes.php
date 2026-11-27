@@ -11,6 +11,7 @@ use App\Controllers\ForemanController;
 use App\Controllers\ImportController;
 use App\Controllers\JobController;
 use App\Controllers\JobCalendarController;
+use App\Controllers\CompanyController;
 use App\Controllers\InvoiceController;
 use App\Controllers\JobStatementController;
 use App\Controllers\JobListController;
@@ -41,6 +42,13 @@ return static function (Router $router): void {
     $router->get('/jobs', [JobListController::class, 'all'])->can('jobs.view')->name('jobs');
     $router->get('/jobs/calendar', [JobCalendarController::class, 'index'])->can('jobs.view')->name('jobs.calendar');
     $router->get('/jobs/statement', [JobStatementController::class, 'index'])->can('jobs.view_financials')->name('jobs.statement');
+    // Companies (v1.18.0): /companies/create is a literal path; {id:int} only matches digits.
+    $router->get('/companies', [CompanyController::class, 'index'])->can('companies.manage')->name('companies');
+    $router->get('/companies/create', [CompanyController::class, 'create'])->can('companies.manage')->name('companies.create');
+    $router->post('/companies', [CompanyController::class, 'store'])->can('companies.manage')->name('companies.store');
+    $router->get('/companies/{id:int}/edit', [CompanyController::class, 'edit'])->can('companies.manage')->name('companies.edit');
+    $router->post('/companies/{id:int}', [CompanyController::class, 'update'])->can('companies.manage')->name('companies.update');
+    $router->post('/companies/{id:int}/delete', [CompanyController::class, 'destroy'])->can('companies.manage')->name('companies.delete');
     // Saved invoices (v1.16.0).
     $router->get('/invoices', [InvoiceController::class, 'index'])->can('invoices.view')->name('invoices');
     $router->post('/invoices', [InvoiceController::class, 'store'])->can('invoices.manage')->name('invoices.store');

@@ -158,10 +158,11 @@ final class InvoiceService
         $now = gmdate('Y-m-d H:i:s');
         $seq = (int) Database::fetchValue('SELECT COALESCE(MAX(seq), 0) + 1 FROM invoices WHERE type = ?', [$type]);
         $id = Database::insert(
-            'INSERT INTO invoices (type, seq, invoice_date, carrier, driver, broker, driver_phone, period_from, period_to, total_cf, subtotal, carrier_fee, labor, pads, paid_amount, total, remarks, created_by, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO invoices (type, seq, invoice_date, carrier, driver, broker, company_info, driver_phone, period_from, period_to, total_cf, subtotal, carrier_fee, labor, pads, paid_amount, total, remarks, created_by, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
                 $type, $seq, $date, $carrier === '' ? null : $carrier, $driver === '' ? null : $driver, $broker === '' ? null : $broker,
+                $broker === '' ? null : CompanyService::snapshot($broker),
                 $statement['driver_phone'] === '' ? null : $statement['driver_phone'], $from === '' ? null : $from, $to === '' ? null : $to,
                 $t['cf'], $t['subtotal'], $t['fee'], $t['labor'], $t['pads'], $t['paid'], $t['due'], $remarks === '' ? null : $remarks, Auth::id(), $now, $now,
             ]
@@ -405,10 +406,10 @@ final class InvoiceService
             }
             $seq = (int) Database::fetchValue("SELECT COALESCE(MAX(seq), 0) + 1 FROM invoices WHERE type = 'CI'");
             $id = Database::insert(
-                'INSERT INTO invoices (type, seq, invoice_date, carrier, driver, broker, driver_phone, period_from, period_to, total_cf, subtotal, carrier_fee, labor, pads, paid_amount, total, remarks, source_invoice_id, created_by, created_at, updated_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?, ?, ?, ?, ?)',
+                'INSERT INTO invoices (type, seq, invoice_date, carrier, driver, broker, company_info, driver_phone, period_from, period_to, total_cf, subtotal, carrier_fee, labor, pads, paid_amount, total, remarks, source_invoice_id, created_by, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?, ?, ?, ?, ?)',
                 [
-                    'CI', $seq, $di['invoice_date'], $di['carrier'], $di['driver'], $names[$key], $di['driver_phone'], $di['period_from'], $di['period_to'],
+                    'CI', $seq, $di['invoice_date'], $di['carrier'], $di['driver'], $names[$key], CompanyService::snapshot($names[$key]), $di['driver_phone'], $di['period_from'], $di['period_to'],
                     $fmt($cf), $fmt($sub), $fmt($fee), $fmt($sub - $fee), $di['remarks'], $di['id'], Auth::id(), $now, $now,
                 ]
             );

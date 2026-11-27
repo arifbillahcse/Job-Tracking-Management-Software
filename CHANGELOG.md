@@ -2,6 +2,16 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.18.0 - companies (phase 1)
+
+* **New menu item Companies (Jobs group).** A company has a name, address, city, phone, **DOT number** and **MC number** (all but the name optional). **A company is the same as a job's Broker**: they are matched by name, ignoring letter case, so nothing changes on the jobs you already have, and a broker with no record here simply has no details.
+* **The Companies page** lists the companies with how many jobs carry each name, has a search (name, city, address, DOT or MC), and lists the **brokers that are on jobs but have no details yet**, each with an "Add details" button that opens the form with the name filled in.
+* **Renaming:** changing a company's name can change the Broker on its jobs too (a box, ticked by default, says how many). Removing a company only removes its details; its jobs and invoices keep the broker name.
+* **The details are printed:** a company statement shows the company's address, DOT / MC and phone under its name, and a **company invoice (CI)** shows them too. They are **copied onto the invoice when it is saved**, so changing an address later never changes an invoice that was already given out.
+* **The Broker box on the job form** now also offers the companies you added (each name once).
+* **New permission `companies.manage`** (Admin and Manager hold it by default). **Migration 023** adds the `companies` table and one column on invoices.
+* **Upgrade:** `git pull origin main`, `php cli/migrate.php`, `php cli/seed.php`, `php cli/sync-roles.php --apply`, `php cli/verify.php`, then Ctrl+F5 and log out / in.
+
 ## 1.17.1 - polish and a safer check (stabilise)
 
 * **Amounts no longer break across two lines** in the statement and invoice tables on a phone ("$2,500.0" / "0"). The table now scrolls inside its box instead.

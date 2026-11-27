@@ -53,7 +53,8 @@ final class DeployCheck
         $schema = [
             'jobs' => ['pickup_time', 'miles', 'carrier_rate', 'confirmed', 'e_signed', 'job_docs', 'bill_of_lading', 'storage_paid', 'job_range', 'pads', 'broker', 'customer_phone', 'loaded_date', 'delivery_date', 'storage_fee_override', 'storage_rate', 'estimated_cf', 'estimated_total', 'deposit', 'grand_total', 'bh_total', 'paid', 'job_lot', 'color', 'foreman_id', 'trip_id'],
             'storage_payments' => ['id', 'job_id', 'amount', 'paid_on', 'note', 'created_by'],
-            'invoices' => ['id', 'type', 'seq', 'invoice_date', 'carrier', 'driver', 'broker', 'driver_phone', 'period_from', 'period_to', 'total_cf', 'subtotal', 'carrier_fee', 'labor', 'pads', 'paid_amount', 'total', 'remarks', 'paid_on', 'voided_at', 'void_reason', 'source_invoice_id', 'created_by', 'created_at', 'updated_at'],
+            'invoices' => ['id', 'type', 'seq', 'invoice_date', 'carrier', 'driver', 'broker', 'driver_phone', 'period_from', 'period_to', 'total_cf', 'subtotal', 'carrier_fee', 'labor', 'pads', 'paid_amount', 'total', 'remarks', 'paid_on', 'voided_at', 'void_reason', 'source_invoice_id', 'company_info', 'created_by', 'created_at', 'updated_at'],
+            'companies' => ['id', 'name', 'address', 'city', 'phone', 'dot_number', 'mc_number', 'created_by', 'created_at', 'updated_at'],
             'invoice_lines' => ['id', 'invoice_id', 'sort_order', 'job_id', 'job_number', 'status', 'customer', 'phone', 'from_location', 'to_location', 'broker', 'carrier', 'driver', 'cf', 'rate', 'fee', 'balance', 'remarks'],
             'foremen' => ['id', 'name', 'phone', 'active'],
             'trips' => ['id', 'trip_number', 'foreman_id', 'begins_on', 'ends_on', 'deleted_at'],
@@ -111,6 +112,7 @@ final class DeployCheck
         $statementQueries = [
             'Statement by carrier, driver and company' => static fn () => CarrierStatement::build('x', 'y', 'z', '2020-01-01', '2030-01-01', 0, 0, 0),
             'Statement leaving out invoiced jobs (DI and CI)' => static fn () => [CarrierStatement::build('x', '', '', '', '', 0, 0, 0, 'DI'), CarrierStatement::build('', '', 'z', '', '', 0, 0, 0, 'CI')],
+            'Companies page and pick lists' => static fn () => [CompanyService::search('a'), CompanyService::unlinked(), CompanyService::brokerChoices(), CompanyService::findByName('x'), CompanyService::snapshot('x'), CompanyService::jobCount('x')],
             'Statement drop-downs' => static fn () => [CarrierStatement::carriers(), CarrierStatement::drivers(), CarrierStatement::brokers()],
             'Invoice list, search and totals' => static fn () => [
                 InvoiceService::search(['q' => 'DI-1', 'status' => 'open', 'type' => 'DI', 'from' => '2020-01-01', 'to' => '2030-01-01'], 5, 0),

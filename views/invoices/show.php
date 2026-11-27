@@ -9,6 +9,7 @@ use App\Services\InvoiceService;
 
 $label = static fn (string $s): string => (string) \App\Core\Config::get('statuses.statuses.' . $s . '.label', $s);
 $isCompany = $invoice['type'] === 'CI';
+$co = \App\Services\CompanyService::infoOf($invoice); // the company's details as they were when the invoice was saved
 $subject = $isCompany
     ? (string) ($invoice['broker'] ?: '')
     : (string) ($invoice['driver'] ?: ($invoice['carrier'] ?: ($invoice['broker'] ?: '')));
@@ -55,6 +56,10 @@ $period = ($invoice['period_from'] === null && $invoice['period_to'] === null)
                 <div class="jt-stmt-name">Invoice #: <?= e($number) ?></div>
                 <?php if ($subject !== ''): ?><div><?= e($subject) ?></div><?php endif; ?>
                 <?php if ($isCompany): ?>
+                    <?php $coLine = trim(($co['address'] ?? '') . (($co['address'] ?? '') !== '' && ($co['city'] ?? '') !== '' ? ', ' : '') . ($co['city'] ?? '')); ?>
+                    <?php if ($coLine !== ''): ?><div><?= e($coLine) ?></div><?php endif; ?>
+                    <?php if (($co['dot_number'] ?? '') !== '' || ($co['mc_number'] ?? '') !== ''): ?><div><?= ($co['dot_number'] ?? '') !== '' ? 'DOT: ' . e($co['dot_number']) : '' ?><?= ($co['dot_number'] ?? '') !== '' && ($co['mc_number'] ?? '') !== '' ? ' &middot; ' : '' ?><?= ($co['mc_number'] ?? '') !== '' ? 'MC: ' . e($co['mc_number']) : '' ?></div><?php endif; ?>
+                    <?php if (($co['phone'] ?? '') !== ''): ?><div>Phone: <?= e($co['phone']) ?></div><?php endif; ?>
                     <?php if ($invoice['carrier']): ?><div>Carrier: <?= e($invoice['carrier']) ?></div><?php endif; ?>
                     <?php if ($invoice['driver']): ?><div>Driver: <?= e($invoice['driver']) ?></div><?php endif; ?>
                 <?php else: ?>

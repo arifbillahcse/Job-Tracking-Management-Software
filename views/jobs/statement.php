@@ -100,6 +100,16 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
                     <div class="jt-stmt-name"><?= e($subject) ?></div>
                     <?php if ($driver !== '' && $carrier !== ''): ?><div>Carrier: <?= e($carrier) ?></div><?php endif; ?>
                     <?php if ($company !== '' && $subject !== $company): ?><div>Company: <?= e($company) ?></div><?php endif; ?>
+                    <?php
+                    if ($company !== '' && $subject === $company && ($companyRow = \App\Services\CompanyService::findByName($company)) !== null) {
+                        $coLine = trim((string) ($companyRow['address'] ?? '') . ((($companyRow['address'] ?? '') !== '' && ($companyRow['city'] ?? '') !== '') ? ', ' : '') . (string) ($companyRow['city'] ?? ''));
+                        if ($coLine !== '') { echo '<div>' . e($coLine) . '</div>'; }
+                        if (($companyRow['dot_number'] ?? '') !== '' || ($companyRow['mc_number'] ?? '') !== '') {
+                            echo '<div>' . (($companyRow['dot_number'] ?? '') !== '' ? 'DOT: ' . e($companyRow['dot_number']) : '') . ((($companyRow['dot_number'] ?? '') !== '' && ($companyRow['mc_number'] ?? '') !== '') ? ' &middot; ' : '') . (($companyRow['mc_number'] ?? '') !== '' ? 'MC: ' . e($companyRow['mc_number']) : '') . '</div>';
+                        }
+                        if (($companyRow['phone'] ?? '') !== '') { echo '<div>Phone: ' . e($companyRow['phone']) . '</div>'; }
+                    }
+                    ?>
                     <?php if ($driver !== '' && $statement['driver_phone'] !== ''): ?><div>Phone: <?= e($statement['driver_phone']) ?></div><?php endif; ?>
                     <div>Date: <?= e(fmt_date(\App\Core\Clock::today())) ?></div>
                     <div>Period: <?= $from === '' && $to === '' ? 'all dates' : e(($from !== '' ? fmt_date($from) : 'the start') . ' to ' . ($to !== '' ? fmt_date($to) : 'today')) ?></div>

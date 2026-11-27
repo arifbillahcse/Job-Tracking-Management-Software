@@ -315,12 +315,12 @@ final class JobController extends Controller
     private function assignmentChoices(?array $job): array
     {
         if (!$this->jobs->canAssign()) {
-            return ['canAssign' => false, 'foremen' => [], 'trips' => [], 'brokers' => (new \App\Repositories\JobRepository())->brokers()];
+            return ['canAssign' => false, 'foremen' => [], 'trips' => [], 'brokers' => \App\Services\CompanyService::brokerChoices()];
         }
         $trips = new TripService();
         return [
             'canAssign' => true,
-            'brokers' => (new \App\Repositories\JobRepository())->brokers(),
+            'brokers' => \App\Services\CompanyService::brokerChoices(),
             'foremen' => $trips->foremanOptions(isset($job['foreman_id']) ? (int) $job['foreman_id'] : null),
             'trips' => $trips->tripOptions(isset($job['trip_id']) ? (int) $job['trip_id'] : null),
         ];
