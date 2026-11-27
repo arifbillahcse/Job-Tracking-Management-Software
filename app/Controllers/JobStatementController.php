@@ -25,6 +25,9 @@ final class JobStatementController extends Controller
         $broker = trim($request->queryStr('company'));
         $from = CarrierStatement::parseDate($request->queryStr('from'), 'From date');
         $to = CarrierStatement::parseDate($request->queryStr('to'), 'To date');
+        $labor = CarrierStatement::parseMoney($request->queryStr('labor'), 'Labor cost');
+        $pads = CarrierStatement::parseMoney($request->queryStr('pads'), 'Pads');
+        $paid = CarrierStatement::parseMoney($request->queryStr('paid'), 'Paid');
         $asked = $request->queryStr('go') !== '' || $request->queryStr('format') !== '';
 
         $errors = [];
@@ -32,7 +35,7 @@ final class JobStatementController extends Controller
             if ($carrier === '' && $driver === '' && $broker === '') {
                 $errors[] = 'Choose a carrier, a driver or a company.';
             }
-            foreach ([$from['error'], $to['error']] as $e) {
+            foreach ([$from['error'], $to['error'], $labor['error'], $pads['error'], $paid['error']] as $e) {
                 if ($e !== null) {
                     $errors[] = $e;
                 }
@@ -44,7 +47,7 @@ final class JobStatementController extends Controller
 
         $statement = null;
         if ($asked && $errors === []) {
-            $statement = CarrierStatement::build($carrier, $driver, $broker, $from['value'], $to['value']);
+            $statement = CarrierStatement::build($carrier, $driver, $broker, $from['value'], $to['value'], $labor['cents'], $pads['cents'], $paid['cents']);
             if ($request->queryStr('format') === 'csv') {
                 if (!can('jobs.export')) {
                     return ErrorPages::response(403);
@@ -60,6 +63,9 @@ final class JobStatementController extends Controller
             'carrier' => $carrier,
             'driver' => $driver,
             'company' => $broker,
+            'labor' => $labor['value'],
+            'pads' => $pads['value'],
+            'paid' => $paid['value'],
             'companies' => CarrierStatement::brokers(),
             'from' => $from['value'],
             'to' => $to['value'],
@@ -92,7 +98,12 @@ final class JobStatementController extends Controller
             }
             $t = $statement['totals'];
             fputcsv($out, ['TOTALS', '', '', '', '', '', $t['cf'], '', $t['fee'], $t['subtotal'], '', '', '', ''], ',', '"', '');
-            fputcsv($out, ['TOTAL DUE (Bal. Due total - CF Pay total)', '', '', '', '', '', '', '', '', $t['due'], '', '', '', ''], ',', '"', '');
+            foreach (['labor' => 'Labor cost (subtracted)', 'pads' => 'Pads (subtracted)', 'paid' => 'Paid (added; a minus takes money off)'] as $key => $label) {
+                if ($t[$key] !== '0.00') {
+                    fputcsv($out, [$label, '', '', '', '', '', '', '', '', $t[$key], '', '', '', ''], ',', '"', '');
+                }
+            }
+            fputcsv($out, ['TOTAL DUE', '', '', '', '', '', '', '', '', $t['due'], '', '', '', ''], ',', '"', '');
             fclose($out);
         }, ['Content-Type' => 'text/csv; charset=UTF-8', 'Content-Disposition' => 'attachment; filename="' . $name . '"']);
     }

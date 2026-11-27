@@ -12,7 +12,7 @@ use App\Core\Database;
  *
  *   CF Pay   = the job's own carrier rate x its actual CF (the client's words: "rate times A-CF"; each job has its own rate, v1.12.0)
  *   Subtotal = the Bal. Due of the listed jobs
- *   TOTAL DUE = Subtotal - CF Pay
+ *   TOTAL DUE = Subtotal - CF Pay - Labor - Pads + Paid (Labor, Pads and Paid are typed on the statement and default to 0, v1.15.0)
  *
  * Jobs in Stage, In Transit and Delivered are listed (deleted jobs never). The optional dates are on the loaded date, or the pickup date
  * when the job has not been loaded yet. All money is added in whole cents so the totals are exact.
@@ -21,6 +21,24 @@ final class CarrierStatement
 {
     public const STATUSES = ['staged', 'in_transit', 'delivered'];
     public const MAX_ROWS = 1000;
+
+    /**
+     * Labor, Pads or Paid typed on the statement: an optional amount with at most 2 decimals (a minus sign is allowed, as in the old
+     * application: a negative Paid takes money off Total Due). Empty means 0.
+     *
+     * @return array{cents:int,value:string,error:?string}
+     */
+    public static function parseMoney(mixed $input, string $label): array
+    {
+        $text = is_string($input) ? trim($input) : '';
+        if ($text === '') {
+            return ['cents' => 0, 'value' => '', 'error' => null];
+        }
+        if (preg_match('/^-?\d{1,7}(\.\d{1,2})?$/', $text) !== 1) {
+            return ['cents' => 0, 'value' => $text, 'error' => $label . ' must be an amount like 25 or 25.50 (up to 7 digits, at most 2 decimals).'];
+        }
+        return ['cents' => (int) round((float) $text * 100), 'value' => $text, 'error' => null];
+    }
 
     /** @return array{value:string,error:?string} a date as Y-m-d, or '' (no limit) */
     public static function parseDate(mixed $input, string $label): array
@@ -67,7 +85,7 @@ final class CarrierStatement
     /**
      * @return array{rows:array<int,array<string,mixed>>,totals:array<string,mixed>,truncated:bool}
      */
-    public static function build(string $carrier, string $driver, string $broker, string $from, string $to): array
+    public static function build(string $carrier, string $driver, string $broker, string $from, string $to, int $laborCents = 0, int $padsCents = 0, int $paidCents = 0): array
     {
         $marks = implode(',', array_fill(0, count(self::STATUSES), '?'));
         $where = "j.deleted_at IS NULL AND j.status IN ({$marks})";
@@ -150,7 +168,10 @@ final class CarrierStatement
                 'cf' => self::cents($cfTotal),
                 'fee' => self::cents($feeTotal),
                 'subtotal' => self::cents($balTotal),
-                'due' => self::cents($balTotal - $feeTotal),
+                'labor' => self::cents($laborCents),
+                'pads' => self::cents($padsCents),
+                'paid' => self::cents($paidCents),
+                'due' => self::cents($balTotal - $feeTotal - $laborCents - $padsCents + $paidCents),
                 'no_cf' => $noCf,
                 'no_rate' => $noRate,
                 'incomplete' => $incomplete,

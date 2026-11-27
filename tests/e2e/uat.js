@@ -625,8 +625,11 @@ async function createJob(page, number, availableOffset, extra = {}) {
         await page.goto(BASE + '/jobs/statement?go=1&carrier=' + encodeURIComponent(RUN + ' DINOCA'));
         const sheet = (await page.textContent('main')).replace(/\s+/g, ' ');
         must(sheet.includes(RUN + '-CAR') && /TOTAL DUE/.test(sheet) && /\$2,250\.00/.test(sheet) && /Carrier Statement/.test(sheet) && /Signature/.test(sheet) && /Carrier \/ Driver/.test(sheet) && (await page.locator('#st-company').count()) === 1, 'the carrier statement does not list the job: ' + sheet.slice(0, 200));
+        await page.goto(BASE + '/jobs/statement?go=1&labor=10&pads=5&paid=-3&carrier=' + encodeURIComponent(RUN + ' DINOCA'));
+        const extra = (await page.textContent('main')).replace(/\s+/g, ' ');
+        must(/Labor cost\s*.\s*\$10\.00/.test(extra) && /Pads\s*.\s*\$5\.00/.test(extra) && /Paid\s*.\s*\$3\.00/.test(extra), 'Labor, Pads and Paid are not on the statement: ' + extra.slice(0, 200));
         await page.setViewportSize({ width: 360, height: 740 });
-        await page.goto(BASE + '/jobs/statement?go=1&carrier=' + encodeURIComponent(RUN + ' DINOCA'));
+        await page.goto(BASE + '/jobs/statement?go=1&labor=10&pads=5&paid=-3&carrier=' + encodeURIComponent(RUN + ' DINOCA'));
         const wide = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
         must(wide <= 0, 'the statement scrolls sideways by ' + wide + 'px at 360 px');
         await page.setViewportSize({ width: 1280, height: 800 });

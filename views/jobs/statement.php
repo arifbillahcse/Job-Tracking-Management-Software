@@ -1,14 +1,14 @@
 <?php
 /**
  * Carrier / driver statement.
- * @var array<int,string> $carriers  @var array<int,string> $drivers  @var array<int,string> $companies  @var string $company  @var string $carrier  @var string $driver  @var string $from  @var string $to
+ * @var string $labor  @var string $pads  @var string $paid  @var array<int,string> $carriers  @var array<int,string> $drivers  @var array<int,string> $companies  @var string $company  @var string $carrier  @var string $driver  @var string $from  @var string $to
  * @var array<int,string> $errors  @var array<string,mixed>|null $statement  @var bool $canExport
  */
-$q = ['carrier' => $carrier, 'driver' => $driver, 'company' => $company, 'from' => $from, 'to' => $to, 'go' => '1'];
+$q = ['carrier' => $carrier, 'driver' => $driver, 'company' => $company, 'from' => $from, 'to' => $to, 'labor' => $labor, 'pads' => $pads, 'paid' => $paid, 'go' => '1'];
 $label = static fn (string $s): string => (string) \App\Core\Config::get('statuses.statuses.' . $s . '.label', $s);
 ?>
 <div class="jt-page-actions">
-    <p class="text-body-secondary mb-0 me-auto jt-section-note">The jobs of one carrier, driver or company (Stage, In Transit and Delivered). CF Pay is each job's own carrier rate times its actual CF; Total Due is the Bal. Due total minus CF Pay. Leave the dates empty to include every job.</p>
+    <p class="text-body-secondary mb-0 me-auto jt-section-note">The jobs of one carrier, driver or company (Stage, In Transit and Delivered). CF Pay is each job's own carrier rate times its actual CF; Total Due is the Bal. Due total minus CF Pay, minus any Labor cost and Pads you type, plus any Paid amount. Leave the dates empty to include every job.</p>
 </div>
 
 <div class="card jt-card mb-3 jt-noprint">
@@ -42,6 +42,13 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
                     <?php endforeach; ?>
                 </select>
             </div>
+            <?php foreach (['labor' => ['Labor cost', $labor, 'Subtracted from Total Due.'], 'pads' => ['Pads', $pads, 'Subtracted from Total Due.'], 'paid' => ['Paid', $paid, 'Added to Total Due; a minus (-100) takes money off.']] as $name => [$text, $current, $help]): ?>
+                <div class="col-12 col-md-4">
+                    <label class="form-label" for="st-<?= e($name) ?>"><?= e($text) ?> (optional)</label>
+                    <input type="text" class="form-control" id="st-<?= e($name) ?>" name="<?= e($name) ?>" inputmode="decimal" maxlength="12" placeholder="0.00" value="<?= e($current) ?>" aria-describedby="st-<?= e($name) ?>-help">
+                    <div class="form-text" id="st-<?= e($name) ?>-help"><?= e($help) ?></div>
+                </div>
+            <?php endforeach; ?>
             <div class="col-6 col-md-4">
                 <label class="form-label" for="st-from">From (optional)</label>
                 <input type="date" class="form-control" id="st-from" name="from" value="<?= e($from) ?>">
@@ -151,6 +158,9 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
                 <div class="jt-statement-sum ms-auto">
                     <div><span>Subtotal <small>(Bal. Due total)</small></span><span><?= e(fmt_money($t['subtotal'])) ?></span></div>
                     <div><span>CF Pay <small>(Rate &times; A-CF)</small></span><span>&minus; <?= e(fmt_money($t['fee'])) ?></span></div>
+                    <?php if ($t['labor'] !== '0.00'): ?><div><span>Labor cost</span><span>&minus; <?= e(fmt_money($t['labor'])) ?></span></div><?php endif; ?>
+                    <?php if ($t['pads'] !== '0.00'): ?><div><span>Pads</span><span>&minus; <?= e(fmt_money($t['pads'])) ?></span></div><?php endif; ?>
+                    <?php if ($t['paid'] !== '0.00'): ?><div><span>Paid</span><span><?= (float) $t['paid'] < 0 ? '&minus; ' . e(fmt_money(ltrim($t['paid'], '-'))) : '+ ' . e(fmt_money($t['paid'])) ?></span></div><?php endif; ?>
                     <div class="jt-statement-due"><span>TOTAL DUE</span><span><?= e(fmt_money($t['due'])) ?></span></div>
                 </div>
 

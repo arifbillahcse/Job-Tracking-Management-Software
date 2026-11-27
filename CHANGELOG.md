@@ -2,6 +2,12 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.15.0 - Labor, Pads and Paid on the statement (print phase 3)
+
+* **Three optional boxes on the Carrier Statement: Labor cost, Pads and Paid** (all default to 0, nothing is stored). **Total Due = Subtotal - CF Pay - Labor - Pads + Paid**, the same as the old application. A minus sign is allowed: a negative Paid (like -100) takes money off Total Due.
+* A line for each appears in the summary box only when it is not 0, so a statement without them looks exactly as before. The CSV has the same lines and the new Total Due, and the CSV link keeps what was typed.
+* No migration. **Upgrade:** `git pull origin main`, then Ctrl+F5.
+
 ## 1.14.0 - a statement by company (print phase 2)
 
 * **New "Company" choice on the Carrier Statement.** The company is the job's **Broker**. Pick a company alone (a "Company Statement" with every carrier and driver that took its jobs) or together with a carrier and/or a driver. The hishab is the same: Bal. Due total minus CF Pay total.
