@@ -24,6 +24,11 @@ return [
     // The fixed list of carriers, one name per line. Empty = no carrier is required; with names, a job needs one of them to go In Transit (v1.9.0).
     'carriers' => '',
     // The two orange buttons at the top of every page (v1.10.0). An empty address hides its button.
+    // Printed at the top of the Carrier Statement (v1.13.0). All optional; empty lines are not printed.
+    'company_address' => '',
+    'company_phone' => '',
+    'company_dot' => '',
+    'company_mc' => '',
     'tracking_driver_url' => 'https://app.bhrelocationinc.com/',
     'tracking_job_url' => 'http://app.americanprovanline.com/',
 ];

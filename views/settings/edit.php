@@ -62,6 +62,17 @@ $val = static fn (string $key): string => old_or($key, $values[$key] ?? '');
                 </div>
             </div>
             <div class="card-body border-top">
+                <div class="fw-semibold mb-2">Company details on printed statements</div>
+                <p class="form-text mt-0">Printed at the top of the Carrier Statement, under the company name. All optional; an empty line is not printed. To show a logo, put the file at <code>public/assets/img/company-logo.png</code>.</p>
+                <?php foreach (\App\Services\CompanyProfile::FIELDS as $key => [$label, $max]): ?>
+                    <div class="mb-3">
+                        <label for="<?= e($key) ?>" class="form-label"><?= e($label) ?></label>
+                        <input type="text" class="form-control<?= has_error($key) ? ' is-invalid' : '' ?>" id="<?= e($key) ?>" name="<?= e($key) ?>" maxlength="<?= e($max) ?>" value="<?= e($val($key)) ?>">
+                        <?= error_text($key) ?>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            <div class="card-body border-top">
                 <div class="fw-semibold mb-2">Tracking buttons</div>
                 <p class="form-text mt-0">Two orange buttons at the top of every page. Each opens its address in a new tab. Leave an address empty to hide its button.</p>
                 <div class="mb-3">

@@ -624,7 +624,7 @@ async function createJob(page, number, availableOffset, extra = {}) {
         // the statement: rate x actual CF
         await page.goto(BASE + '/jobs/statement?go=1&carrier=' + encodeURIComponent(RUN + ' DINOCA'));
         const sheet = (await page.textContent('main')).replace(/\s+/g, ' ');
-        must(sheet.includes(RUN + '-CAR') && /TOTAL DUE/.test(sheet) && /\$2,250\.00/.test(sheet), 'the carrier statement does not list the job: ' + sheet.slice(0, 200));
+        must(sheet.includes(RUN + '-CAR') && /TOTAL DUE/.test(sheet) && /\$2,250\.00/.test(sheet) && /Carrier Statement/.test(sheet) && /Signature/.test(sheet), 'the carrier statement does not list the job: ' + sheet.slice(0, 200));
         await page.setViewportSize({ width: 360, height: 740 });
         await page.goto(BASE + '/jobs/statement?go=1&carrier=' + encodeURIComponent(RUN + ' DINOCA'));
         const wide = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

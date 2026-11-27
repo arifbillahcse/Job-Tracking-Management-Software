@@ -55,7 +55,7 @@ final class SettingsService
     }
 
     /** Settings the page may change. Anything else in the table (or in a request) is ignored. */
-    public const KEYS = ['company_name', 'ready_threshold_days', 'section_basis', 'currency_symbol', 'timezone', 'page_size', 'storage_fee_rate', 'storage_fee_after_days', 'storage_fee_basis', 'storage_fee_mode', 'carriers', 'tracking_driver_url', 'tracking_job_url'];
+    public const KEYS = ['company_name', 'ready_threshold_days', 'section_basis', 'currency_symbol', 'timezone', 'page_size', 'storage_fee_rate', 'storage_fee_after_days', 'storage_fee_basis', 'storage_fee_mode', 'carriers', 'tracking_driver_url', 'tracking_job_url', 'company_address', 'company_phone', 'company_dot', 'company_mc'];
 
     /** Changing any of these re-assesses every open job's storage fee. */
     public const STORAGE_KEYS = ['storage_fee_rate', 'storage_fee_after_days', 'storage_fee_basis', 'storage_fee_mode'];
@@ -142,6 +142,16 @@ final class SettingsService
             $errors['carriers'] = $carriers['error'];
         }
         $values['carriers'] = $carriers['value'];
+
+        foreach (CompanyProfile::FIELDS as $key => [$label, $max, $pattern]) {
+            $text = self::clean($input[$key] ?? '');
+            if (mb_strlen($text) > $max) {
+                $errors[$key] = $label . ' can be at most ' . $max . ' characters.';
+            } elseif ($text !== '' && preg_match($pattern, $text) !== 1) {
+                $errors[$key] = $label . ' has characters that are not allowed.';
+            }
+            $values[$key] = $text;
+        }
 
         foreach (['tracking_driver_url' => 'Driver Tracking', 'tracking_job_url' => 'Job Tracking'] as $key => $label) {
             $link = TrackingLinks::parse($input[$key] ?? '');

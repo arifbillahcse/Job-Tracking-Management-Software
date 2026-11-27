@@ -57,18 +57,37 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
 <?php if ($statement !== null): $t = $statement['totals']; ?>
     <div class="card jt-card mb-3">
         <div class="card-body">
-            <div class="d-flex flex-wrap gap-3 justify-content-between mb-3">
-                <div>
-                    <div class="h5 mb-1">Statement &middot; <?= e(trim(($carrier !== '' ? $carrier : '') . ($carrier !== '' && $driver !== '' ? ' / ' : '') . $driver)) ?></div>
-                    <div class="text-body-secondary small">
-                        <?= $from === '' && $to === '' ? 'all dates' : e(($from !== '' ? fmt_date($from) : 'the start') . ' to ' . ($to !== '' ? fmt_date($to) : 'today')) ?>
+            <?php
+            $logo = \App\Services\CompanyProfile::logoUrl();
+            $dot = \App\Services\CompanyProfile::dot();
+            $mc = \App\Services\CompanyProfile::mc();
+            $phone = \App\Services\CompanyProfile::phone();
+            $address = \App\Services\CompanyProfile::address();
+            $title = $driver !== '' ? 'Driver Statement' : 'Carrier Statement';
+            ?>
+            <div class="jt-stmt-head">
+                <div class="jt-stmt-company">
+                    <?php if ($logo !== ''): ?><img class="jt-stmt-logo" src="<?= e($logo) ?>" alt=""><?php endif; ?>
+                    <div>
+                        <div class="jt-stmt-name"><?= e(\App\Services\CompanyProfile::name()) ?></div>
+                        <?php if ($address !== ''): ?><div><?= e($address) ?></div><?php endif; ?>
+                        <?php if ($dot !== '' || $mc !== ''): ?><div><?= $dot !== '' ? 'DOT: ' . e($dot) : '' ?><?= $dot !== '' && $mc !== '' ? ' &middot; ' : '' ?><?= $mc !== '' ? 'MC: ' . e($mc) : '' ?></div><?php endif; ?>
+                        <?php if ($phone !== ''): ?><div>Phone: <?= e($phone) ?></div><?php endif; ?>
                     </div>
                 </div>
-                <div class="text-end small">
-                    <div>Total jobs: <strong><?= e($t['jobs']) ?></strong></div>
-                    <div>Total CF: <strong><?= e(fmt_number($t['cf'])) ?></strong></div>
-                    <div>Total due: <strong><?= e(fmt_money($t['due'])) ?></strong></div>
+                <div class="jt-stmt-who">
+                    <div class="jt-stmt-title"><?= e($title) ?></div>
+                    <div class="jt-stmt-name"><?= e($driver !== '' ? $driver : $carrier) ?></div>
+                    <?php if ($driver !== '' && $carrier !== ''): ?><div>Carrier: <?= e($carrier) ?></div><?php endif; ?>
+                    <?php if ($driver !== '' && $statement['driver_phone'] !== ''): ?><div>Phone: <?= e($statement['driver_phone']) ?></div><?php endif; ?>
+                    <div>Date: <?= e(fmt_date(\App\Core\Clock::today())) ?></div>
+                    <div>Period: <?= $from === '' && $to === '' ? 'all dates' : e(($from !== '' ? fmt_date($from) : 'the start') . ' to ' . ($to !== '' ? fmt_date($to) : 'today')) ?></div>
                 </div>
+            </div>
+            <div class="jt-stmt-totals">
+                <span>Total jobs: <strong><?= e($t['jobs']) ?></strong></span>
+                <span>Total CF: <strong><?= e(fmt_number($t['cf'])) ?></strong></span>
+                <span>Total due: <strong><?= e(fmt_money($t['due'])) ?></strong></span>
             </div>
 
             <?php if ($statement['truncated']): ?>
@@ -120,6 +139,11 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
                     <div><span>Subtotal <small>(Bal. Due total)</small></span><span><?= e(fmt_money($t['subtotal'])) ?></span></div>
                     <div><span>CF Pay <small>(Rate &times; A-CF)</small></span><span>&minus; <?= e(fmt_money($t['fee'])) ?></span></div>
                     <div class="jt-statement-due"><span>TOTAL DUE</span><span><?= e(fmt_money($t['due'])) ?></span></div>
+                </div>
+
+                <div class="jt-stmt-foot">
+                    <div class="jt-stmt-foot-cell"><strong>Remarks</strong></div>
+                    <div class="jt-stmt-foot-cell text-end"><strong>Signature</strong></div>
                 </div>
 
                 <div class="d-flex gap-2 mt-3 jt-noprint">

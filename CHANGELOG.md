@@ -2,6 +2,13 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.13.0 - a printable statement (print phase 1)
+
+* **The Carrier Statement now has a proper header**: the company name and (when filled in) its address, DOT and MC number and phone on the left; on the right the title ("Driver Statement" when a driver is chosen, else "Carrier Statement"), the driver or carrier, the driver's phone (taken from the jobs), the date and the period. Below the table there is a **Remarks** and **Signature** line. The filter box and buttons are left out when printing.
+* **New "Company details on printed statements" box in Settings:** Address, Phone, DOT number and MC number, all optional (an empty line is not printed).
+* **Logo:** put your logo file at `public/assets/img/company-logo.png` and the header shows it; without the file nothing changes.
+* No migration. **Upgrade:** `git pull origin main`, then Ctrl+F5. Then fill in the company details in Settings and use the Print button.
+
 ## 1.12.1 - the Carrier Statement uses each job's own rate (rate phase 2)
 
 * **The statement no longer asks for one rate.** Each row shows the job's own **carrier rate**, and **CF Pay = that rate x the job's actual CF**. Two jobs of one carrier can have different rates. Total Due is still the Bal. Due total minus the CF Pay total.

@@ -95,6 +95,7 @@ final class CarrierStatement
         $balTotal = 0;
         $noCf = 0;
         $noRate = 0;
+        $driverPhone = '';
         $incomplete = 0;
         foreach ($found as $job) {
             $cf = $job['cf'] === null || $job['cf'] === '' ? null : (int) round((float) $job['cf'] * 100);                    // hundredths of a cubic foot
@@ -104,6 +105,9 @@ final class CarrierStatement
             $cfTotal += $cf ?? 0;
             $feeTotal += $fee ?? 0;
             $balTotal += $bal;
+            if ($driverPhone === '' && trim((string) ($job['driver_phone'] ?? '')) !== '') {
+                $driverPhone = trim((string) $job['driver_phone']);
+            }
             $noCf += $cf === null ? 1 : 0;
             $noRate += $rateCents === null ? 1 : 0;
             $incomplete += $fee === null ? 1 : 0;
@@ -126,6 +130,7 @@ final class CarrierStatement
         return [
             'rows' => $rows,
             'truncated' => $truncated,
+            'driver_phone' => $driverPhone,
             'totals' => [
                 'jobs' => count($rows),
                 'cf' => self::cents($cfTotal),

@@ -36,6 +36,7 @@ function p7_post_settings(array $override = []): \App\Core\Response
         'company_name' => 'Acme Moving', 'ready_threshold_days' => '30', 'currency_symbol' => '$',
         'timezone' => 'UTC', 'page_size' => '25',
         'tracking_driver_url' => 'https://app.bhrelocationinc.com/', 'tracking_job_url' => 'http://app.americanprovanline.com/',
+        'company_address' => '', 'company_phone' => '', 'company_dot' => '', 'company_mc' => '',
         'storage_fee_rate' => '0.6', 'storage_fee_after_days' => '30', 'storage_fee_basis' => 'first_available', 'storage_fee_mode' => 'once', 'section_basis' => 'first_available',
     ]);
 }
@@ -64,7 +65,7 @@ $admin = make_user('Admin', 'p7-admin@example.com');
 $mgr = make_user('Manager', 'p7-mgr@example.com');
 $staff = make_user('Staff', 'p7-stf@example.com');
 
-$good = ['company_name' => 'Acme Moving', 'ready_threshold_days' => '45', 'section_basis' => 'first_available', 'currency_symbol' => '€', 'timezone' => 'America/Chicago', 'page_size' => '50', 'storage_fee_rate' => '0.75', 'storage_fee_after_days' => '45', 'storage_fee_basis' => 'loaded', 'storage_fee_mode' => 'once', 'carriers' => '', 'tracking_driver_url' => '', 'tracking_job_url' => ''];
+$good = ['company_name' => 'Acme Moving', 'ready_threshold_days' => '45', 'section_basis' => 'first_available', 'currency_symbol' => '€', 'timezone' => 'America/Chicago', 'page_size' => '50', 'storage_fee_rate' => '0.75', 'storage_fee_after_days' => '45', 'storage_fee_basis' => 'loaded', 'storage_fee_mode' => 'once', 'carriers' => '', 'company_address' => '', 'company_phone' => '', 'company_dot' => '', 'company_mc' => '', 'tracking_driver_url' => '', 'tracking_job_url' => ''];
 $r = SettingsService::validate($good);
 check($r['errors'] === [] && $r['values'] === $good, 'valid input passes and comes back normalised');
 
