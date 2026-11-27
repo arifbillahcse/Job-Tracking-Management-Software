@@ -9,16 +9,18 @@ use App\Core\Clock;
 use App\Core\Database;
 
 /**
- * Saved invoices (v1.16.0). A Carrier Statement is saved as a numbered invoice (DI-1, DI-2, ...): a SNAPSHOT of its lines, so editing a
+ * Saved invoices (v1.16.0; company invoices v1.17.0). A Carrier Statement is saved as a numbered invoice (DI-1, DI-2, ...): a SNAPSHOT of its lines, so editing a
  * job later never changes an invoice that was already given out. Everything is recomputed here from the jobs; nothing the browser
  * posts (amounts, lines) is trusted. A job is on at most one open invoice: jobs already on an invoice are left out unless asked for,
- * and voiding an invoice frees its jobs again. Money is added in whole cents.
+ * and voiding an invoice frees its jobs again (a job may be on one open driver invoice AND one open company invoice, they are different
+ * documents). A carrier / driver statement is saved as a driver invoice (DI), a company-only statement as a company invoice (CI), and the
+ * company invoices of a driver invoice can be generated from it. Money is added in whole cents.
  *
  *   total = subtotal (Bal. Due total) - carrier_fee (CF Pay total) - labor - pads + paid_amount
  */
 final class InvoiceService
 {
-    public const TYPES = ['DI' => 'Driver Invoice'];
+    public const TYPES = ['DI' => 'Driver Invoice', 'CI' => 'Company Invoice'];
     public const MAX_REMARKS = 2000;
     public const PER_PAGE = 25;
 
@@ -53,9 +55,10 @@ final class InvoiceService
      * The invoices (not voided) that hold each job, for marking jobs on the statement.
      *
      * @param array<int,int> $jobIds
+     * @param string $type only invoices of this type (DI or CI), or '' for all
      * @return array<int,array<int,string>> job id => numbers
      */
-    public static function numbersForJobs(array $jobIds): array
+    public static function numbersForJobs(array $jobIds, string $type = ''): array
     {
         $jobIds = array_values(array_unique(array_filter(array_map('intval', $jobIds), static fn (int $id): bool => $id > 0)));
         if ($jobIds === []) {
@@ -65,14 +68,23 @@ final class InvoiceService
         foreach (array_chunk($jobIds, 400) as $chunk) {
             $marks = implode(',', array_fill(0, count($chunk), '?'));
             $rows = Database::fetchAll(
-                "SELECT il.job_id, iv.type, iv.seq FROM invoice_lines il JOIN invoices iv ON iv.id = il.invoice_id WHERE iv.voided_at IS NULL AND il.job_id IN ({$marks}) ORDER BY iv.id ASC",
-                $chunk
+                "SELECT il.job_id, iv.type, iv.seq FROM invoice_lines il JOIN invoices iv ON iv.id = il.invoice_id WHERE iv.voided_at IS NULL AND il.job_id IN ({$marks})" . ($type !== '' ? ' AND iv.type = ?' : '') . ' ORDER BY iv.id ASC',
+                $type !== '' ? [...$chunk, $type] : $chunk
             );
             foreach ($rows as $r) {
                 $out[(int) $r['job_id']][] = (string) $r['type'] . '-' . (int) $r['seq'];
             }
         }
         return $out;
+    }
+
+    /** The type a statement is saved as: a carrier or driver statement is a driver invoice (DI), a company-only one a company invoice (CI), nothing chosen = ''. */
+    public static function typeFor(string $carrier, string $driver, string $broker): string
+    {
+        if ($carrier !== '' || $driver !== '') {
+            return 'DI';
+        }
+        return $broker !== '' ? 'CI' : '';
     }
 
     /**
@@ -93,8 +105,9 @@ final class InvoiceService
         string $date,
         bool $includeInvoiced
     ): array {
-        if ($carrier === '' && $driver === '') {
-            return ['ok' => false, 'error' => 'Choose a carrier or a driver to save an invoice. (An invoice for a whole company comes in a later version.)'];
+        $type = self::typeFor($carrier, $driver, $broker);
+        if ($type === '') {
+            return ['ok' => false, 'error' => 'Choose a carrier, a driver or a company to save an invoice.'];
         }
         $date = trim($date) === '' ? Clock::today() : trim($date);
         if (CarrierStatement::parseDate($date, 'Invoice date')['error'] !== null) {
@@ -105,11 +118,11 @@ final class InvoiceService
             return ['ok' => false, 'error' => 'The remarks can be at most ' . self::MAX_REMARKS . ' characters.'];
         }
 
-        $statement = CarrierStatement::build($carrier, $driver, $broker, $from, $to, $laborCents, $padsCents, $paidCents, !$includeInvoiced);
+        $statement = CarrierStatement::build($carrier, $driver, $broker, $from, $to, $laborCents, $padsCents, $paidCents, $includeInvoiced ? '' : $type);
         if ($statement['rows'] === []) {
             $any = CarrierStatement::build($carrier, $driver, $broker, $from, $to);
             return ['ok' => false, 'error' => $any['rows'] !== [] && !$includeInvoiced
-                ? 'Every job here is already on an invoice. Tick "Also include jobs already on an invoice" to invoice them again.'
+                ? 'Every job here is already on a saved ' . strtolower(self::TYPES[$type]) . '. Tick "Also include jobs already on an invoice" to invoice them again.'
                 : 'There are no jobs to invoice.'];
         }
         if ($statement['truncated']) {
@@ -122,7 +135,7 @@ final class InvoiceService
 
         for ($attempt = 1; $attempt <= 3; $attempt++) {
             try {
-                $id = (int) Database::transaction(static fn (): int => self::insert($statement, $carrier, $driver, $broker, $from, $to, $remarks, $date));
+                $id = (int) Database::transaction(static fn (): int => self::insert($type, $statement, $carrier, $driver, $broker, $from, $to, $remarks, $date));
                 $invoice = self::find($id) ?? [];
                 AuditService::record('invoice_created', 'invoice', $id, null, [
                     'number' => self::number($invoice), 'carrier' => $carrier, 'driver' => $driver, 'company' => $broker,
@@ -139,16 +152,16 @@ final class InvoiceService
     }
 
     /** @param array<string,mixed> $statement */
-    private static function insert(array $statement, string $carrier, string $driver, string $broker, string $from, string $to, string $remarks, string $date): int
+    private static function insert(string $type, array $statement, string $carrier, string $driver, string $broker, string $from, string $to, string $remarks, string $date): int
     {
         $t = $statement['totals'];
         $now = gmdate('Y-m-d H:i:s');
-        $seq = (int) Database::fetchValue("SELECT COALESCE(MAX(seq), 0) + 1 FROM invoices WHERE type = 'DI'");
+        $seq = (int) Database::fetchValue('SELECT COALESCE(MAX(seq), 0) + 1 FROM invoices WHERE type = ?', [$type]);
         $id = Database::insert(
             'INSERT INTO invoices (type, seq, invoice_date, carrier, driver, broker, driver_phone, period_from, period_to, total_cf, subtotal, carrier_fee, labor, pads, paid_amount, total, remarks, created_by, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
-                'DI', $seq, $date, $carrier === '' ? null : $carrier, $driver === '' ? null : $driver, $broker === '' ? null : $broker,
+                $type, $seq, $date, $carrier === '' ? null : $carrier, $driver === '' ? null : $driver, $broker === '' ? null : $broker,
                 $statement['driver_phone'] === '' ? null : $statement['driver_phone'], $from === '' ? null : $from, $to === '' ? null : $to,
                 $t['cf'], $t['subtotal'], $t['fee'], $t['labor'], $t['pads'], $t['paid'], $t['due'], $remarks === '' ? null : $remarks, Auth::id(), $now, $now,
             ]
@@ -300,10 +313,123 @@ final class InvoiceService
         return ['ok' => true];
     }
 
+    /** The company invoices made from a driver invoice. @return array<int,array<string,mixed>> */
+    public static function children(int $id): array
+    {
+        return Database::fetchAll('SELECT * FROM invoices WHERE source_invoice_id = ? ORDER BY id ASC', [$id]);
+    }
+
+    /**
+     * Make one company invoice (CI) per company (the job's broker) from the lines of a driver invoice (DI), copying the saved lines (the jobs
+     * are not read again). Remarks and dates are copied; Labor, Pads and Paid start at 0 on each company invoice (copying them to every one
+     * would count the same cost several times) and can be changed afterwards. Lines with no company are left out. It is refused while
+     * company invoices made from this driver invoice are still open, so it cannot be done twice by accident (void them first to redo it).
+     *
+     * @return array{ok:bool,error?:string,numbers?:array<int,string>,skipped?:int}
+     */
+    public static function generateCompanyInvoices(int $id): array
+    {
+        $di = self::find($id);
+        if ($di === null) {
+            return ['ok' => false, 'error' => 'not_found'];
+        }
+        if ($di['type'] !== 'DI') {
+            return ['ok' => false, 'error' => 'Company invoices are made from a driver invoice.'];
+        }
+        if (self::status($di) === 'void') {
+            return ['ok' => false, 'error' => 'A voided invoice cannot be split into company invoices.'];
+        }
+        $made = array_values(array_filter(self::children($id), static fn (array $c): bool => self::status($c) !== 'void'));
+        if ($made !== []) {
+            return ['ok' => false, 'error' => 'Company invoices were already made from ' . self::number($di) . ': ' . implode(', ', array_map([self::class, 'number'], $made)) . '. Void them first to make them again.'];
+        }
+
+        $groups = [];
+        $names = [];
+        $skipped = 0;
+        foreach (self::lines($id) as $line) {
+            $company = trim((string) ($line['broker'] ?? ''));
+            if ($company === '') {
+                $skipped++;
+                continue;
+            }
+            $key = mb_strtolower($company);
+            $names[$key] ??= $company;
+            $groups[$key][] = $line;
+        }
+        if ($groups === []) {
+            return ['ok' => false, 'error' => 'None of the jobs on this invoice has a company (broker), so there is nothing to split.'];
+        }
+
+        for ($attempt = 1; $attempt <= 3; $attempt++) {
+            try {
+                $created = Database::transaction(static fn (): array => self::insertCompanyInvoices($di, $groups, $names));
+                $numbers = [];
+                foreach ($created as $invoiceId) {
+                    $invoice = self::find($invoiceId) ?? [];
+                    $numbers[] = self::number($invoice);
+                    AuditService::record('invoice_created', 'invoice', $invoiceId, null, [
+                        'number' => self::number($invoice), 'company' => (string) $invoice['broker'], 'from' => self::number($di), 'total' => (string) $invoice['total'],
+                    ]);
+                }
+                return ['ok' => true, 'numbers' => $numbers, 'skipped' => $skipped];
+            } catch (\PDOException $e) {
+                if ((string) $e->getCode() !== '23000' || $attempt === 3) {
+                    throw $e;
+                }
+            }
+        }
+        return ['ok' => false, 'error' => 'The company invoices could not be saved. Please try again.'];
+    }
+
+    /**
+     * @param array<string,mixed> $di
+     * @param array<string,array<int,array<string,mixed>>> $groups
+     * @param array<string,string> $names
+     * @return array<int,int> the new invoice ids
+     */
+    private static function insertCompanyInvoices(array $di, array $groups, array $names): array
+    {
+        $cents = static fn (mixed $v): int => $v === null || $v === '' ? 0 : (int) round((float) $v * 100);
+        $fmt = static fn (int $c): string => number_format($c / 100, 2, '.', '');
+        $now = gmdate('Y-m-d H:i:s');
+        $ids = [];
+        foreach ($groups as $key => $lines) {
+            $sub = 0;
+            $fee = 0;
+            $cf = 0;
+            foreach ($lines as $l) {
+                $sub += $cents($l['balance']);
+                $fee += $cents($l['fee']);
+                $cf += $cents($l['cf']);
+            }
+            $seq = (int) Database::fetchValue("SELECT COALESCE(MAX(seq), 0) + 1 FROM invoices WHERE type = 'CI'");
+            $id = Database::insert(
+                'INSERT INTO invoices (type, seq, invoice_date, carrier, driver, broker, driver_phone, period_from, period_to, total_cf, subtotal, carrier_fee, labor, pads, paid_amount, total, remarks, source_invoice_id, created_by, created_at, updated_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?, ?, ?, ?, ?)',
+                [
+                    'CI', $seq, $di['invoice_date'], $di['carrier'], $di['driver'], $names[$key], $di['driver_phone'], $di['period_from'], $di['period_to'],
+                    $fmt($cf), $fmt($sub), $fmt($fee), $fmt($sub - $fee), $di['remarks'], $di['id'], Auth::id(), $now, $now,
+                ]
+            );
+            $order = 0;
+            foreach ($lines as $l) {
+                Database::execute(
+                    'INSERT INTO invoice_lines (invoice_id, sort_order, job_id, job_number, status, customer, phone, from_location, to_location, broker, carrier, driver, cf, rate, fee, balance, remarks)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    [$id, ++$order, $l['job_id'], $l['job_number'], $l['status'], $l['customer'], $l['phone'], $l['from_location'], $l['to_location'], $l['broker'], $l['carrier'], $l['driver'], $l['cf'], $l['rate'], $l['fee'], $l['balance'], $l['remarks']]
+                );
+            }
+            $ids[] = $id;
+        }
+        AuditService::record('invoice_companies_made', 'invoice', (int) $di['id'], null, ['number' => self::number($di), 'company_invoices' => count($ids)]);
+        return $ids;
+    }
+
     /**
      * The invoice list: a page of invoices and the totals of what matches.
      *
-     * @param array{q?:string,status?:string,from?:string,to?:string} $filters
+     * @param array{q?:string,status?:string,type?:string,from?:string,to?:string} $filters
      * @return array{rows:array<int,array<string,mixed>>,total:int,sum:string,open_sum:string}
      */
     public static function search(array $filters, int $limit, int $offset): array
@@ -320,7 +446,7 @@ final class InvoiceService
     }
 
     /**
-     * @param array{q?:string,status?:string,from?:string,to?:string} $f
+     * @param array{q?:string,status?:string,type?:string,from?:string,to?:string} $f
      * @return array{0:string,1:array<int,mixed>}
      */
     private static function where(array $f): array
@@ -337,6 +463,11 @@ final class InvoiceService
                 $where .= " AND (LOWER(COALESCE(i.carrier, '')) LIKE ? OR LOWER(COALESCE(i.driver, '')) LIKE ? OR LOWER(COALESCE(i.broker, '')) LIKE ?)";
                 array_push($params, $like, $like, $like);
             }
+        }
+        $type = (string) ($f['type'] ?? '');
+        if (isset(self::TYPES[$type])) {
+            $where .= ' AND i.type = ?';
+            $params[] = $type;
         }
         $status = (string) ($f['status'] ?? '');
         if ($status === 'open') {

@@ -24,6 +24,7 @@ final class InvoiceController extends Controller
         $filters = [
             'q' => trim($request->queryStr('q')),
             'status' => in_array($request->queryStr('status'), ['open', 'paid', 'void'], true) ? $request->queryStr('status') : '',
+            'type' => isset(InvoiceService::TYPES[$request->queryStr('type')]) ? $request->queryStr('type') : '',
             'from' => trim($request->queryStr('from')),
             'to' => trim($request->queryStr('to')),
         ];
@@ -60,6 +61,8 @@ final class InvoiceController extends Controller
             'number' => InvoiceService::number($invoice),
             'status' => InvoiceService::status($invoice),
             'direction' => CarrierStatement::direction(number_format((float) $invoice['total'], 2, '.', '')),
+            'children' => InvoiceService::children($id),
+            'source' => $invoice['source_invoice_id'] === null ? null : InvoiceService::find((int) $invoice['source_invoice_id']),
             'canManage' => can('invoices.manage'),
         ]);
     }
@@ -108,6 +111,22 @@ final class InvoiceController extends Controller
             'paid_amount' => $request->str('paid_amount'), 'remarks' => $request->str('remarks'),
         ]);
         return $this->done($result, $id, 'The invoice was updated.');
+    }
+
+    /** Make the company invoices (CI) of a driver invoice. */
+    public function companies(Request $request, int $id): Response
+    {
+        $result = InvoiceService::generateCompanyInvoices($id);
+        if (($result['error'] ?? '') === 'not_found') {
+            return ErrorPages::response(404);
+        }
+        if (!$result['ok']) {
+            $this->flash('danger', (string) $result['error']);
+            return $this->redirect('/invoices/' . $id);
+        }
+        $skipped = (int) ($result['skipped'] ?? 0);
+        $this->flash('success', 'Company invoices made: ' . implode(', ', $result['numbers'] ?? []) . '.' . ($skipped > 0 ? ' ' . $skipped . ' job' . ($skipped === 1 ? ' has' : 's have') . ' no company and ' . ($skipped === 1 ? 'was' : 'were') . ' left out.' : ''));
+        return $this->redirect('/invoices/' . $id);
     }
 
     public function paid(Request $request, int $id): Response

@@ -2,6 +2,15 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.17.0 - company invoices (invoice phase 4b)
+
+* **Company invoices (CI-1, CI-2, ...).** On the Carrier Statement, choose just a **Company** (the job's broker) and the "Save as an invoice" box makes a **company invoice**. The hishab is the same as a driver invoice (Bal. Due total - CF Pay total - Labor - Pads + Paid). A statement with a carrier or a driver is still saved as a driver invoice (DI), the company then only narrows it down.
+* **Generate company invoices from a driver invoice.** On a driver invoice (DI) there is a "Generate company invoices" button: it splits the jobs saved on that invoice by company and makes one company invoice for each, from the **saved lines** (the jobs are not read again). Remarks, date and carrier are copied; **Labor, Pads and Paid start at 0 on each company invoice** (copying them to every one would count the same cost several times) and can be changed on the invoice. Jobs with no company are left out and the page says how many. A generated company invoice says "Made from DI-3", and the driver invoice lists its company invoices.
+* **It cannot be done twice by accident:** while any company invoice made from a driver invoice is open (not voided), generating again is refused; void them first to make them again (with new numbers).
+* **A job can be on one open driver invoice and one open company invoice** (they are different documents), but not on two of the same kind. The statement marks a job with every number it is on ("On DI-1, CI-1").
+* The Invoices list has a **Type filter** (Driver Invoice / Company Invoice) and a Type column; searching "CI-3" or a company name works.
+* **Migration 022** adds one column (`source_invoice_id`). **Upgrade:** `git pull origin main`, `php cli/migrate.php`, `php cli/doctor.php`, then Ctrl+F5. No new permissions.
+
 ## 1.16.0 - saved invoices (invoice phase 4a)
 
 * **A Carrier Statement can now be saved as a numbered invoice (DI-1, DI-2, ...).** Under the statement table there is a "Save as an invoice" box (for a carrier or a driver; an invoice for a whole company comes next). It keeps the statement exactly as it is that day: each job with its CF, rate, CF Pay, balance, carrier, driver and remarks, plus the Labor, Pads and Paid you typed, and the total. **Editing a job later never changes a saved invoice.**

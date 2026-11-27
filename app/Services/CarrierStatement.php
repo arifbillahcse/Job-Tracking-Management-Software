@@ -85,7 +85,7 @@ final class CarrierStatement
     /**
      * @return array{rows:array<int,array<string,mixed>>,totals:array<string,mixed>,truncated:bool}
      */
-    public static function build(string $carrier, string $driver, string $broker, string $from, string $to, int $laborCents = 0, int $padsCents = 0, int $paidCents = 0, bool $onlyUninvoiced = false): array
+    public static function build(string $carrier, string $driver, string $broker, string $from, string $to, int $laborCents = 0, int $padsCents = 0, int $paidCents = 0, string $uninvoicedType = ''): array
     {
         $marks = implode(',', array_fill(0, count(self::STATUSES), '?'));
         $where = "j.deleted_at IS NULL AND j.status IN ({$marks})";
@@ -102,9 +102,10 @@ final class CarrierStatement
             $where .= ' AND LOWER(j.broker) = ?'; // the same on MySQL and SQLite: letter case never matters
             $params[] = mb_strtolower($broker);
         }
-        if ($onlyUninvoiced) {
-            // Leave out jobs that are already on a saved invoice that has not been voided.
-            $where .= ' AND NOT EXISTS (SELECT 1 FROM invoice_lines il JOIN invoices iv ON iv.id = il.invoice_id WHERE il.job_id = j.id AND iv.voided_at IS NULL)';
+        if ($uninvoicedType !== '') {
+            // Leave out jobs that are already on a saved invoice of this type (DI or CI) that has not been voided.
+            $where .= ' AND NOT EXISTS (SELECT 1 FROM invoice_lines il JOIN invoices iv ON iv.id = il.invoice_id WHERE il.job_id = j.id AND iv.voided_at IS NULL AND iv.type = ?)';
+            $params[] = $uninvoicedType;
         }
         $date = 'COALESCE(j.loaded_date, j.pickup_date, j.first_available_date)';
         if ($from !== '') {

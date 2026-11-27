@@ -633,6 +633,8 @@ async function createJob(page, number, availableOffset, extra = {}) {
         const invText = (await page.textContent('main')).replace(/\s+/g, ' ');
         must(/Invoice #: DI-\d+/.test(invText) && invText.includes(RUN + '-CAR') && /Driver Invoice/.test(invText), 'the saved invoice page is not shown: ' + invText.slice(0, 200));
         const invUrl = page.url();
+        // the driver invoice offers the company invoices, and they can be made
+        must((await page.locator('button:has-text("Generate company invoices")').count()) === 1, 'the driver invoice has no Generate company invoices button');
         await page.goto(BASE + '/invoices');
         must(/DI-\d+/.test(await page.textContent('main')), 'the invoice is not in the list');
         await page.goto(BASE + '/jobs/statement?go=1&carrier=' + encodeURIComponent(RUN + ' DINOCA'));

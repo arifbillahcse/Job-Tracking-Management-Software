@@ -46,6 +46,7 @@ return static function (Router $router): void {
     $router->post('/invoices', [InvoiceController::class, 'store'])->can('invoices.manage')->name('invoices.store');
     $router->get('/invoices/{id:int}', [InvoiceController::class, 'show'])->can('invoices.view')->name('invoices.show');
     $router->post('/invoices/{id:int}', [InvoiceController::class, 'update'])->can('invoices.manage')->name('invoices.update');
+    $router->post('/invoices/{id:int}/company-invoices', [InvoiceController::class, 'companies'])->can('invoices.manage')->name('invoices.companies');
     $router->post('/invoices/{id:int}/paid', [InvoiceController::class, 'paid'])->can('invoices.manage')->name('invoices.paid');
     $router->post('/invoices/{id:int}/open', [InvoiceController::class, 'open'])->can('invoices.manage')->name('invoices.open');
     $router->post('/invoices/{id:int}/void', [InvoiceController::class, 'void'])->can('invoices.manage')->name('invoices.void');

@@ -173,11 +173,19 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
                 </div>
 
                 <?php
-                $invoiced = count(array_filter($statement['rows'], static fn (array $r): bool => !empty($marks[$r['id']])));
-                $canInvoice = $canSave && ($carrier !== '' || $driver !== '');
+                $saveType = \App\Services\InvoiceService::typeFor($carrier, $driver, $company);
+                $invoiced = count(array_filter($statement['rows'], static function (array $r) use ($marks, $saveType): bool {
+                    foreach ($marks[$r['id']] ?? [] as $number) {
+                        if (str_starts_with($number, $saveType . '-')) {
+                            return true;
+                        }
+                    }
+                    return false;
+                }));
+                $canInvoice = $canSave && $saveType !== '';
                 ?>
                 <?php if ($invoiced > 0): ?>
-                    <div class="alert alert-info mt-3 jt-noprint"><?= e($invoiced) ?> job<?= $invoiced === 1 ? ' is' : 's are' ?> already on a saved invoice (marked "On DI-…"). Saving an invoice leaves <?= $invoiced === 1 ? 'it' : 'them' ?> out unless you tick the box below.</div>
+                    <div class="alert alert-info mt-3 jt-noprint"><?= e($invoiced) ?> job<?= $invoiced === 1 ? ' is' : 's are' ?> already on a saved invoice (marked "On DI-…" or "On CI-…"). Saving an invoice leaves <?= $invoiced === 1 ? 'it' : 'them' ?> out unless you tick the box below.</div>
                 <?php endif; ?>
                 <?php if ($canInvoice): ?>
                     <form method="post" action="<?= e(url('/invoices')) ?>" class="card jt-card mt-3 jt-noprint" data-loading>
@@ -187,7 +195,7 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
                         <?php endforeach; ?>
                         <div class="card-body">
                             <div class="fw-semibold mb-2">Save as an invoice</div>
-                            <p class="form-text mt-0">Keeps this statement as a numbered invoice (DI-1, DI-2, ...) exactly as it is now. Editing a job later does not change a saved invoice.</p>
+                            <p class="form-text mt-0">Keeps this statement as a numbered <?= $saveType === 'CI' ? 'company invoice (CI-1, CI-2, ...)' : 'driver invoice (DI-1, DI-2, ...)' ?> exactly as it is now. Editing a job later does not change a saved invoice.<?= $saveType === 'DI' ? ' From the saved invoice you can then make the company invoices.' : '' ?></p>
                             <div class="row g-3">
                                 <div class="col-12 col-md-4">
                                     <label class="form-label" for="inv-date">Invoice date</label>
@@ -210,7 +218,7 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
                         </div>
                     </form>
                 <?php elseif ($canSave): ?>
-                    <p class="form-text jt-noprint mt-3">To save an invoice, choose a carrier or a driver (an invoice for a whole company comes in a later version).</p>
+                    <p class="form-text jt-noprint mt-3">To save an invoice, choose a carrier, a driver or a company.</p>
                 <?php endif; ?>
 
                 <div class="d-flex gap-2 mt-3 jt-noprint">

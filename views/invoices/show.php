@@ -2,13 +2,16 @@
 /**
  * One saved invoice (printable).
  * @var array<string,mixed> $invoice  @var array<int,array<string,mixed>> $lines  @var string $number  @var string $status
- * @var array{text:string,amount:string,code:string} $direction  @var bool $canManage
+ * @var array{text:string,amount:string,code:string} $direction  @var bool $canManage  @var array<int,array<string,mixed>> $children  @var array<string,mixed>|null $source
  */
 use App\Services\CompanyProfile;
 use App\Services\InvoiceService;
 
 $label = static fn (string $s): string => (string) \App\Core\Config::get('statuses.statuses.' . $s . '.label', $s);
-$subject = (string) ($invoice['driver'] ?: ($invoice['carrier'] ?: ($invoice['broker'] ?: '')));
+$isCompany = $invoice['type'] === 'CI';
+$subject = $isCompany
+    ? (string) ($invoice['broker'] ?: '')
+    : (string) ($invoice['driver'] ?: ($invoice['carrier'] ?: ($invoice['broker'] ?: '')));
 $logo = CompanyProfile::logoUrl();
 $dot = CompanyProfile::dot();
 $mc = CompanyProfile::mc();
@@ -21,6 +24,9 @@ $period = ($invoice['period_from'] === null && $invoice['period_to'] === null)
 <div class="jt-page-actions jt-noprint">
     <a class="btn btn-outline-secondary" href="<?= e(url('/invoices')) ?>">&laquo; All invoices</a>
     <button type="button" class="btn btn-outline-secondary" data-print><?= icon('file-text') ?> Print</button>
+    <?php if ($source !== null): ?>
+        <span class="text-body-secondary align-self-center">Made from <a href="<?= e(url('/invoices/' . $source['id'])) ?>"><?= e(InvoiceService::number($source)) ?></a></span>
+    <?php endif; ?>
     <span class="ms-auto">
         <?php if ($status === 'paid'): ?><span class="badge text-bg-success fs-6">Paid <?= e(fmt_date((string) $invoice['paid_on'])) ?></span>
         <?php elseif ($status === 'void'): ?><span class="badge text-bg-secondary fs-6">Void</span>
@@ -48,8 +54,13 @@ $period = ($invoice['period_from'] === null && $invoice['period_to'] === null)
                 <div class="jt-stmt-title"><?= e(InvoiceService::TYPES[$invoice['type']] ?? 'Invoice') ?></div>
                 <div class="jt-stmt-name">Invoice #: <?= e($number) ?></div>
                 <?php if ($subject !== ''): ?><div><?= e($subject) ?></div><?php endif; ?>
-                <?php if ($invoice['driver'] && $invoice['carrier']): ?><div>Carrier: <?= e($invoice['carrier']) ?></div><?php endif; ?>
-                <?php if ($invoice['broker'] && $subject !== (string) $invoice['broker']): ?><div>Company: <?= e($invoice['broker']) ?></div><?php endif; ?>
+                <?php if ($isCompany): ?>
+                    <?php if ($invoice['carrier']): ?><div>Carrier: <?= e($invoice['carrier']) ?></div><?php endif; ?>
+                    <?php if ($invoice['driver']): ?><div>Driver: <?= e($invoice['driver']) ?></div><?php endif; ?>
+                <?php else: ?>
+                    <?php if ($invoice['driver'] && $invoice['carrier']): ?><div>Carrier: <?= e($invoice['carrier']) ?></div><?php endif; ?>
+                    <?php if ($invoice['broker'] && $subject !== (string) $invoice['broker']): ?><div>Company: <?= e($invoice['broker']) ?></div><?php endif; ?>
+                <?php endif; ?>
                 <?php if ($invoice['driver_phone']): ?><div>Phone: <?= e($invoice['driver_phone']) ?></div><?php endif; ?>
                 <div>Date: <?= e(fmt_date((string) $invoice['invoice_date'])) ?></div>
                 <div>Period: <?= e($period) ?></div>
@@ -163,6 +174,29 @@ $period = ($invoice['period_from'] === null && $invoice['period_to'] === null)
                     <?php endif; ?>
                 </div>
             </div>
+            <?php if (!$isCompany): $open = array_filter($children, static fn (array $c): bool => InvoiceService::status($c) !== 'void'); ?>
+                <div class="card jt-card">
+                    <div class="card-body">
+                        <div class="fw-semibold mb-2">Company invoices</div>
+                        <?php if ($children !== []): ?>
+                            <ul class="mb-2">
+                                <?php foreach ($children as $c): ?>
+                                    <li><a href="<?= e(url('/invoices/' . $c['id'])) ?>"><?= e(InvoiceService::number($c)) ?></a> &middot; <?= e((string) $c['broker']) ?> &middot; <?= e(fmt_money($c['total'])) ?><?= InvoiceService::status($c) === 'void' ? ' (void)' : '' ?></li>
+                                <?php endforeach; ?>
+                            </ul>
+                        <?php endif; ?>
+                        <?php if ($open === []): ?>
+                            <p class="form-text mt-0">Splits this invoice's jobs by company (the job's broker) and makes one company invoice (CI) for each, from the lines saved here. Remarks and the date are copied; Labor, Pads and Paid start at 0 on each company invoice.</p>
+                            <form method="post" action="<?= e(url('/invoices/' . $invoice['id'] . '/company-invoices')) ?>" data-loading>
+                                <?= csrf_field() ?>
+                                <button type="submit" class="btn btn-outline-primary" data-confirm="Make the company invoices of <?= e($number) ?>?">Generate company invoices</button>
+                            </form>
+                        <?php else: ?>
+                            <p class="form-text mb-0">To make them again, void these company invoices first.</p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
             <?php if ($status === 'open'): ?>
                 <div class="card jt-card">
                     <div class="card-body">

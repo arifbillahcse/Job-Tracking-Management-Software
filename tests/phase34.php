@@ -28,8 +28,8 @@ $invoiceId = static fn (string $number): int => (int) Database::fetchValue('SELE
 $count = static fn (): int => (int) Database::fetchValue('SELECT COUNT(*) FROM invoices');
 
 // 1. refusals
-$r = call('POST', '/invoices', ['company' => 'Prime']);
-check($count() === 0 && str_contains(plain(call('GET', '/jobs/statement', [], ['go' => '1', 'company' => 'Prime'])->body()), 'choose a carrier or a driver'), 'a company-only statement cannot be saved yet (the page says to choose a carrier or driver)');
+call('POST', '/invoices', []);
+check($count() === 0, 'with no carrier, driver or company chosen nothing is saved');
 call('POST', '/invoices', ['carrier' => 'NOBODY']);
 check($count() === 0, 'a carrier with no jobs saves nothing');
 call('POST', '/invoices', ['carrier' => 'INC']);
