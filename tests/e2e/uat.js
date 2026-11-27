@@ -628,6 +628,23 @@ async function createJob(page, number, availableOffset, extra = {}) {
         await page.goto(BASE + '/jobs/statement?go=1&labor=10&pads=5&paid=-3&carrier=' + encodeURIComponent(RUN + ' DINOCA'));
         const extra = (await page.textContent('main')).replace(/\s+/g, ' ');
         must(/Labor cost\s*.\s*\$10\.00/.test(extra) && /Pads\s*.\s*\$5\.00/.test(extra) && /Paid\s*.\s*\$3\.00/.test(extra), 'Labor, Pads and Paid are not on the statement: ' + extra.slice(0, 200));
+        // save it as an invoice, then look at the invoice and the list
+        await Promise.all([page.waitForNavigation(), page.click('button:has-text("Save as invoice")')]);
+        const invText = (await page.textContent('main')).replace(/\s+/g, ' ');
+        must(/Invoice #: DI-\d+/.test(invText) && invText.includes(RUN + '-CAR') && /Driver Invoice/.test(invText), 'the saved invoice page is not shown: ' + invText.slice(0, 200));
+        const invUrl = page.url();
+        await page.goto(BASE + '/invoices');
+        must(/DI-\d+/.test(await page.textContent('main')), 'the invoice is not in the list');
+        await page.goto(BASE + '/jobs/statement?go=1&carrier=' + encodeURIComponent(RUN + ' DINOCA'));
+        must(/On DI-\d+/.test(await page.textContent('main')), 'the statement does not mark the invoiced job');
+        await page.setViewportSize({ width: 360, height: 740 });
+        await page.goto(invUrl);
+        const invWide = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        must(invWide <= 0, 'the invoice scrolls sideways by ' + invWide + 'px at 360 px');
+        await page.goto(BASE + '/invoices');
+        const listWide = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        must(listWide <= 0, 'the invoice list scrolls sideways by ' + listWide + 'px at 360 px');
+        await page.setViewportSize({ width: 1280, height: 800 });
         await page.setViewportSize({ width: 360, height: 740 });
         await page.goto(BASE + '/jobs/statement?go=1&labor=10&pads=5&paid=-3&carrier=' + encodeURIComponent(RUN + ' DINOCA'));
         const wide = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

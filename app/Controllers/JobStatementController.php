@@ -71,6 +71,8 @@ final class JobStatementController extends Controller
             'to' => $to['value'],
             'errors' => $errors,
             'statement' => $statement,
+            'marks' => $statement === null ? [] : \App\Services\InvoiceService::numbersForJobs(array_column($statement['rows'], 'id')),
+            'canSave' => can('invoices.manage'),
             'canExport' => can('jobs.export'),
         ]);
     }

@@ -31,6 +31,8 @@ return [
         'trips.financials'      => ['Trips', 'See and edit trip expenses (diesel, hotels, helpers, ...)'],
         'trips.export'          => ['Trips', 'Export trips and the foreman report to CSV'],
         'foremen.manage'        => ['Trips', 'Manage foremen'],
+        'invoices.view'         => ['Invoices', 'See saved invoices (they show balances)'],
+        'invoices.manage'       => ['Invoices', 'Save, edit, mark paid and void invoices'],
         'settings.manage'       => ['Administration', 'Change application settings'],
         'settings.storage_fee'  => ['Administration', 'Change the storage fee rate and rules'],
     ],
@@ -48,6 +50,7 @@ return [
                 'dashboard.view', 'jobs.view', 'jobs.create', 'jobs.edit', 'jobs.delete', 'jobs.status',
                 'jobs.reopen', 'jobs.view_financials', 'jobs.edit_financials', 'jobs.import', 'jobs.export',
                 'settings.storage_fee', 'trips.view', 'trips.manage', 'trips.financials', 'trips.export', 'foremen.manage',
+                'invoices.view', 'invoices.manage',
             ],
         ],
         'Staff' => [

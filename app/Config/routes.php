@@ -11,6 +11,7 @@ use App\Controllers\ForemanController;
 use App\Controllers\ImportController;
 use App\Controllers\JobController;
 use App\Controllers\JobCalendarController;
+use App\Controllers\InvoiceController;
 use App\Controllers\JobStatementController;
 use App\Controllers\JobListController;
 use App\Controllers\RoleController;
@@ -40,6 +41,14 @@ return static function (Router $router): void {
     $router->get('/jobs', [JobListController::class, 'all'])->can('jobs.view')->name('jobs');
     $router->get('/jobs/calendar', [JobCalendarController::class, 'index'])->can('jobs.view')->name('jobs.calendar');
     $router->get('/jobs/statement', [JobStatementController::class, 'index'])->can('jobs.view_financials')->name('jobs.statement');
+    // Saved invoices (v1.16.0).
+    $router->get('/invoices', [InvoiceController::class, 'index'])->can('invoices.view')->name('invoices');
+    $router->post('/invoices', [InvoiceController::class, 'store'])->can('invoices.manage')->name('invoices.store');
+    $router->get('/invoices/{id:int}', [InvoiceController::class, 'show'])->can('invoices.view')->name('invoices.show');
+    $router->post('/invoices/{id:int}', [InvoiceController::class, 'update'])->can('invoices.manage')->name('invoices.update');
+    $router->post('/invoices/{id:int}/paid', [InvoiceController::class, 'paid'])->can('invoices.manage')->name('invoices.paid');
+    $router->post('/invoices/{id:int}/open', [InvoiceController::class, 'open'])->can('invoices.manage')->name('invoices.open');
+    $router->post('/invoices/{id:int}/void', [InvoiceController::class, 'void'])->can('invoices.manage')->name('invoices.void');
     $router->get('/jobs/booked', [JobListController::class, 'booked'])->can('jobs.view')->name('jobs.booked');
     $router->get('/jobs/future', [JobListController::class, 'future'])->can('jobs.view')->name('jobs.future');
     $router->get('/jobs/ready', [JobListController::class, 'ready'])->can('jobs.view')->name('jobs.ready');

@@ -1,6 +1,7 @@
 <?php
 /**
  * Carrier / driver statement.
+ * @var array<int,array<int,string>> $marks job id => numbers of the invoices that hold it  @var bool $canSave
  * @var string $labor  @var string $pads  @var string $paid  @var array<int,string> $carriers  @var array<int,string> $drivers  @var array<int,string> $companies  @var string $company  @var string $carrier  @var string $driver  @var string $from  @var string $to
  * @var array<int,string> $errors  @var array<string,mixed>|null $statement  @var bool $canExport
  */
@@ -133,7 +134,7 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
                         <tbody>
                         <?php foreach ($statement['rows'] as $r): ?>
                             <tr>
-                                <td><a href="<?= e(url('/jobs/' . $r['id'])) ?>"><?= e($r['job_number']) ?></a></td>
+                                <td><a href="<?= e(url('/jobs/' . $r['id'])) ?>"><?= e($r['job_number']) ?></a><?php if (!empty($marks[$r['id']])): ?><div class="jt-subtle">On <?= e(implode(', ', $marks[$r['id']])) ?></div><?php endif; ?></td>
                                 <td><?= e($label($r['status'])) ?></td>
                                 <?php if ($showWho): ?><td><?= e($r['carrier'] !== '' ? $r['carrier'] : '—') ?><?= $r['driver'] !== '' ? '<div class="jt-subtle">' . e($r['driver']) . '</div>' : '' ?></td><?php endif; ?>
                                 <td><?= e($r['customer']) ?></td>
@@ -170,6 +171,47 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
                     <div class="jt-stmt-foot-cell"><strong>Remarks</strong></div>
                     <div class="jt-stmt-foot-cell text-end"><strong>Signature</strong></div>
                 </div>
+
+                <?php
+                $invoiced = count(array_filter($statement['rows'], static fn (array $r): bool => !empty($marks[$r['id']])));
+                $canInvoice = $canSave && ($carrier !== '' || $driver !== '');
+                ?>
+                <?php if ($invoiced > 0): ?>
+                    <div class="alert alert-info mt-3 jt-noprint"><?= e($invoiced) ?> job<?= $invoiced === 1 ? ' is' : 's are' ?> already on a saved invoice (marked "On DI-…"). Saving an invoice leaves <?= $invoiced === 1 ? 'it' : 'them' ?> out unless you tick the box below.</div>
+                <?php endif; ?>
+                <?php if ($canInvoice): ?>
+                    <form method="post" action="<?= e(url('/invoices')) ?>" class="card jt-card mt-3 jt-noprint" data-loading>
+                        <?= csrf_field() ?>
+                        <?php foreach (['carrier' => $carrier, 'driver' => $driver, 'company' => $company, 'from' => $from, 'to' => $to, 'labor' => $labor, 'pads' => $pads, 'paid' => $paid] as $name => $value): ?>
+                            <input type="hidden" name="<?= e($name) ?>" value="<?= e($value) ?>">
+                        <?php endforeach; ?>
+                        <div class="card-body">
+                            <div class="fw-semibold mb-2">Save as an invoice</div>
+                            <p class="form-text mt-0">Keeps this statement as a numbered invoice (DI-1, DI-2, ...) exactly as it is now. Editing a job later does not change a saved invoice.</p>
+                            <div class="row g-3">
+                                <div class="col-12 col-md-4">
+                                    <label class="form-label" for="inv-date">Invoice date</label>
+                                    <input type="date" class="form-control" id="inv-date" name="invoice_date" value="<?= e(\App\Core\Clock::today()) ?>">
+                                </div>
+                                <div class="col-12 col-md-8">
+                                    <label class="form-label" for="inv-remarks">Remarks (optional)</label>
+                                    <textarea class="form-control" id="inv-remarks" name="remarks" rows="2" maxlength="<?= e(\App\Services\InvoiceService::MAX_REMARKS) ?>"></textarea>
+                                </div>
+                                <?php if ($invoiced > 0): ?>
+                                    <div class="col-12">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="inv-again" name="include_invoiced" value="1">
+                                            <label class="form-check-label" for="inv-again">Also include jobs already on an invoice</label>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                            <button type="submit" class="btn btn-primary mt-3">Save as invoice</button>
+                        </div>
+                    </form>
+                <?php elseif ($canSave): ?>
+                    <p class="form-text jt-noprint mt-3">To save an invoice, choose a carrier or a driver (an invoice for a whole company comes in a later version).</p>
+                <?php endif; ?>
 
                 <div class="d-flex gap-2 mt-3 jt-noprint">
                     <button type="button" class="btn btn-outline-secondary" data-print><?= icon('file-text') ?> Print</button>

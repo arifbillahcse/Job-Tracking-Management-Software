@@ -18,6 +18,7 @@ return [
     ['group' => 'Jobs', 'label' => 'Delivered',          'path' => '/jobs/delivered',    'icon' => 'check-circle', 'permission' => 'jobs.view'],
 
     ['group' => 'Jobs', 'label' => 'Carrier Statement',  'path' => '/jobs/statement',    'icon' => 'file-text',    'permission' => 'jobs.view_financials'],
+    ['group' => 'Jobs', 'label' => 'Invoices',           'path' => '/invoices',          'icon' => 'file-text',    'permission' => 'invoices.view', 'match' => '#^/invoices(/\d+)?$#'],
     ['group' => 'Jobs', 'label' => 'Import Jobs',        'path' => '/jobs/import',       'icon' => 'upload',       'permission' => 'jobs.import'],
 
     ['group' => 'Foremen & Trips', 'label' => 'Trips',   'path' => '/trips',   'icon' => 'truck', 'permission' => 'trips.view', 'match' => '#^/trips(/(create|export|\\d+(/.*)?))?$#'],

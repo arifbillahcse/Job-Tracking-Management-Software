@@ -2,6 +2,15 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.16.0 - saved invoices (invoice phase 4a)
+
+* **A Carrier Statement can now be saved as a numbered invoice (DI-1, DI-2, ...).** Under the statement table there is a "Save as an invoice" box (for a carrier or a driver; an invoice for a whole company comes next). It keeps the statement exactly as it is that day: each job with its CF, rate, CF Pay, balance, carrier, driver and remarks, plus the Labor, Pads and Paid you typed, and the total. **Editing a job later never changes a saved invoice.**
+* **A job is on one open invoice at a time.** The statement marks jobs that are already on an invoice ("On DI-3"). Saving leaves those out unless you tick "Also include jobs already on an invoice", so a job cannot be billed twice by accident. A statement with a job that has no rate or no A-CF cannot be saved (enter them on the job first), because an invoice must not hold an unknown CF Pay.
+* **New menu item Invoices:** the list (search by number, carrier, driver or company; filter Open / Paid / Void and dates; totals of what is shown and what is still open), and each invoice as a printable page with the company header, the lines, the summary, who owes whom, Remarks and Signature.
+* **On an invoice:** change the date, remarks, Labor, Pads and Paid (the total is worked out again; the saved jobs stay as they were), **mark it paid** on a date (and back to not paid), or **void** it with a reason (it stays on file, its number is never used again, and its jobs can be invoiced again). A paid invoice must be marked not paid before it can be voided.
+* **Two new permissions:** `invoices.view` and `invoices.manage` (Admin and Manager hold both by default). **Migration 021** adds two tables (`invoices`, `invoice_lines`); no existing data is touched.
+* **Upgrade:** `git pull origin main`, `php cli/migrate.php`, `php cli/seed.php`, `php cli/sync-roles.php --apply` (gives Manager the two new permissions), `php cli/doctor.php`, then Ctrl+F5.
+
 ## 1.15.1 - the statement says who owes whom
 
 * **A line under TOTAL DUE now says who pays whom:** "Carrier owes company $25.74" when Total Due is positive, "Company owes carrier $3,251.22" when it is negative (shown without the minus), and "Settled, nothing due" at zero. It also appears next to the total in the header and in the CSV.
