@@ -2,6 +2,14 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.17.1 - polish and a safer check (stabilise)
+
+* **Amounts no longer break across two lines** in the statement and invoice tables on a phone ("$2,500.0" / "0"). The table now scrolls inside its box instead.
+* **Header wording:** `Total due: $5,200.00 — Carrier owes company (not final)` instead of brackets inside brackets with the amount twice.
+* **The "Paid" box on the statement and on a saved invoice is now "Paid / adjustment"**, with the explanation: a plus adds to Total Due; money that was already paid is typed as a minus (-100), which takes it off. (The sums are unchanged.)
+* **`php cli/verify.php` and `php cli/doctor.php` now also check the statement and the invoices:** the two invoice tables with all their columns, and every statement / invoice / search query, against the real database. Run `php cli/verify.php` after upgrading and paste the output if a line says FAIL.
+* No migration. **Upgrade:** `git pull origin main`, then Ctrl+F5, then `php cli/verify.php`.
+
 ## 1.17.0 - company invoices (invoice phase 4b)
 
 * **Company invoices (CI-1, CI-2, ...).** On the Carrier Statement, choose just a **Company** (the job's broker) and the "Save as an invoice" box makes a **company invoice**. The hishab is the same as a driver invoice (Bal. Due total - CF Pay total - Labor - Pads + Paid). A statement with a carrier or a driver is still saved as a driver invoice (DI), the company then only narrows it down.

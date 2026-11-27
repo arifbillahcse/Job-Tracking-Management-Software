@@ -29,7 +29,7 @@ $page = static fn (string $carrier, array $q = []) => plain(call('GET', '/jobs/s
 
 $pos = $page('POS');
 check(str_contains($pos, 'TOTAL DUE $25.74') && str_contains($pos, 'Carrier owes company $25.74'), 'the summary box says the carrier owes the company $25.74');
-check(str_contains($pos, 'Total due: $25.74 (Carrier owes company $25.74)'), 'the header says it too');
+check(str_contains($pos, 'Total due: $25.74 — Carrier owes company') && !str_contains($pos, '(Carrier owes company'), 'the header says it too, without brackets inside brackets');
 $neg = $page('NEG');
 check(str_contains($neg, 'TOTAL DUE -$3,251.22') && str_contains($neg, 'Company owes carrier $3,251.22'), 'the client\'s example -3,251.22 says the company owes the carrier $3,251.22');
 $zero = $page('ZERO');

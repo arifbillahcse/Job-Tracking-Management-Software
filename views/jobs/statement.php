@@ -43,7 +43,7 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
                     <?php endforeach; ?>
                 </select>
             </div>
-            <?php foreach (['labor' => ['Labor cost', $labor, 'Subtracted from Total Due.'], 'pads' => ['Pads', $pads, 'Subtracted from Total Due.'], 'paid' => ['Paid', $paid, 'Added to Total Due; a minus (-100) takes money off.']] as $name => [$text, $current, $help]): ?>
+            <?php foreach (['labor' => ['Labor cost', $labor, 'Subtracted from Total Due.'], 'pads' => ['Pads', $pads, 'Subtracted from Total Due.'], 'paid' => ['Paid / adjustment', $paid, 'A plus adds to Total Due. Money already paid is a minus (-100), which takes it off.']] as $name => [$text, $current, $help]): ?>
                 <div class="col-12 col-md-4">
                     <label class="form-label" for="st-<?= e($name) ?>"><?= e($text) ?> (optional)</label>
                     <input type="text" class="form-control" id="st-<?= e($name) ?>" name="<?= e($name) ?>" inputmode="decimal" maxlength="12" placeholder="0.00" value="<?= e($current) ?>" aria-describedby="st-<?= e($name) ?>-help">
@@ -108,7 +108,7 @@ $label = static fn (string $s): string => (string) \App\Core\Config::get('status
             <div class="jt-stmt-totals">
                 <span>Total jobs: <strong><?= e($t['jobs']) ?></strong></span>
                 <span>Total CF: <strong><?= e(fmt_number($t['cf'])) ?></strong></span>
-                <span>Total due: <strong><?= e(fmt_money($t['due'])) ?></strong> <span class="text-body-secondary">(<?= e($dir['text']) ?><?= $dir['code'] === 'settled' ? '' : ' ' . e(fmt_money($dir['amount'])) ?>)</span></span>
+                <span>Total due: <strong><?= e(fmt_money($t['due'])) ?></strong> <span class="text-body-secondary">&mdash; <?= e($dir['text']) ?></span></span>
             </div>
 
             <?php if ($statement['truncated']): ?>

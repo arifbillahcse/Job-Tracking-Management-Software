@@ -69,7 +69,7 @@ $period = ($invoice['period_from'] === null && $invoice['period_to'] === null)
         <div class="jt-stmt-totals">
             <span>Total jobs: <strong><?= e(count($lines)) ?></strong></span>
             <span>Total CF: <strong><?= e(fmt_number($invoice['total_cf'])) ?></strong></span>
-            <span>Total due: <strong><?= e(fmt_money($invoice['total'])) ?></strong> <span class="text-body-secondary">(<?= e($direction['text']) ?><?= $direction['code'] === 'settled' ? '' : ' ' . e(fmt_money($direction['amount'])) ?>)</span></span>
+            <span>Total due: <strong><?= e(fmt_money($invoice['total'])) ?></strong> <span class="text-body-secondary">&mdash; <?= e($direction['text']) ?></span></span>
         </div>
 
         <div class="table-responsive">
@@ -137,7 +137,7 @@ $period = ($invoice['period_from'] === null && $invoice['period_to'] === null)
                             <label class="form-label" for="e-date">Invoice date</label>
                             <input type="date" class="form-control" id="e-date" name="invoice_date" value="<?= e((string) $invoice['invoice_date']) ?>" required>
                         </div>
-                        <?php foreach (['labor' => 'Labor cost', 'pads' => 'Pads', 'paid_amount' => 'Paid'] as $name => $text): $v = (float) $invoice[$name] === 0.0 ? '' : rtrim(rtrim(number_format((float) $invoice[$name], 2, '.', ''), '0'), '.'); ?>
+                        <?php foreach (['labor' => 'Labor cost', 'pads' => 'Pads', 'paid_amount' => 'Paid / adjustment (a minus takes money off)'] as $name => $text): $v = (float) $invoice[$name] === 0.0 ? '' : rtrim(rtrim(number_format((float) $invoice[$name], 2, '.', ''), '0'), '.'); ?>
                             <div class="col-12 col-md-6">
                                 <label class="form-label" for="e-<?= e($name) ?>"><?= e($text) ?></label>
                                 <input type="text" class="form-control" id="e-<?= e($name) ?>" name="<?= e($name) ?>" inputmode="decimal" maxlength="12" placeholder="0.00" value="<?= e($v) ?>">

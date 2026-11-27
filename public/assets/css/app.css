@@ -968,3 +968,6 @@ summary:focus-visible {
 @media print { .jt-statement-dir { background: #fff !important; color: #000 !important; border-top: 1px solid #000; } }
 
 .jt-prewrap { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Amounts never break across lines in the statement and invoice tables (v1.17.1); the table scrolls inside its box on a phone instead. */
+.jt-statement th.text-end, .jt-statement td.text-end { white-space: nowrap; overflow-wrap: normal; }
