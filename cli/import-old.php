@@ -45,6 +45,17 @@ if (isset($opts['zip']) || isset($opts['dir'])) {
         fwrite(STDERR, "Give the old database and its user: --old-db=NAME --old-user=USER\n");
         exit(1);
     }
+    // The names go into a connection string: allow only what a database, user, host and port can be made of.
+    foreach (['old-db' => '/^[A-Za-z0-9_.\-]{1,64}$/', 'old-user' => '/^[A-Za-z0-9_.\-@]{1,80}$/', 'old-host' => '/^[A-Za-z0-9_.\-:]{1,100}$/'] as $name => $pattern) {
+        if (isset($opts[$name]) && preg_match($pattern, (string) $opts[$name]) !== 1) {
+            fwrite(STDERR, "--{$name} has characters a database name, user or host cannot have.\n");
+            exit(1);
+        }
+    }
+    if (isset($opts['old-port']) && preg_match('/^\d{1,5}$/', (string) $opts['old-port']) !== 1) {
+        fwrite(STDERR, "--old-port must be a number.\n");
+        exit(1);
+    }
     $password = getenv('OLD_DB_PASSWORD');
     if ($password === false) {
         $tty = function_exists('posix_isatty') && posix_isatty(STDIN);

@@ -489,8 +489,8 @@ final class InvoiceService
                 $where .= ' AND i.type = ? AND i.seq = ?';
                 array_push($params, strtoupper($m[1]), (int) $m[2]);
             } else {
-                $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], mb_strtolower($q)) . '%';
-                $where .= " AND (LOWER(COALESCE(i.carrier, '')) LIKE ? OR LOWER(COALESCE(i.driver, '')) LIKE ? OR LOWER(COALESCE(i.broker, '')) LIKE ?)";
+                $like = '%' . strtr(mb_strtolower($q), ['!' => '!!', '%' => '!%', '_' => '!_']) . '%';
+                $where .= " AND (LOWER(COALESCE(i.carrier, '')) LIKE ? ESCAPE '!' OR LOWER(COALESCE(i.driver, '')) LIKE ? ESCAPE '!' OR LOWER(COALESCE(i.broker, '')) LIKE ? ESCAPE '!')";
                 array_push($params, $like, $like, $like);
             }
         }

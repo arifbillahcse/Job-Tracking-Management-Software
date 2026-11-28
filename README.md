@@ -2,7 +2,7 @@
 
 Custom job tracking software built with **Core PHP 8.1+, MySQL/MariaDB, Bootstrap 5.3, HTML, CSS and JavaScript** - no PHP framework.
 
-Status: **Version 1.4.4** (client change request: one-click In Transit / Delivered, automatic storage fee, customer phone) on top of the nine completed phases. Deployment and handover pack (`docs/deployment.md`, `docs/operations.md`, `docs/admin-guide.md`, `docs/user-guide.md`, `docs/handover.md`) on top of the Phase 8 - tests, scale check and user acceptance pack (`docs/test-plan.md`, `docs/uat-checklist.md`, `docs/requirements-traceability.md`) on top of audit log, settings and hardening (`docs/security-review.md`), UI polish (`docs/ui-guide.md`), CSV / Excel import and export, user and role management, user management, role management and a permission matrix on top of the dashboard, the five job sections and status workflow (Phase 3), job CRUD (Phase 2) and the security core (Phase 1). All nine phases are done; what is untested and not built is listed in `docs/handover.md`. See `docs/assumptions.md` for the demo business rules and `docs/permission-matrix.md` for what each role can do.
+Status: **Version 1.22.0**: jobs with a Stage step, carriers and drivers, a pickup calendar, the Carrier Statement, saved invoices (driver DI-n and company CI-n), Companies and Drivers, the import of the client's old application's data, and CSV / ZIP exports, on top of the nine completed phases. The changes, version by version, are in `CHANGELOG.md`; the business rules we assumed are in `docs/assumptions.md`.
 
 ## Quick start (local)
 
@@ -18,6 +18,9 @@ php cli/doctor.php                # environment self-check (exit 1 on failure)
 php cli/route-audit.php           # every route has one access rule, nothing changes data over GET
 php cli/backup.php [--keep=14]    # database backup into storage/backups
 php cli/reset-password.php --username=...   # break-glass: new temporary password for a user
+php cli/sync-roles.php [--apply]  # give Manager / Staff the default permissions added after they were created (only adds)
+php cli/verify.php                # read-only: runs every list, statement, invoice and export query against the real database
+php cli/import-old.php ...        # bring in the old application's companies, drivers and invoices (dry run unless --apply; see docs/operations.md)
 php cli/storage-fees.php          # re-assess automatic storage fees (also done by the app once a day)
 php cli/cleanup.php [--apply]     # housekeeping; dry run unless --apply (run --apply daily from cron)
 php -S localhost:8000 -t public public/index.php
@@ -32,7 +35,7 @@ Point the document root at **`public/`** only. `public/.htaccess` handles Apache
 ## Tests
 ```bash
 tests/all.sh [--perf] [--e2e]               # EVERYTHING below on a throw-away database (recommended)
-php tests/run.php                                   # 2132 unit/integration checks (SQLite in memory)
+php tests/run.php                                   # 2800+ unit/integration checks (SQLite in memory)
 tests/smoke.sh http://localhost:8000 USERNAME PASSWORD # Phase 1 end-to-end over HTTP (changes then restores that account's password)
 tests/smoke-jobs.sh http://localhost:8000 ADMIN_USER ADMIN_PASS STAFF_USER STAFF_PASS       # job CRUD as Admin and Staff (leaves soft-deleted SMOKE-* jobs)
 tests/smoke-workflow.sh http://localhost:8000 ADMIN_USER ADMIN_PASS STAFF_USER STAFF_PASS   # sections, dashboard and workflow (leaves soft-deleted WF-* jobs; needs GNU date)

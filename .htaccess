@@ -11,6 +11,8 @@ Options -Indexes
 
     # 2. Private parts are never served (code, configuration, data, backups, logs, tests, documentation).
     RewriteRule ^(app|cli|database|deploy|dist|docs|scripts|storage|tests|vendor|views)(/|$) - [F,L]
+    # The client's old application (kept in the repository for reference, never served).
+    RewriteRule ^Old_Application_source_code(/|$) - [F,L]
     RewriteRule ^(VERSION|CHANGELOG\.md|README\.md|composer\.(json|lock)|\.env.*)$ - [F,L]
 
     # 3. Everything else is served from public/ (the application, its CSS/JS/fonts).

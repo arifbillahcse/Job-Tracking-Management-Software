@@ -74,8 +74,8 @@ final class CompanyService
         $params = [];
         $q = self::clean($q);
         if ($q !== '') {
-            $like = '%' . mb_strtolower($q) . '%';
-            $where = "(LOWER(c.name) LIKE ? OR LOWER(COALESCE(c.city, '')) LIKE ? OR LOWER(COALESCE(c.dot_number, '')) LIKE ? OR LOWER(COALESCE(c.mc_number, '')) LIKE ? OR LOWER(COALESCE(c.address, '')) LIKE ?)";
+            $like = '%' . strtr(mb_strtolower($q), ['!' => '!!', '%' => '!%', '_' => '!_']) . '%';
+            $where = "(LOWER(c.name) LIKE ? ESCAPE '!' OR LOWER(COALESCE(c.city, '')) LIKE ? ESCAPE '!' OR LOWER(COALESCE(c.dot_number, '')) LIKE ? ESCAPE '!' OR LOWER(COALESCE(c.mc_number, '')) LIKE ? ESCAPE '!' OR LOWER(COALESCE(c.address, '')) LIKE ? ESCAPE '!')";
             $params = [$like, $like, $like, $like, $like];
         }
         return Database::fetchAll(

@@ -8,7 +8,7 @@ Scope: the code in this repository as of Phase 7, run on PHP 8.3 with SQLite in 
 |---|---|---|
 | Access control | Every route has exactly one access rule; deny by default; no state change over GET; no public POST except sign-in | `php cli/route-audit.php` (52 routes), `RouteAudit` unit tests, role x route sheet in `tests/phase4.php`, `docs/permission-matrix.md` |
 | Broken access by ID | Import batches are owner-scoped; user/role management refuses actions above your own permissions | Phase 4 and 5 suites |
-| CSRF | Every POST needs a token; cross-origin POSTs are refused; all 52 routes tested without a token | `tests/phase7.php` ("every POST route refuses...") |
+| CSRF | Every POST needs a token; cross-origin POSTs are refused; every POST route tested without a token | `tests/phase7.php` ("every POST route refuses...") |
 | SQL injection | Native prepared statements only; sort columns and filters come from whitelists; LIKE is escaped; audit filters must look like identifiers | Phase 2-7 suites, injection strings in smoke tests |
 | XSS | Every dynamic value goes through `e()`; a scan of all `<?=` in `views/` found only literal strings and helpers that escape. Company name, audit text, user agent, imported cells with markup are escaped | `tests/phase7.php`, smoke tests |
 | CSP | `script-src 'self'`, no inline script or style anywhere, `frame-ancestors 'none'` | headers on every response incl. errors |
@@ -60,6 +60,26 @@ Reviewed by reading the code and by tests that fail when the safeguard is remove
 | **Residual risk** | A stolen cookie works until it expires or is revoked (that is what "remember me" means). It is not bound to an IP or browser string (X3). Someone who steals the remembered computer stays signed in until the user signs out elsewhere or forgets devices |
 | **Findings** | No defect found. One mutation (ignoring an inactive user in the cookie check) was first missed by the tests and is now caught |
 
+## Versions 1.5 - 1.22 review: statements, invoices, companies, drivers, import and export
+
+What changed since the last review is new money-bearing pages, new tables, an import command and downloads. Each was checked by reading the code, by a pattern search over every view and service, and by tests; where a mutation or an attack string could have slipped through, a test now catches it.
+
+| Area | What was checked | Result |
+|---|---|---|
+| **CSRF** | A safety-net test (`tests/phase40.php`) walks the registered route table: **every POST route** (about 50) answers 403 to a forged token and changes no row in the jobs, trips, people, roles, settings, invoices, companies, drivers, payments or audit tables | Pass. It covers future routes automatically |
+| **Access control** | `php cli/route-audit.php` (every route has exactly one rule; nothing that changes data answers GET; no GET route has a data-changing name). New permissions `invoices.view`, `invoices.manage`, `companies.manage`, `drivers.manage`; saving an invoice also needs the right to see money; the invoice export needs `jobs.export` as well. Staff get 403 on invoices, export, companies, drivers, the statement, settings, users, audit and roles | Pass |
+| **Money visibility** | The carrier rate, balance and every invoice figure are removed server-side for people without the financial permission (a posted rate from Staff is ignored); the statement, invoices and export are behind permissions, not just hidden in the menu | Pass |
+| **Output (XSS)** | A search over all views for unescaped output found only the layout's `$content` (already-rendered, escaped views). Names, remarks, addresses, search terms and company details are escaped; tests post `<script>` strings to every new form and search and check they are never printed raw. The company details copied onto an invoice are decoded from JSON and escaped | Pass |
+| **CSP** | No inline `style=`, `<script>` or `on...=` attribute in any view (the only script tags are the self-hosted and CDN Bootstrap and `app.js`); new behaviour (print button, driver phone fill) is in `app.js`; new styles are classes in `app.css` | Pass |
+| **SQL** | Every value is a bound parameter. The only text put into SQL is constant (column names from fixed lists, the order of `IN (?, ?)` marks, integer `LIMIT` / `OFFSET`). **Search terms** in Companies, Drivers and Invoices now escape `%` and `_` (`LIKE ? ESCAPE '!'`) like the job search: before this review they were used as wildcards (harmless, no injection, but a `%` matched everything) | Fixed; tests added |
+| **CSV / spreadsheet injection** | Statement, invoice and export CSVs: text cells that start with `= + - @` get an apostrophe; money and CF columns are written as plain numbers; the file names are made from the date or from the names with every character outside A-Z a-z 0-9 replaced (no header injection) | Pass |
+| **Invoice integrity** | Totals are recomputed on the server from the jobs; nothing the browser posts (amounts, lines) is trusted except the Labor, Pads and Paid typed by the person. A saved invoice is a snapshot; numbers are made inside a transaction with a unique key and a retry, so two people cannot take the same number; a voided invoice's number is not reused; a job cannot be on two open invoices of one kind by accident | Pass |
+| **Import command** (`php cli/import-old.php`) | It is a command-line tool (a web request cannot reach it). The old database is read with `SELECT` only; the password is asked for without echo (or taken from `OLD_DB_PASSWORD`) and is never logged or stored; the database, user, host and port arguments are checked against a strict pattern before they go into a connection string (**added in this review**). A dry run writes nothing; `--apply` is all-or-nothing and safe to repeat. Old **users and password hashes are never imported** | Pass |
+| **The old application's source in the repository** | The folder `Old_Application_source_code/` holds PHP files and a `config/db.php`. It is not part of the release archive, the root `.htaccess` now refuses it, and the document root must be `public/`. **If that `config/db.php` ever contained real credentials, they are in the repository's history: change them** | Action for the owner |
+| **Personal data** | Invoices, their lines, exports and backups hold customer names and phone numbers. Exports are permission-gated and audited; backups stay off the web root | As before |
+
+**Findings of this review:** one low-severity issue (search wildcards, fixed), one hardening (import-command arguments, added), one defence in depth (`.htaccess` rule for the old folder). No defect that exposes data or lets a request change data without a valid token or permission was found.
+
 ## Accepted risks and things this review could not check
 
 * **Not tested here:** Apache/Nginx configuration (`.htaccess` rules are present but only the PHP built-in server was available), TLS (HSTS and the Secure cookie flag are implemented and only apply over HTTPS in production), MySQL/MariaDB behaviour (tests run on SQLite), real browsers other than Chromium, screen readers.
@@ -76,4 +96,6 @@ Reviewed by reading the code and by tests that fail when the safeguard is remove
 2. `php cli/route-audit.php` must report no problems (run it after every change to routes).
 3. Point the web server's document root at `public/`, serve over HTTPS, keep `.env` mode 640.
 4. Schedule `php cli/cleanup.php --apply` daily.
-5. Have the real MySQL deployment re-run the test suite's smoke scripts against a staging copy.
+5. Have the real MySQL deployment re-run the test suite's smoke scripts against a staging copy, and run `php cli/verify.php` after every upgrade.
+6. Run the **backup and restore drill** once (`docs/uat-checklist.md` section P, `docs/operations.md`): a backup is only proven when it has been restored.
+7. If the old application's `config/db.php` ever held real credentials, change them; do not run the old application next to this software.

@@ -43,6 +43,18 @@ gunzip -c job-tracker-20261023-021500.sql.gz | mysql -u root job_tracker
 
 Only the database changes on restore; whatever happened after the backup was taken is lost, so tell the team which hours to re-enter.
 
+## Restore drill (do it once before going live, then now and then)
+
+A backup is only proven when it has been restored. This drill does not touch the live site:
+
+1. `php cli/backup.php`, then copy the newest file in `storage/backups` somewhere safe.
+2. Create an **empty second database** (cPanel: MySQL Databases; or `CREATE DATABASE job_tracker_check CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;`) and give the application's database user all privileges on it.
+3. Restore the backup into it: `gunzip -c storage/backups/job-tracker-DATE.sql.gz | mysql -u USER -p job_tracker_check`.
+4. Run the read-only check **against that copy**, by overriding the database name for one command: `DB_DATABASE=job_tracker_check php cli/verify.php`. Every line must say ok, and the counts it reports (jobs, invoices) must match the live site.
+5. Look at one recent job and one recent invoice in the copy if you can (point a test copy of the site at it), then drop the check database.
+
+Write the date of the drill and who did it in `docs/handover.md`, section 6.
+
 ## Upgrading to a new version
 
 1. Read `CHANGELOG.md` for the new version.

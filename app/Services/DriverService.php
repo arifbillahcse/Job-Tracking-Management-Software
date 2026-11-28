@@ -77,8 +77,8 @@ final class DriverService
         $params = [];
         $q = CompanyService::clean($q);
         if ($q !== '') {
-            $like = '%' . mb_strtolower($q) . '%';
-            $where = "(LOWER(d.name) LIKE ? OR LOWER(COALESCE(d.phone, '')) LIKE ? OR LOWER(COALESCE(d.license, '')) LIKE ?)";
+            $like = '%' . strtr(mb_strtolower($q), ['!' => '!!', '%' => '!%', '_' => '!_']) . '%';
+            $where = "(LOWER(d.name) LIKE ? ESCAPE '!' OR LOWER(COALESCE(d.phone, '')) LIKE ? ESCAPE '!' OR LOWER(COALESCE(d.license, '')) LIKE ? ESCAPE '!')";
             $params = [$like, $like, $like];
         }
         return Database::fetchAll(

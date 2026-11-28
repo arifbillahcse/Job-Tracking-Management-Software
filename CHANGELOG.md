@@ -2,6 +2,15 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.22.0 - final review: documents, safety nets and two small fixes
+
+* **Documents brought up to date** for everything built since version 1.4: the user guide (Stage, Carrier Statement, Invoices, Companies, Drivers, the calendar, the top buttons), the administrator guide (new settings, permissions, "After pulling a new version", Companies / Drivers / Invoices), the UAT checklist (new sections I - P and questions 9 - 15 for the client to confirm), the permission matrix (regenerated), the test plan, the requirements traceability (R40 - R49), the security review (a review of versions 1.5 - 1.22), the handover (what was added, decisions to confirm, the release routine, the old application's folder), the README, and a **backup and restore drill** in `docs/operations.md`.
+* **New safety net in the tests:** every POST route of the registered route table must refuse a forged CSRF token and change nothing; no data-changing route may answer GET; Staff are refused every money and administration page.
+* **Search terms in Companies, Drivers and Invoices no longer act as wildcards:** a `%` or `_` typed in the search box matched everything before (harmless, no injection). They now behave like the job search.
+* **The import command checks its arguments** (old database name, user, host and port) before they go into a connection string.
+* **The root `.htaccess` also refuses the folder `Old_Application_source_code/`** (the client's old source, kept for reference), as defence in depth; the document root should still be `public/`.
+* No migration, no new permission. **Upgrade:** `git pull origin main`, `php cli/verify.php`, then Ctrl+F5.
+
 ## 1.21.0 - invoices on the dashboard, and invoice export (phase 4)
 
 * **The dashboard has an Invoices box** (for people who may see invoices): per kind, **how many are open, how much is not settled yet, and how many were paid in the last 30 days**, and the **five latest invoices** (number, date, driver / carrier / company, total, Open or Paid). The two kinds (driver invoices and company invoices) are **kept apart on purpose**: they can hold the same jobs, so adding them together would count those jobs twice.

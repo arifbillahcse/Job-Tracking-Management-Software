@@ -7,16 +7,25 @@ Show, with evidence a reader can reproduce, that the software does what the clie
 
 | Level | What it proves | How to run | Count |
 |---|---|---|---|
-| Unit and integration | Rules, services, repositories, controllers and views, called in-process on in-memory SQLite using the real migrations | `php tests/run.php` | 2132 checks |
+| Unit and integration | Rules, services, repositories, controllers and views, called in-process on in-memory SQLite using the real migrations | `php tests/run.php` | about 2,830 checks |
 | Release archive | The built archive contains the right files and nothing secret, and runs on its own: migrate, create administrator, sign in, create a job, back up, reset a password | `tests/release-check.sh` | 44 checks |
-| Route audit | Every route has exactly one access rule; nothing changes data over GET | `php cli/route-audit.php` | 52 routes |
+| Route audit | Every route has exactly one access rule; nothing changes data over GET | `php cli/route-audit.php` | about 100 routes |
 | HTTP smoke suites | The real application over real HTTP: cookies, redirects, headers, multipart uploads, downloads | `tests/smoke*.sh` (see README) | 337 checks in 6 suites |
-| Browser walkthrough | The client's workflow clicked through in Chromium, desktop and phone, as Admin and Staff | `node tests/e2e/uat.js` (needs Playwright) | 24 steps |
+| Browser walkthrough | The client's workflow clicked through in Chromium, desktop and phone, as Admin and Staff | `node tests/e2e/uat.js` (needs Playwright) | about 47 steps |
 | Scale test | Page, export and import times with 20,000 (and 100,000) jobs | `tests/perf.sh [jobs]` | 21 measurements |
 | Accessibility and layout audit | Text contrast (WCAG AA), horizontal overflow and console errors on every screen at 360, 768 and 1280 px | scripts used in Phase 6/7 (not shipped; see `docs/ui-guide.md`) | 15 screens |
-| User acceptance (UAT) | The client's own people confirm it fits their work | `docs/uat-checklist.md` | 48 scenarios |
+| User acceptance (UAT) | The client's own people confirm it fits their work | `docs/uat-checklist.md` | about 130 scenarios |
 
 **Everything automated, in one command, on a throw-away database:** `tests/all.sh --perf --e2e`.
+
+## What the automated checks cover since version 1.5 (the client's later requests)
+* The Stage step, the carrier list and where the carrier is asked (`tests/phase25.php`, `phase27.php`); the pickup calendar and second pickups (`phase23.php`, `phase24.php`).
+* The Carrier Statement: CF Pay, Labor / Pads / Paid, who owes whom, company and driver filters, the printable header (`phase28.php`, `phase30.php` - `phase33.php`).
+* Saved invoices (snapshot, one open invoice per job per kind, paid / void / change), company invoices, Companies, Drivers (`phase34.php` - `phase37.php`).
+* The import of the old application's data: from the export CSV, the ZIP and a stand-in old database, dry run, twice, bad rows (`phase38.php`; the command itself was also run end to end in a shell).
+* The dashboard figures and the invoice export, CSV injection, the permission to export (`phase39.php`).
+* Safety nets that do not depend on one feature (`phase40.php`): **every POST route** of the registered route table refuses a forged CSRF token and changes no row; no data-changing route answers GET; Staff are refused every money and administration page.
+* `php cli/verify.php` runs, against the real database, every list, statement, invoice, export and master-data query (and checks every table's columns): run it after each upgrade on the real MySQL / MariaDB, because the automated suites use SQLite.
 
 ## Test data
 * Unit tests build their own data and use a fixed clock (`Clock::fake`) so date boundaries are exact and repeatable.

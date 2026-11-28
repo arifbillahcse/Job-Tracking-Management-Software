@@ -53,5 +53,22 @@ Each requirement from the client's brief, where it is built, and the checks that
 | R30 | Booked jobs more than 30 days past their available date show in More Than 30 Days; storage rate accepts cents (assumptions K1, K2) | `JobBucket`, `SettingsService` | U phase3 (day -30 Ready, -31 More Than 30 Days, SQL/PHP agree), phase10 (`60c`, `60 cents`, invalid) |
 | R29 | Database: `customer_phone`, `loaded_date`, `delivery_date`, storage fee and rate stored; calculation logic; dashboard counts and sections follow | migration 008 | U phase10 (migration on a database with jobs: back-fill, nothing lost, idempotent; dashboard counts after each click; every job in exactly one section) |
 
+## Later requests (versions 1.5 - 1.22)
+
+The client asked for these after the first brief. Evidence names the test files (`tests/phaseNN.php`); business rules we assumed are in `docs/assumptions.md` (the AA-AS rows).
+
+| # | Requirement | Where | Evidence |
+|---|---|---|---|
+| R40 | Pickup time, miles and four checks on every job; Future Jobs and a pickup calendar (with second pickups from trip entries) | migration 019, `JobCalendarController`, `JobBucket::FUTURE` | U phase22 - phase24; B; UAT I1 - I3 |
+| R41 | A **Stage** step before In Transit, carrier and driver chosen from a fixed list at Stage | `statuses.php`, `JobWorkflowService`, `CarrierList` | U phase25, phase27; B; UAT I4 - I8 |
+| R42 | Driver Tracking / Job Tracking buttons at the very top (same tab, addresses in Settings) | `TrackingLinks`, `partials/tracking-links.php` | U phase26; B; UAT J1 - J2 |
+| R43 | Carrier Statement: CF Pay = rate x A-CF, Total Due, Labor / Pads / Paid, who owes whom, by carrier / driver / company, printable | `CarrierStatement`, `JobStatementController` | U phase28, phase30 - phase33; B; UAT K1 - K9 |
+| R44 | A carrier rate on each job | migration 020, `JobService`, `JobRules` | U phase29; B; UAT K2 |
+| R45 | Saved invoices DI-n and company invoices CI-n (snapshot, one open invoice per job per kind, paid / void / change, generate company invoices) | migrations 021, 022, `InvoiceService` | U phase34, phase35; B; UAT L1 - L13 |
+| R46 | Companies (address, DOT, MC) and Drivers (phone, licence), matched to the broker / driver name | migrations 023, 024, `CompanyService`, `DriverService` | U phase36, phase37; B; UAT M1 - M7 |
+| R47 | Bring in the old application's data (companies, drivers, invoices with their old numbers) | `cli/import-old.php`, `OldDataImporter` | U phase38 and a shell run; UAT O1 - O6 |
+| R48 | Dashboard figures and an export of the invoices | `InvoiceService::dashboard`, `InvoiceExport` | U phase39; B; UAT L13, N1 - N3 |
+| R49 | Safety nets: every POST route refuses a forged token; no GET changes data; money pages refuse Staff | route table, `CsrfMiddleware`, `RouteAudit` | U phase40, `cli/route-audit.php` |
+
 ## Requirements implied but not built (needs the client's decision)
-Customer contact details beyond name, invoicing and payments, documents or photos per job, e-mail/SMS notifications, a calendar view, multi-company use, API access, and automatic storage-fee calculation. Listed again as questions at the end of `docs/uat-checklist.md`.
+Customer contact details beyond name, documents or photos per job, e-mail/SMS notifications, multi-company use, payments taken through the system (an invoice can only be marked paid), and API access. Listed again as questions at the end of `docs/uat-checklist.md`.

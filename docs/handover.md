@@ -39,7 +39,7 @@ Everything the client's team needs to own, run, and extend this software.
 
 ## 3. Evidence of quality
 
-1,853 automated unit/integration checks, a 44-check proof that the release archive runs on its own, about 340 HTTP checks in 6 suites, a 29-step browser walkthrough, a scale test (20,000 and 100,000 jobs, with about 2,000 trips), WCAG-AA contrast and layout audits, and about 20 deliberate-breakage checks proving the tests can fail. Run all with `tests/all.sh --perf --e2e`. Details and what is *not* covered: `docs/test-plan.md`.
+About 2,830 automated unit/integration checks, a 44-check proof that the release archive runs on its own, about 340 HTTP checks in 6 suites, a 47-step browser walkthrough, a scale test (20,000 and 100,000 jobs, with about 2,000 trips), WCAG-AA contrast and layout audits, and about 20 deliberate-breakage checks proving the tests can fail. Run all with `tests/all.sh --perf --e2e`. Details and what is *not* covered: `docs/test-plan.md`.
 
 ## 4. Known limits and things not verified
 
@@ -47,7 +47,7 @@ Be clear-eyed about these before relying on the system:
 
 | | |
 |---|---|
-| **Real MySQL/MariaDB** | Automated tests run on SQLite. Migrations 001-007 were run successfully on MariaDB 10.11 (cPanel). **Migrations 008-010 (phone and storage fee, sheet fields, trips) have not been confirmed on MariaDB yet**: run `php cli/migrate.php` on staging and check `php cli/doctor.php` before real data |
+| **Real MySQL/MariaDB** | The automated tests run on SQLite (no MySQL server was available where the software was built). The demo server runs MariaDB and the client's changes have been deployed there version by version, but **every new migration (008 - 024) and every new query should be confirmed on the real server after each upgrade**: run `php cli/migrate.php` then **`php cli/verify.php`**, which runs every list, statement, invoice, export and master-data query and checks every table's columns against the real database, and keep a backup before migrating (migrations only add; there are no rollback files). A static MySQL-compatibility lint of the SQL files runs in the test suite (`tests/phase9.php`). |
 | **Real Apache/Nginx, HTTPS** | Configuration templates were reviewed and consistency-tested, not applied to a live server |
 | **Microsoft Excel** | Generated `.xlsx` files are valid and read back correctly but were not opened in Excel itself. `.xls` (old format) is not supported |
 | **Browsers/devices** | Tested in Chromium with phone/tablet emulation only; not Safari, Firefox, or real devices; not with a screen reader |
@@ -62,9 +62,19 @@ Be clear-eyed about these before relying on the system:
 
 One-click In Transit / Delivered with loaded and delivery dates; sections counted from the 1st available date (pickup date selectable); automatic storage fee (A-CF x rate x months from the pickup date, rate in dollars or cents, manual fees never overwritten); customer phone; the sheet's money and detail fields on a job; foremen and foreman trips with per-job expenses, report, CSV export, job and dashboard integration. Every reading of the client's sheet is an assumption in `docs/assumptions.md` (sections J-V); the open questions are at the end of `docs/uat-checklist.md`.
 
+## 4c. What was added after that (versions 1.5 - 1.22)
+
+Pickup details and the pickup calendar; **Stage** (booked, stage, in transit, delivered) with a carrier list and the driver; the orange Driver / Job Tracking buttons; the **Carrier Statement** (CF Pay = each job's own carrier rate x A-CF, Labor / Pads / Paid, who owes whom, printable with a company header); **saved invoices** DI-n and CI-n (snapshots, one open invoice per job per kind, paid / void, generate company invoices); **Companies** and **Drivers** lists (matched to the job's broker / driver name); the **import of the old application's data**; the dashboard's invoice box and the **invoice export**; and safety nets in the tests (every POST route refuses a forged token). The details, version by version, are in `CHANGELOG.md`; each business rule we had to assume is a row in `docs/assumptions.md` (AA - AS).
+
+**Decisions the client should confirm** (they are also questions 9 - 15 at the end of `docs/uat-checklist.md`): a company is the job's broker; a positive Total Due means the carrier owes the company; "Paid / adjustment" is added (money already paid is a minus); company invoices made from a driver invoice start with Labor, Pads and Paid at 0; the 10% carrier fee of the old application's print is not used (CF x rate is); invoices are voided, never deleted; the old application may be switched off after the import.
+
+**Operational rhythm for every release:** backup, `git pull`, `php cli/migrate.php`, `php cli/seed.php`, `php cli/sync-roles.php --apply`, `php cli/verify.php`, `php cli/doctor.php`, Ctrl+F5 and sign in again (see `docs/admin-guide.md`, "After pulling a new version").
+
+**The old application** is kept for reference in the repository folder `Old_Application_source_code/`. It is **never served** (the root `.htaccess` refuses it and the document root should be `public/`), it must not be run next to this software, and **if its `config/db.php` ever held real database credentials, change those credentials** (the folder is in the repository's history).
+
 ## 5. Not built (candidates for a next phase)
 
-Customer e-mail and address, invoices and payments, **rules for the sheet's Grand Total / BH Total / Paid / Balance columns and for Addio, Job Beg, "Total to BH" and the 15% (not defined by the client, see assumptions M2, T1-T4)**, documents or photos per job, e-mail/SMS notifications, a calendar or map view, reports beyond the foreman report, a customer portal, multiple companies or branches, an API, a "forgot password" e-mail flow, multi-factor sign-in. Each needs a decision from the client first (questions are at the end of `docs/uat-checklist.md`).
+Customer e-mail and address, payments taken through the system (an invoice can only be marked paid), **rules for the sheet's Grand Total / BH Total / Paid / Balance columns and for Addio, Job Beg, "Total to BH" and the 15% (not defined by the client, see assumptions M2, T1-T4)**, documents or photos per job, e-mail/SMS notifications, a calendar or map view, reports beyond the foreman report, a customer portal, multiple companies or branches, an API, a "forgot password" e-mail flow, multi-factor sign-in. Each needs a decision from the client first (questions are at the end of `docs/uat-checklist.md`).
 
 ## 6. Ownership checklist (fill in at handover)
 
