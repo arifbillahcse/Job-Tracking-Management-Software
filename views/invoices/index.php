@@ -2,7 +2,7 @@
 /**
  * Saved invoices.
  * @var array<string,string> $filters (q, status, type, from, to)  @var array<int,array<string,mixed>> $invoices  @var \App\Helpers\Paginator $paginator
- * @var string $sum  @var string $openSum  @var bool $canManage
+ * @var string $sum  @var string $openSum  @var bool $canManage  @var bool $canExport  @var array<string,array{count:int,sum:string,open_sum:string}> $typeTotals
  */
 use App\Services\InvoiceService;
 
@@ -63,8 +63,21 @@ $badge = static function (string $status, array $inv): string {
     <div class="card-body">
         <div class="d-flex flex-wrap gap-3 small mb-3">
             <span>Invoices: <strong><?= e($paginator->total) ?></strong></span>
-            <span>Total of these (not voided): <strong><?= e(fmt_money($sum)) ?></strong></span>
-            <span>Still open: <strong><?= e(fmt_money($openSum)) ?></strong></span>
+            <?php if ($filters['type'] === '' && count($typeTotals) > 1): ?>
+                <?php foreach ($typeTotals as $type => $t): ?>
+                    <span><?= e(InvoiceService::TYPES[$type] ?? $type) ?>s (not voided): <strong><?= e(fmt_money($t['sum'])) ?></strong>, still open <strong><?= e(fmt_money($t['open_sum'])) ?></strong></span>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <span>Total of these (not voided): <strong><?= e(fmt_money($sum)) ?></strong></span>
+                <span>Still open: <strong><?= e(fmt_money($openSum)) ?></strong></span>
+            <?php endif; ?>
+            <?php if ($canExport && $paginator->total > 0): ?>
+                <span class="ms-md-auto d-flex flex-wrap gap-2">
+                    <a class="btn btn-sm btn-outline-secondary" href="<?= e(list_url('/invoices/export', $filters + ['kind' => 'summary'])) ?>"><?= icon('download') ?> Invoices CSV</a>
+                    <a class="btn btn-sm btn-outline-secondary" href="<?= e(list_url('/invoices/export', $filters + ['kind' => 'lines'])) ?>"><?= icon('download') ?> Lines CSV</a>
+                    <a class="btn btn-sm btn-outline-secondary" href="<?= e(list_url('/invoices/export', $filters + ['kind' => 'zip'])) ?>"><?= icon('download') ?> Everything (ZIP)</a>
+                </span>
+            <?php endif; ?>
         </div>
         <?php if ($invoices === []): ?>
             <p class="text-body-secondary mb-0">No invoices yet. Save one from the Carrier Statement.</p>

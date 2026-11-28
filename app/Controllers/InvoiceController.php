@@ -9,7 +9,9 @@ use App\Core\ErrorPages;
 use App\Core\Request;
 use App\Core\Response;
 use App\Helpers\Paginator;
+use App\Services\AuditService;
 use App\Services\CarrierStatement;
+use App\Services\InvoiceExport;
 use App\Services\InvoiceService;
 use App\Services\JobService;
 
@@ -19,7 +21,8 @@ use App\Services\JobService;
  */
 final class InvoiceController extends Controller
 {
-    public function index(Request $request): Response
+    /** @return array{q:string,status:string,type:string,from:string,to:string} the list's filters, checked */
+    private function filters(Request $request): array
     {
         $filters = [
             'q' => trim($request->queryStr('q')),
@@ -33,6 +36,12 @@ final class InvoiceController extends Controller
                 $filters[$key] = '';
             }
         }
+        return $filters;
+    }
+
+    public function index(Request $request): Response
+    {
+        $filters = $this->filters($request);
         $count = (int) InvoiceService::search($filters, 1, 0)['total'];
         $paginator = new Paginator($count, InvoiceService::PER_PAGE, max(1, $request->queryInt('page', 1)));
         $result = InvoiceService::search($filters, InvoiceService::PER_PAGE, $paginator->offset());
@@ -44,8 +53,35 @@ final class InvoiceController extends Controller
             'paginator' => $paginator,
             'sum' => $result['sum'],
             'openSum' => $result['open_sum'],
+            'typeTotals' => $result['types'],
+            'canExport' => can('jobs.export'),
             'canManage' => can('invoices.manage'),
         ]);
+    }
+
+    /** The invoices that match the list's filters as CSV (invoices or lines) or as one ZIP. Needs the export permission as well (it is money data). */
+    public function export(Request $request): Response
+    {
+        if (!can('jobs.export')) {
+            return ErrorPages::response(403);
+        }
+        $filters = $this->filters($request);
+        $kind = in_array($request->queryStr('kind'), ['lines', 'zip'], true) ? $request->queryStr('kind') : 'summary';
+        $date = \App\Core\Clock::today();
+        if ($kind === 'zip') {
+            $count = (int) InvoiceService::search($filters, 1, 0)['total'];
+            $response = InvoiceExport::zipResponse($filters);
+        } elseif ($kind === 'lines') {
+            $rows = InvoiceExport::lineRows($filters);
+            $count = count($rows) - 1;
+            $response = InvoiceExport::csvResponse($rows, 'invoice-lines-' . $date . '.csv');
+        } else {
+            $rows = InvoiceExport::summaryRows($filters);
+            $count = count($rows) - 1;
+            $response = InvoiceExport::csvResponse($rows, 'invoices-' . $date . '.csv');
+        }
+        AuditService::record('invoices_exported', 'invoice', null, null, ['kind' => $kind, 'rows' => (string) $count, 'filters' => json_encode(array_filter($filters), JSON_UNESCAPED_UNICODE)]);
+        return $response;
     }
 
     public function show(Request $request, int $id): Response

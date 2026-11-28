@@ -115,6 +115,8 @@ final class DeployCheck
             'Statement leaving out invoiced jobs (DI and CI)' => static fn () => [CarrierStatement::build('x', '', '', '', '', 0, 0, 0, 'DI'), CarrierStatement::build('', '', 'z', '', '', 0, 0, 0, 'CI')],
             'Companies page and pick lists' => static fn () => [CompanyService::search('a'), CompanyService::unlinked(), CompanyService::brokerChoices(), CompanyService::findByName('x'), CompanyService::snapshot('x'), CompanyService::jobCount('x')],
             'Drivers page and pick lists' => static fn () => [DriverService::search('a'), DriverService::unlinked(), DriverService::choices(), DriverService::phones(), DriverService::findByName('x'), DriverService::jobCount('x')],
+            'Invoice dashboard figures' => static fn () => InvoiceService::dashboard(),
+            'Invoice export (invoices, lines, companies, drivers)' => static fn () => [InvoiceExport::summaryRows(['status' => 'open', 'type' => 'DI', 'q' => 'a']), InvoiceExport::lineRows(['from' => '2020-01-01']), InvoiceExport::companyRows(), InvoiceExport::driverRows()],
             'Statement drop-downs' => static fn () => [CarrierStatement::carriers(), CarrierStatement::drivers(), CarrierStatement::brokers()],
             'Invoice list, search and totals' => static fn () => [
                 InvoiceService::search(['q' => 'DI-1', 'status' => 'open', 'type' => 'DI', 'from' => '2020-01-01', 'to' => '2030-01-01'], 5, 0),

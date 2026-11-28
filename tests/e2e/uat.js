@@ -665,6 +665,11 @@ async function createJob(page, number, availableOffset, extra = {}) {
         must((await page.locator('button:has-text("Generate company invoices")').count()) === 1, 'the driver invoice has no Generate company invoices button');
         await page.goto(BASE + '/invoices');
         must(/DI-\d+/.test(await page.textContent('main')), 'the invoice is not in the list');
+        const [download] = await Promise.all([page.waitForEvent('download'), page.click('a:has-text("Invoices CSV")')]);
+        must(/^invoices-\d{4}-\d{2}-\d{2}\.csv$/.test(download.suggestedFilename()), 'the invoices CSV has the wrong name: ' + download.suggestedFilename());
+        await page.goto(BASE + '/dashboard');
+        must(/Driver Invoices open/.test(await page.textContent('main')), 'the dashboard has no Invoices box');
+        await page.goto(BASE + '/invoices');
         await page.goto(BASE + '/jobs/statement?go=1&carrier=' + encodeURIComponent(RUN + ' DINOCA'));
         must(/On DI-\d+/.test(await page.textContent('main')), 'the statement does not mark the invoiced job');
         await page.setViewportSize({ width: 360, height: 740 });

@@ -113,6 +113,38 @@ $threshold = JobBucket::threshold();
                 </div>
             <?php endif; ?>
 
+            <?php if (($invoices ?? null) !== null): ?>
+                <div class="card jt-card mb-4">
+                    <div class="card-header bg-transparent fw-semibold d-flex align-items-center gap-2"><?= icon('file-text') ?> Invoices
+                        <a class="ms-auto small fw-normal" href="<?= e(url('/invoices')) ?>">All invoices</a></div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <?php foreach ($invoices['types'] as $type => $t): ?>
+                                <div class="col-6">
+                                    <div class="text-body-secondary small"><?= e($t['label']) ?>s open</div>
+                                    <div class="h4 mb-0"><?= e($t['open']) ?></div>
+                                    <div class="jt-subtle"><?= e(fmt_money($t['open_sum'])) ?> not settled &middot; <?= e($t['paid_30']) ?> paid in 30 days</div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                    <?php if ($invoices['recent'] !== []): ?>
+                        <ul class="list-group list-group-flush">
+                            <?php foreach ($invoices['recent'] as $inv): $st = \App\Services\InvoiceService::status($inv); ?>
+                                <li class="list-group-item d-flex flex-wrap gap-2 align-items-center">
+                                    <a class="jt-jobno" href="<?= e(url('/invoices/' . $inv['id'])) ?>"><?= e(\App\Services\InvoiceService::number($inv)) ?></a>
+                                    <span class="text-body-secondary small"><?= e(fmt_date((string) $inv['invoice_date'])) ?> &middot; <?= e((string) ($inv['driver'] ?: ($inv['carrier'] ?: ($inv['broker'] ?: '')))) ?></span>
+                                    <span class="ms-auto jt-money"><?= e(fmt_money($inv['total'])) ?></span>
+                                    <?= $st === 'paid' ? '<span class="badge text-bg-success">Paid</span>' : '<span class="badge text-bg-warning">Open</span>' ?>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php else: ?>
+                        <div class="card-body border-top text-body-secondary">Saved invoices appear here.</div>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+
             <?php if ($trips !== null): ?>
                 <div class="card jt-card mb-4">
                     <div class="card-header bg-transparent fw-semibold d-flex align-items-center gap-2"><?= icon('truck') ?> Foreman trips <span class="jt-subtle fw-normal">last 30 days</span>

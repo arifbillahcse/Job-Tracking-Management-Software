@@ -447,14 +447,39 @@ final class InvoiceService
         );
         $sum = (string) Database::fetchValue("SELECT COALESCE(SUM(i.total), 0) FROM invoices i WHERE {$where} AND i.voided_at IS NULL", $params);
         $open = (string) Database::fetchValue("SELECT COALESCE(SUM(i.total), 0) FROM invoices i WHERE {$where} AND i.voided_at IS NULL AND i.paid_on IS NULL", $params);
-        return ['rows' => $rows, 'total' => $total, 'sum' => number_format((float) $sum, 2, '.', ''), 'open_sum' => number_format((float) $open, 2, '.', '')];
+        $types = [];
+        foreach (Database::fetchAll("SELECT i.type, COUNT(*) AS n, COALESCE(SUM(i.total), 0) AS sum, COALESCE(SUM(CASE WHEN i.paid_on IS NULL THEN i.total ELSE 0 END), 0) AS open_sum FROM invoices i WHERE {$where} AND i.voided_at IS NULL GROUP BY i.type", $params) as $r) {
+            $types[(string) $r['type']] = ['count' => (int) $r['n'], 'sum' => number_format((float) $r['sum'], 2, '.', ''), 'open_sum' => number_format((float) $r['open_sum'], 2, '.', '')];
+        }
+        return ['rows' => $rows, 'total' => $total, 'sum' => number_format((float) $sum, 2, '.', ''), 'open_sum' => number_format((float) $open, 2, '.', ''), 'types' => $types];
+    }
+
+    /**
+     * The invoice figures of the dashboard, kept apart per kind (a driver invoice and a company invoice can hold the same jobs, so adding
+     * them together would count those jobs twice): the open ones (count and total still to settle), those paid in the last 30 days, and the latest few.
+     *
+     * @return array{types:array<string,array{label:string,open:int,open_sum:string,paid_30:int,all:int}>,recent:array<int,array<string,mixed>>}
+     */
+    public static function dashboard(): array
+    {
+        $since = Clock::addDays(Clock::today(), -30);
+        $types = [];
+        foreach (self::TYPES as $type => $label) {
+            $row = Database::fetchOne(
+                'SELECT COUNT(*) AS n, COALESCE(SUM(CASE WHEN paid_on IS NULL THEN 1 ELSE 0 END), 0) AS open_n, COALESCE(SUM(CASE WHEN paid_on IS NULL THEN total ELSE 0 END), 0) AS open_sum,
+                        COALESCE(SUM(CASE WHEN paid_on >= ? THEN 1 ELSE 0 END), 0) AS paid_n FROM invoices WHERE type = ? AND voided_at IS NULL',
+                [$since, $type]
+            ) ?? [];
+            $types[$type] = ['label' => $label, 'open' => (int) ($row['open_n'] ?? 0), 'open_sum' => number_format((float) ($row['open_sum'] ?? 0), 2, '.', ''), 'paid_30' => (int) ($row['paid_n'] ?? 0), 'all' => (int) ($row['n'] ?? 0)];
+        }
+        return ['types' => $types, 'recent' => Database::fetchAll('SELECT * FROM invoices WHERE voided_at IS NULL ORDER BY id DESC LIMIT 5')];
     }
 
     /**
      * @param array{q?:string,status?:string,type?:string,from?:string,to?:string} $f
      * @return array{0:string,1:array<int,mixed>}
      */
-    private static function where(array $f): array
+    public static function where(array $f): array
     {
         $where = '1 = 1';
         $params = [];

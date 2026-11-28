@@ -60,6 +60,7 @@ return static function (Router $router): void {
     // Saved invoices (v1.16.0).
     $router->get('/invoices', [InvoiceController::class, 'index'])->can('invoices.view')->name('invoices');
     $router->post('/invoices', [InvoiceController::class, 'store'])->can('invoices.manage')->name('invoices.store');
+    $router->get('/invoices/export', [InvoiceController::class, 'export'])->can('invoices.view')->name('invoices.export');
     $router->get('/invoices/{id:int}', [InvoiceController::class, 'show'])->can('invoices.view')->name('invoices.show');
     $router->post('/invoices/{id:int}', [InvoiceController::class, 'update'])->can('invoices.manage')->name('invoices.update');
     $router->post('/invoices/{id:int}/company-invoices', [InvoiceController::class, 'companies'])->can('invoices.manage')->name('invoices.companies');

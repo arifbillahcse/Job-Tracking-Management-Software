@@ -2,6 +2,14 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.21.0 - invoices on the dashboard, and invoice export (phase 4)
+
+* **The dashboard has an Invoices box** (for people who may see invoices): per kind, **how many are open, how much is not settled yet, and how many were paid in the last 30 days**, and the **five latest invoices** (number, date, driver / carrier / company, total, Open or Paid). The two kinds (driver invoices and company invoices) are **kept apart on purpose**: they can hold the same jobs, so adding them together would count those jobs twice.
+* **The Invoices list adds the two kinds apart too** when no type is chosen ("Driver Invoices (not voided): ..., still open ..." and the same for company invoices).
+* **Export from the Invoices list** (buttons shown when there is something to export, and only to people who also hold the export permission, because it is money data): **Invoices CSV** (one row per invoice: number, kind, status, date, paid date, carrier, driver, company, jobs, CF, Bal. Due total, CF Pay total, Labor, Pads, Paid / adjustment, total due, who owes whom, made from, remarks), **Lines CSV** (one row per job line) and **Everything (ZIP)** (invoices, lines, companies and drivers, like the old application's export). The export follows the list's filters (search, status, type, dates).
+* Amounts are plain numbers (a negative stays a number); text that starts like a spreadsheet formula gets an apostrophe; the files have the BOM Excel needs; every export is audited.
+* `php cli/verify.php` also checks the dashboard figures and the export queries. No migration, no new permission. **Upgrade:** `git pull origin main`, `php cli/verify.php`, then Ctrl+F5.
+
 ## 1.20.0 - bring in the old application's data (phase 3)
 
 * **New command `php cli/import-old.php`** brings the data of the client's old application (the "Invoice Manager") into this software: **companies**, **drivers**, **driver invoices (DI-n)** and **company invoices (CI-n)**, with the **same numbers** they had (DI-295 stays DI-295; the next new invoice continues after the highest number).
