@@ -60,6 +60,19 @@ cd /var/www/job-tracker-1.1.0 && sudo -u www-data php cli/migrate.php && sudo -u
 
 **Rollback:** point the web server back at the old folder. Migrations only add things, so the old code normally still works with the new tables; if a release says otherwise, restore the database backup from step 2.
 
+## Importing the data of the old application (once)
+
+The client's old application (the "Invoice Manager": companies, drivers, driver invoices DI-n, company invoices CI-n) can be brought in with `php cli/import-old.php`. Companies and drivers go into the Companies and Drivers lists, the invoices become saved invoices **with the same numbers** (DI-295 stays DI-295, new ones continue after the highest), and every line is linked to the job with the same Job # when exactly one such job exists (so it shows "On DI-295" and is not billed again).
+
+1. **Back up first:** `php cli/backup.php`.
+2. **Dry run** (writes nothing; this is the default) with one of the sources, then read the counts and the warnings:
+   * the old application's **Export** button (a ZIP of four CSV files): `php cli/import-old.php --zip=/path/invoice-export-DATE.zip`. Handy, but that export has no Labor, Pads, Paid, paid date, invoice remarks or customer phone, so Labor + Pads + Paid reach us as **one** amount (shown as "Paid / adjustment", every total stays the same);
+   * the old **database** (complete; only SELECT is used; it is usually on the same server): `php cli/import-old.php --old-db=cpuser_olddb --old-user=cpuser_olduser` (the password is asked for without showing it; or set `OLD_DB_PASSWORD`). Add `--old-host=` / `--old-port=` if it is not local.
+3. **Import:** the same command with `--apply`. It is all-or-nothing (one transaction) and safe to run again: companies and drivers that are already there, and invoices whose number already exists, are skipped. The old users and their passwords are never imported.
+4. Look at Invoices, Companies and Drivers. Warnings worth reading: a total that differs from the old one, an invoice with no date, a rate with more than 2 decimals (shown rounded, the CF Pay is exact), a company or driver that was left out.
+
+If invoices were already made here with numbers the old application also used (for example test invoices DI-1, DI-2), those old invoices are skipped as "already here": remove the test invoices first (Void keeps the number, so use a fresh database or tell the developer).
+
 ## Building a release (on a development machine)
 
 ```bash

@@ -2,6 +2,14 @@
 
 Versions follow `MAJOR.MINOR.PATCH`. The number lives in the `VERSION` file and is shown by `php cli/doctor.php`.
 
+## 1.20.0 - bring in the old application's data (phase 3)
+
+* **New command `php cli/import-old.php`** brings the data of the client's old application (the "Invoice Manager") into this software: **companies**, **drivers**, **driver invoices (DI-n)** and **company invoices (CI-n)**, with the **same numbers** they had (DI-295 stays DI-295; the next new invoice continues after the highest number).
+* **Two sources:** the old application's own **Export ZIP** (no database access needed; that export has no Labor, Pads, Paid, paid date, remarks or customer phone, so those three amounts come in as one "Paid / adjustment" and every total stays the same), or the **old database** itself (complete: Labor, Pads, Paid, the paid date, remarks, customer phones, creation time, and which driver invoice a company invoice was made from).
+* **A dry run is the default** (it writes nothing and reports the counts and the warnings); `--apply` really imports, all-or-nothing, and it is **safe to run again** (anything already there is skipped). A total that differs from the old one, a missing date, an invalid company / driver field or a rate with more than 2 decimals is reported.
+* **Every line is linked to the job with the same Job #** when exactly one such job exists, so the jobs show "On DI-295" on the statement and are not billed again by accident. An Original Bal. is kept in the line's remarks. The old users and passwords are never imported.
+* No migration, no new permission. **Use:** see "Importing the data of the old application" in `docs/operations.md`. **Upgrade:** `git pull origin main`, then `php cli/verify.php`.
+
 ## 1.19.0 - drivers (phase 2)
 
 * **New menu item Drivers (Jobs group).** A driver has a name, a **phone** and a **licence number** (only the name is required). **A driver is the same as a job's Driver name**, matched by name ignoring letter case, so the jobs you already have need no change, and a driver with no record simply has no details.
